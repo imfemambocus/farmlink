@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "ShowFlix",
-    "slug": "rn-movies-app",
+    "name": "FarmLink",
+    "slug": "farm-link",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",

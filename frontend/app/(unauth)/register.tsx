@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Text, TextInput, Button, Alert, TouchableOpacity, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '@/services/api';
@@ -27,7 +27,7 @@ export default function Register() {
         try {
             await api.post('/auth/register', form);
             Alert.alert('Success', 'Account created. Please log in.');
-            router.replace('/auth/login');
+            router.replace('/login');
         } catch (err: any) {
             Alert.alert('Error', err.response?.data?.detail || 'Registration failed');
         }
@@ -87,7 +87,7 @@ export default function Register() {
             <Button title="Register" onPress={handleRegister} />
 
             <TouchableOpacity
-                onPress={() => router.replace('/auth/login')}
+                onPress={() => router.push('/login')}
                 className="mt-4"
             >
                 <Text className="text-center text-blue-500">Already have an account? Log in</Text>

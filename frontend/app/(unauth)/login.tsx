@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { View, TextInput, Button, Alert, Text } from 'react-native';
 import { AuthContext } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
@@ -34,7 +34,7 @@ export default function Login() {
                 className="border rounded-lg p-3 mb-4"
             />
             <Button title="Login" onPress={handleLogin} />
-            <Text className="text-center mt-4 text-blue-500" onPress={() => router.push('/auth/register')}>
+            <Text className="text-center mt-4 text-blue-500" onPress={() => router.push('/register')}>
                 Don&#39;t have an account? Register
             </Text>
         </View>
