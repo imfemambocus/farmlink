@@ -1,10 +1,10 @@
-import { View, Text } from 'react-native';
+import {View, Text, Button} from 'react-native';
 import {useContext, useEffect} from "react";
 import {AuthContext} from "@/context/AuthContext";
 import {useRouter} from "expo-router";
 
 export default function Profile() {
-    const { user } = useContext(AuthContext);
+    const { user, logout } = useContext(AuthContext);
     const router = useRouter();
 
     useEffect(() => {
@@ -13,11 +13,12 @@ export default function Profile() {
         }
     }, [user]);
 
-    if (!user) return null; // Prevent UI flicker while checking auth
+    if (!user) return null;
 
     return (
         <View className="flex-1 justify-center items-center bg-white">
             <Text className="text-xl font-bold">Welcome {user.full_name}</Text>
+            <Button title="Logout" onPress={logout} />
         </View>
     );
 }

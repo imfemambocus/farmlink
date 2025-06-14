@@ -24,6 +24,7 @@ export default function Login() {
                 placeholder="Email"
                 value={email}
                 onChangeText={setEmail}
+                autoCapitalize="none"
                 className="border rounded-lg p-3 mb-4"
             />
             <TextInput
