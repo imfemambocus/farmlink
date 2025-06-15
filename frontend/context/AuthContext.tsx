@@ -2,12 +2,13 @@ import { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import api from '@/services/api';
-import { User, AuthContextType } from '@/types';
+import {User, AuthContextType, ProfileUpdateData} from '@/types';
 
 export const AuthContext = createContext<AuthContextType>({
     user: null,
     login: async () => {},
     logout: () => {},
+    updateProfile: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -27,9 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
 
             setUser(profileRes.data);
-
-            // Redirect after login (same route for all roles for now)
-            router.replace('/profile');
+            router.replace('/(auth)');
         } catch (error: any) {
             console.error('Login failed:', error.response?.data || error.message);
             throw error;
@@ -39,7 +38,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = async () => {
         await AsyncStorage.removeItem('token');
         setUser(null);
-        router.replace('/login');
+        router.replace('/intro');
+    };
+
+    const updateProfile = async (profileData: ProfileUpdateData) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            const res = await api.put<User>('/auth/profile', profileData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            setUser(res.data);
+        } catch (error: any) {
+            console.error('Profile update failed:', error.response?.data || error.message);
+            throw error;
+        }
     };
 
     const checkLogin = async () => {
@@ -61,7 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, login, logout, updateProfile }}>
             {children}
         </AuthContext.Provider>
     );

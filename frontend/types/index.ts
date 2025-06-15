@@ -2,18 +2,19 @@ export interface BaseUser {
     id: number;
     email: string;
     role: 'farmer' | 'individual' | 'business';
+    farmer_profile: FarmerProfile | null;
+    individual_profile: IndividualProfile | null;
+    business_profile: BusinessProfile | null;
 }
 
-export interface FarmerUser extends BaseUser {
-    role: 'farmer';
+export interface FarmerProfile {
     first_name: string;
     last_name: string;
     phone_number: string;
     district: string;
 }
 
-export interface IndividualUser extends BaseUser {
-    role: 'individual';
+export interface IndividualProfile {
     first_name: string;
     last_name: string;
     date_of_birth: string;  // ISO date string, e.g. "1990-01-01"
@@ -23,8 +24,7 @@ export interface IndividualUser extends BaseUser {
     post_code: string;
 }
 
-export interface BusinessUser extends BaseUser {
-    role: 'business';
+export interface BusinessProfile {
     business_name: string;
     contact_name: string;
     phone_number: string;
@@ -33,10 +33,27 @@ export interface BusinessUser extends BaseUser {
     post_code: string;
 }
 
-export type User = FarmerUser | IndividualUser | BusinessUser;
+export type User = BaseUser;
+
+export interface ProfileUpdateData {
+    // Farmer fields
+    first_name?: string;
+    last_name?: string;
+    phone_number?: string;
+    district?: string;
+    // Individual additional fields
+    date_of_birth?: string;
+    street?: string;
+    city_town?: string;
+    post_code?: string;
+    // Business additional fields
+    business_name?: string;
+    contact_name?: string;
+}
 
 export interface AuthContextType {
     user: User | null;
     login: (email: string, password: string) => Promise<void>;
     logout: () => void;
+    updateProfile: (profileData: ProfileUpdateData) => Promise<void>;
 }

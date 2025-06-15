@@ -35,6 +35,9 @@ export default {
         },
       ],
     ],
+    assetBundlePatterns: [
+      "assets/fonts/*"
+    ],
     experiments: {
       typedRoutes: true,
     },

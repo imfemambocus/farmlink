@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from schemas.user import (
     FarmerCreate, IndividualCreate, BusinessCreate,
-    UserLogin, UserResponse,
+    UserLogin, UserResponse, FarmerProfileUpdate, IndividualProfileUpdate, BusinessProfileUpdate,
 )
 from services.auth_service import create_user_with_profile, authenticate_user
 from core.security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user, get_db
@@ -48,3 +48,37 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 @router.get("/profile", response_model=UserResponse)
 def get_my_profile(current_user=Depends(get_current_user)):
     return current_user
+
+@router.put("/profile", response_model=UserResponse)
+def update_profile(profile_data: dict, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        # Validate and parse input based on user role
+        if current_user.role == 'farmer':
+            update_data = FarmerProfileUpdate(**profile_data)
+            profile = current_user.farmer_profile
+        elif current_user.role == 'individual':
+            update_data = IndividualProfileUpdate(**profile_data)
+            profile = current_user.individual_profile
+        elif current_user.role == 'business':
+            update_data = BusinessProfileUpdate(**profile_data)
+            profile = current_user.business_profile
+        else:
+            raise HTTPException(status_code=400, detail="Invalid user role")
+
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+
+        # Update only provided fields
+        update_dict = update_data.dict(exclude_unset=True)
+        for field, value in update_dict.items():
+            if value is not None:  # Only update non-None values
+                setattr(profile, field, value)
+
+        db.commit()
+        db.refresh(current_user)
+
+        return current_user
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
