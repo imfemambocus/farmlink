@@ -1,1 +1,5 @@
-export const images = {};
+import splash from "@/assets/images/splash.avif"
+
+export const images = {
+    splash,
+};

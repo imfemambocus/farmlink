@@ -14,7 +14,7 @@ export default {
     android: {
       adaptiveIcon: {
         foregroundImage: "./assets/images/logo.png",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#F2FBE0",
       },
       edgeToEdgeEnabled: true,
     },
@@ -29,17 +29,15 @@ export default {
         "expo-splash-screen",
         {
           image: "./assets/images/logo.png",
-          imageWidth: 200,
+          imageWidth: 128,
           resizeMode: "contain",
-          backgroundColor: "#ffffff",
+          backgroundColor: "#F2FBE0",
         },
       ],
     ],
     experiments: {
       typedRoutes: true,
     },
-
-    // ✅ Add this for env variable support
     extra: {
       API_BASE_URL: process.env.API_BASE_URL || "http://10.0.2.2:8000",
     },

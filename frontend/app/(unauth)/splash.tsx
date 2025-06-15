@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Text, ImageBackground } from 'react-native';
+import { useEffect, useRef } from 'react';
+import {StatusBar, Text, View} from 'react-native';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -9,14 +9,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-
-// Optional: background image stored locally or online
-const backgroundImage = { uri: 'https://images.unsplash.com/photo-1564417947365-8dbc9d0e718e?q=80&w=1287&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' };
+import LottieView from 'lottie-react-native';
+import {animations} from "@/constants/animations";
 
 export default function SplashScreen() {
     const router = useRouter();
     const scale = useSharedValue(0.5);
     const opacity = useSharedValue(0);
+    const animationRef = useRef<LottieView>(null);
 
     const animatedStyle = useAnimatedStyle(() => ({
         transform: [{ scale: scale.value }],
@@ -25,6 +25,7 @@ export default function SplashScreen() {
 
     useEffect(() => {
         // Start logo animation
+        animationRef.current?.play(0, 90);
         scale.value = withSequence(
             withTiming(1.2, { duration: 800, easing: Easing.out(Easing.exp) }),
             withTiming(1, { duration: 400, easing: Easing.inOut(Easing.ease) })
@@ -48,14 +49,21 @@ export default function SplashScreen() {
     }, []);
 
     return (
-        <ImageBackground
-            source={backgroundImage}
-            resizeMode="cover"
-            className="flex-1 justify-center items-center"
-        >
-            <Animated.View style={[animatedStyle]}>
-                <Text className="text-4xl font-bold text-white tracking-wide">FarmLink 🌾</Text>
-            </Animated.View>
-        </ImageBackground>
+        <View className="flex-1 justify-center items-center" style={{ backgroundColor: '#F2FBE0' }}>
+            <StatusBar hidden={true} />
+            <LottieView
+                ref={animationRef}
+                source={animations.leaf}
+                autoPlay
+                loop={false}
+                style={{ width: 200, height: 200 }}
+            />
+
+            {/*<Animated.View style={[animatedStyle]}>*/}
+            {/*    <Text className="text-3xl font-bold text-green-800 tracking-wide mt-4">*/}
+            {/*        FarmLink*/}
+            {/*    </Text>*/}
+            {/*</Animated.View>*/}
+        </View>
     );
 }
