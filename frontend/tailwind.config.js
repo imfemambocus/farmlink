@@ -35,7 +35,9 @@ module.exports = {
                     secondary: '#4CAF50',
                     muted: '#757575',
                     light: '#FFFFFF',
-                }
+                },
+                product: '#ffecce',
+                action: '#8FDC35',
             }
         },
     },

@@ -16,15 +16,15 @@ interface HeaderProps {
 }
 
 export default function Header({
-                                   title,
-                                   showBackButton = false,
-                                   showCartButton = false,
-                                   showSettingsButton = false,
-                                   showLogoutButton = true,
-                                   onBackPress,
-                                   onCartPress,
-                                   onSettingsPress
-                               }: HeaderProps) {
+   title,
+   showBackButton = false,
+   showCartButton = false,
+   showSettingsButton = false,
+   showLogoutButton = false,
+   onBackPress,
+   onCartPress,
+   onSettingsPress
+}: HeaderProps) {
     const { logout } = useContext(AuthContext);
 
     const handleBackPress = () => {
@@ -55,11 +55,11 @@ export default function Header({
     };
 
     return (
-        <View className="bg-light-100 rounded-bl-[40px] rounded-br-[40px]" style={{ height: '20%' }}>
+        <View className="bg-background rounded-bl-[40px] rounded-br-[40px]" style={{ height: '20%' }}>
             <View className="pl-6 pr-6 justify-end h-full pb-5">
                 <View className="flex-row justify-between items-center">
-                    <Text className="text-3xl font-medium text-black">
-                        {title}
+                    <Text className="text-2xl font-semibold text-black">
+                        {title.toLowerCase()}
                     </Text>
                     <View className="flex-row items-center gap-4">
                         {showCartButton && (

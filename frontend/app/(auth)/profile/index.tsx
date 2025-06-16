@@ -18,7 +18,7 @@ interface FormErrors {
 }
 
 export default function ProfileEditScreen() {
-    const { user, updateProfile, logout } = useContext(AuthContext);
+    const { user, updateProfile } = useContext(AuthContext);
 
     // Initialize formData with a function to get initial values
     const getInitialFormData = () => {
@@ -213,15 +213,6 @@ export default function ProfileEditScreen() {
         }
     };
 
-    const getRoleColor = (role: string) => {
-        switch (role) {
-            case 'farmer': return 'bg-success';
-            case 'individual': return 'bg-primary';
-            case 'business': return 'bg-accent';
-            default: return 'bg-primary';
-        }
-    };
-
     if (!user) {
         return (
             <SafeAreaView className="flex-1 bg-background">
@@ -237,6 +228,7 @@ export default function ProfileEditScreen() {
             <Header
                 title="profile"
                 showBackButton={true}
+                showLogoutButton={true}
             />
 
             {/* Form Section */}

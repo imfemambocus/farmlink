@@ -20,7 +20,7 @@ export default function Homepage() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="home"
+                title="browse"
                 showCartButton={true}
                 showSettingsButton={true}
             />
