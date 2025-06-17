@@ -31,6 +31,7 @@ interface Product {
     unit_prices: Array<{
         id: number;
         unit: string;
+        customer_type: 'individual' | 'business';
         price_per_unit: number;
         quantity_available: number;
         minimum_order: number;
@@ -134,6 +135,8 @@ export default function ProductsScreen() {
             return;
         }
 
+        // Load initial data
+        fetchAllDistricts();
         fetchProducts(true);
 
         // Listen for screen dimension changes
@@ -155,6 +158,24 @@ export default function ProductsScreen() {
     useEffect(() => {
         debounceSearch(searchText);
     }, [searchText, debounceSearch]);
+
+    // NEW: Fetch all districts separately to keep them persistent
+    const fetchAllDistricts = async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) return;
+
+            const response = await api.get('/browse/districts', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const allDistricts = response.data.map((d: any) => d.district).sort();
+
+            setDistricts(allDistricts);
+        } catch (error) {
+            console.error('Error fetching districts:', error);
+        }
+    };
 
     const buildSearchParams = (isNewSearch: boolean = false) => {
         const params = new URLSearchParams();
@@ -189,13 +210,6 @@ export default function ProductsScreen() {
             });
 
             const newProducts = response.data.items || [];
-
-            // Extract unique districts for filtering (only on fresh searches)
-            if (isNewSearch && newProducts.length > 0) {
-                const uniqueDistricts = [...new Set(newProducts.map((product: Product) => product.farmer_district))];
-                // @ts-ignore
-                setDistricts(uniqueDistricts.sort());
-            }
 
             if (isNewSearch) {
                 setProducts(newProducts);
@@ -251,6 +265,8 @@ export default function ProductsScreen() {
 
     const handleRefresh = () => {
         setRefreshing(true);
+        // FIXED: Also refresh districts on pull-to-refresh
+        fetchAllDistricts();
         fetchProducts(true);
     };
 
@@ -360,49 +376,53 @@ export default function ProductsScreen() {
         </ScrollView>
     );
 
-    const DistrictFilter = () => (
-        <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 18 }}
-            className="mb-4"
-        >
-            <TouchableOpacity
-                onPress={() => handleDistrictFilter('')}
-                className={`mr-3 px-4 py-2 rounded-full ${
-                    activeFilters.district === ''
-                        ? 'bg-background'
-                        : 'bg-gray-100 border border-gray-100'
-                }`}
-                activeOpacity={0.7}
+    const DistrictFilter = () => {
+        return (
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 18 }}
+                className="mb-4"
             >
-                <Text className={`text-sm font-medium ${
-                    activeFilters.district === '' ? 'text-black' : 'text-gray-600'
-                }`}>
-                    all districts
-                </Text>
-            </TouchableOpacity>
-
-            {districts.map((district) => (
                 <TouchableOpacity
-                    key={district}
-                    onPress={() => handleDistrictFilter(district)}
+                    onPress={() => handleDistrictFilter('')}
                     className={`mr-3 px-4 py-2 rounded-full ${
-                        activeFilters.district === district
+                        activeFilters.district === ''
                             ? 'bg-background'
                             : 'bg-gray-100 border border-gray-100'
                     }`}
                     activeOpacity={0.7}
                 >
                     <Text className={`text-sm font-medium ${
-                        activeFilters.district === district ? 'text-black' : 'text-gray-600'
+                        activeFilters.district === '' ? 'text-black' : 'text-gray-600'
                     }`}>
-                        {district.toLowerCase()}
+                        all districts
                     </Text>
                 </TouchableOpacity>
-            ))}
-        </ScrollView>
-    );
+
+                {districts.map((district) => {
+                    return (
+                        <TouchableOpacity
+                            key={district}
+                            onPress={() => handleDistrictFilter(district)}
+                            className={`mr-3 px-4 py-2 rounded-full ${
+                                activeFilters.district === district
+                                    ? 'bg-background'
+                                    : 'bg-gray-100 border border-gray-100'
+                            }`}
+                            activeOpacity={0.7}
+                        >
+                            <Text className={`text-sm font-medium ${
+                                activeFilters.district === district ? 'text-black' : 'text-gray-600'
+                            }`}>
+                                {district.toLowerCase()}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+        );
+    };
 
     const EmptyProductsComponent = () => (
         <View className="flex-1 justify-center items-center px-6 py-20">
@@ -477,6 +497,8 @@ export default function ProductsScreen() {
                                 onChangeText={setSearchText}
                                 placeholder="search products..."
                                 className="flex-1 ml-3 text-base text-black leading-[1.2]"
+                                autoCorrect={false}
+                                autoCapitalize="none"
                             />
                             {searchText && (
                                 <TouchableOpacity

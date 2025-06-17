@@ -315,6 +315,8 @@ export default function FarmersScreen() {
                                 placeholder="search farmers or districts..."
                                 className="flex-1 ml-3 text-base text-black"
                                 style={{ textAlignVertical: 'center' }}
+                                autoCorrect={false}
+                                autoCapitalize="none"
                             />
                             {searchText && (
                                 <TouchableOpacity

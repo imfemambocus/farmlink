@@ -18,6 +18,11 @@ class UnitEnum(str, enum.Enum):
     BASKET = "basket"
 
 
+class CustomerTypeEnum(str, enum.Enum):
+    INDIVIDUAL = "individual"
+    BUSINESS = "business"
+
+
 class ItemEnum(str, enum.Enum):
     # Fruits
     APPLE = "apple"
@@ -98,6 +103,7 @@ class ProductUnitPrice(Base):
     id = Column(Integer, primary_key=True, index=True)
     farmer_product_id = Column(Integer, ForeignKey("farmer_products.id"), nullable=False)
     unit = Column(Enum(UnitEnum), nullable=False)
+    customer_type = Column(Enum(CustomerTypeEnum), nullable=False)  # NEW: individual or business
     price_per_unit = Column(Float, nullable=False)
     quantity_available = Column(Float, nullable=False)
     minimum_order = Column(Float, default=1.0)
@@ -105,7 +111,7 @@ class ProductUnitPrice(Base):
     # Relationships
     farmer_product = relationship("FarmerProduct", back_populates="unit_prices")
 
-    # Ensure farmer can't have duplicate unit prices for same product
+    # Ensure farmer can't have duplicate unit prices for same product, unit, and customer type
     __table_args__ = (
-        UniqueConstraint('farmer_product_id', 'unit', name='unique_product_unit'),
+        UniqueConstraint('farmer_product_id', 'unit', 'customer_type', name='unique_product_unit_customer'),
     )

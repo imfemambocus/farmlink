@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
+import { AuthContext } from '@/context/AuthContext';
+import {useRouter} from "expo-router";
 
 interface UnitPrice {
     id: number;
     unit: string;
+    customer_type: 'individual' | 'business';
     price_per_unit: number;
     quantity_available: number;
     minimum_order: number;
@@ -29,14 +32,29 @@ interface ProductCardProps {
     product: Product;
     onAddToCart: (product: Product, unitPriceId: number, quantity: number) => void;
     formatItemName: (item: string) => string;
-    showAddToCart?: boolean;
 }
+
+// Helper functions
+const getFilteredUnitPrices = (unitPrices: UnitPrice[], userRole: string): UnitPrice[] => {
+    if (userRole === 'farmer') {
+        return unitPrices;
+    }
+
+    const customerType = userRole as 'individual' | 'business';
+    return unitPrices.filter(up => up.customer_type === customerType);
+};
+
+const getQuantityStep = (userRole: string): number => {
+    return userRole === 'business' ? 25 : 1;
+};
 
 export default function ProductCard({
     product,
     onAddToCart,
     formatItemName,
 }: ProductCardProps) {
+    const { user } = useContext(AuthContext);
+    const router = useRouter();
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedUnitPrice, setSelectedUnitPrice] = useState<UnitPrice | null>(null);
     const [quantity, setQuantity] = useState(1);
@@ -47,6 +65,11 @@ export default function ProductCard({
     const modalTranslateY = useSharedValue(1000);
 
     const productImage = getProductImage(product.item);
+    const userRole = user?.role || 'individual';
+    const quantityStep = getQuantityStep(userRole);
+
+    // Filter unit prices based on user role
+    const filteredUnitPrices = getFilteredUnitPrices(product.unit_prices, userRole);
 
     const getProductBackgroundColor = (item: string) => {
         const colorMap: { [key: string]: string } = {
@@ -90,9 +113,12 @@ export default function ProductCard({
     };
 
     const openModal = () => {
-        if (product.unit_prices.length > 0) {
-            setSelectedUnitPrice(product.unit_prices[0]);
-            setQuantity(product.unit_prices[0].minimum_order);
+        if (filteredUnitPrices.length > 0) {
+            setSelectedUnitPrice(filteredUnitPrices[0]);
+            // Set quantity to minimum order, adjusted to quantity step
+            const minOrder = filteredUnitPrices[0].minimum_order;
+            const adjustedMinOrder = Math.ceil(minOrder / quantityStep) * quantityStep;
+            setQuantity(Math.max(adjustedMinOrder, quantityStep));
         }
         setModalVisible(true);
         setImageError(false);
@@ -110,15 +136,20 @@ export default function ProductCard({
 
     const handleUnitPriceSelect = (unitPrice: UnitPrice) => {
         setSelectedUnitPrice(unitPrice);
-        setQuantity(unitPrice.minimum_order);
+        // Adjust quantity to minimum order and quantity step
+        const minOrder = unitPrice.minimum_order;
+        const adjustedMinOrder = Math.ceil(minOrder / quantityStep) * quantityStep;
+        setQuantity(Math.max(adjustedMinOrder, quantityStep));
     };
 
     const adjustQuantity = (delta: number) => {
         if (!selectedUnitPrice) return;
 
-        const newQuantity = quantity + delta;
-        if (newQuantity >= selectedUnitPrice.minimum_order &&
-            newQuantity <= selectedUnitPrice.quantity_available) {
+        const newQuantity = quantity + (delta * quantityStep);
+        const adjustedMinOrder = Math.ceil(selectedUnitPrice.minimum_order / quantityStep) * quantityStep;
+        const minQuantity = Math.max(adjustedMinOrder, quantityStep);
+
+        if (newQuantity >= minQuantity && newQuantity <= selectedUnitPrice.quantity_available) {
             setQuantity(newQuantity);
         }
     };
@@ -144,6 +175,11 @@ export default function ProductCard({
     const modalStyle = useAnimatedStyle(() => ({
         transform: [{ translateY: modalTranslateY.value }],
     }));
+
+    // Don't render if no prices available for this user type
+    if (filteredUnitPrices.length === 0) {
+        return null;
+    }
 
     return (
         <>
@@ -187,15 +223,17 @@ export default function ProductCard({
                 {/* Price and Add to Cart */}
                 <View className="flex-row items-end justify-between">
                     <View>
-                        <Text className="text-xs text-gray-500 mb-1">
-                            {product.unit_prices.map(up => up.unit).join(', ')}
-                        </Text>
+                        <View className="flex-row items-center mb-1">
+                            <Text className="text-xs text-gray-500">
+                                {filteredUnitPrices.map(up => up.unit).join(', ')}
+                            </Text>
+                        </View>
                         <View className="flex-row items-baseline">
                             <Text className="text-base font-bold text-black">
-                                rs {product.unit_prices.length > 0 ? product.unit_prices[0].price_per_unit : product.lowest_price}
+                                rs {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].price_per_unit : product.lowest_price}
                             </Text>
                             <Text className="text-xs text-gray-500 ml-1">
-                                / {product.unit_prices.length > 0 ? product.unit_prices[0].unit : 'unit'}
+                                / {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].unit : 'unit'}
                             </Text>
                         </View>
                     </View>
@@ -204,9 +242,12 @@ export default function ProductCard({
                         onPress={(e) => {
                             e.stopPropagation();
                             // Add first unit price with minimum quantity
-                            if (product.unit_prices.length > 0) {
-                                const firstUnitPrice = product.unit_prices[0];
-                                onAddToCart(product, firstUnitPrice.id, firstUnitPrice.minimum_order);
+                            if (filteredUnitPrices.length > 0) {
+                                const firstUnitPrice = filteredUnitPrices[0];
+                                const minOrder = firstUnitPrice.minimum_order;
+                                const adjustedMinOrder = Math.ceil(minOrder / quantityStep) * quantityStep;
+                                const finalQuantity = Math.max(adjustedMinOrder, quantityStep);
+                                onAddToCart(product, firstUnitPrice.id, finalQuantity);
                             }
                         }}
                         className="bg-background px-2 py-2 rounded-lg"
@@ -284,20 +325,29 @@ export default function ProductCard({
                                     <Text className="text-xl font-medium text-black flex-1">
                                         {formatItemName(product.item)}
                                     </Text>
-                                    {/* Fresh indicator for items listed in last 3 days */}
-                                    {(() => {
-                                        const listingDate = new Date(product.created_at);
-                                        const threeDaysAgo = new Date();
-                                        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-                                        return listingDate > threeDaysAgo;
-                                    })() && (
-                                        <View className="flex-row items-center">
-                                            <Ionicons name="leaf" size={12} color="#4CAF50" />
-                                            <Text className="text-xs text-action-green ml-1 font-medium">
-                                                fresh
-                                            </Text>
-                                        </View>
-                                    )}
+                                    <View className="flex-row items-center gap-2">
+                                        {userRole === 'business' && (
+                                            <View className="px-3 py-1 bg-blue-100 rounded-full">
+                                                <Text className="text-xs text-blue-600 font-medium">
+                                                    bulk pricing
+                                                </Text>
+                                            </View>
+                                        )}
+                                        {/* Fresh indicator for items listed in last 3 days */}
+                                        {(() => {
+                                            const listingDate = new Date(product.created_at);
+                                            const threeDaysAgo = new Date();
+                                            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                                            return listingDate > threeDaysAgo;
+                                        })() && (
+                                            <View className="flex-row items-center">
+                                                <Ionicons name="leaf" size={12} color="#4CAF50" />
+                                                <Text className="text-xs text-action-green ml-1 font-medium">
+                                                    fresh
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
                                 </View>
                                 <View className="flex-row items-center justify-between">
                                     <View className="flex-row items-center">
@@ -305,8 +355,7 @@ export default function ProductCard({
                                         <TouchableOpacity
                                             onPress={() => {
                                                 closeModal();
-                                                // Navigate to farmer products page
-                                                // This would be handled by the parent component
+                                                router.push(`/customer/farmers/${product.farmer_id}`);
                                             }}
                                             activeOpacity={0.7}
                                         >
@@ -339,10 +388,10 @@ export default function ProductCard({
                             {/* Pricing & Stock */}
                             <View className="mb-3">
                                 <Text className="text-base font-medium text-black mb-2">
-                                    select unit & price
+                                    {userRole === 'business' ? 'select unit & bulk price' : 'select unit & price'}
                                 </Text>
                                 <View className="flex-row gap-2">
-                                    {product.unit_prices.map((unitPrice) => (
+                                    {filteredUnitPrices.map((unitPrice) => (
                                         <TouchableOpacity
                                             key={unitPrice.id}
                                             onPress={() => handleUnitPriceSelect(unitPrice)}
@@ -352,8 +401,8 @@ export default function ProductCard({
                                                     : 'bg-gray-50 border-gray-200'
                                             }`}
                                             style={{
-                                                flex: product.unit_prices.length === 1 ? 1 : 1 / product.unit_prices.length,
-                                                maxWidth: product.unit_prices.length === 1 ? '100%' : `${100 / product.unit_prices.length}%`
+                                                flex: filteredUnitPrices.length === 1 ? 1 : 1 / filteredUnitPrices.length,
+                                                maxWidth: filteredUnitPrices.length === 1 ? '100%' : `${100 / filteredUnitPrices.length}%`
                                             }}
                                             activeOpacity={0.7}
                                         >
@@ -364,6 +413,11 @@ export default function ProductCard({
                                             }`}>
                                                 rs {unitPrice.price_per_unit} / {unitPrice.unit}
                                             </Text>
+                                            {userRole === 'business' && (
+                                                <Text className="text-xs text-gray-500 text-center mt-1">
+                                                    min: {unitPrice.minimum_order}
+                                                </Text>
+                                            )}
                                         </TouchableOpacity>
                                     ))}
                                 </View>
@@ -373,22 +427,28 @@ export default function ProductCard({
                             {selectedUnitPrice && (
                                 <View className="mb-5">
                                     <Text className="text-base font-medium text-black mb-2">
-                                        quantity
+                                        quantity {userRole === 'business' && `(steps of ${quantityStep})`}
                                     </Text>
                                     <View className="flex-row gap-4">
                                         {/* Left Column - Quantity Controls */}
-                                        <View className="flex-[75%]">
+                                        <View className="flex-[65%]">
                                             <View className="flex-row items-center justify-between bg-gray-100 rounded-lg p-2">
                                                 <TouchableOpacity
                                                     onPress={() => adjustQuantity(-1)}
                                                     className="w-8 h-8 bg-background rounded items-center justify-center"
                                                     activeOpacity={0.7}
-                                                    disabled={quantity <= selectedUnitPrice.minimum_order}
+                                                    disabled={quantity <= Math.max(
+                                                        Math.ceil(selectedUnitPrice.minimum_order / quantityStep) * quantityStep,
+                                                        quantityStep
+                                                    )}
                                                 >
                                                     <Ionicons
                                                         name="remove"
                                                         size={16}
-                                                        color={quantity <= selectedUnitPrice.minimum_order ? "#ccc" : "#000"}
+                                                        color={quantity <= Math.max(
+                                                            Math.ceil(selectedUnitPrice.minimum_order / quantityStep) * quantityStep,
+                                                            quantityStep
+                                                        ) ? "#ccc" : "#000"}
                                                     />
                                                 </TouchableOpacity>
 
@@ -396,7 +456,7 @@ export default function ProductCard({
                                                     <Text className="text-lg font-medium text-black">
                                                         {quantity}
                                                     </Text>
-                                                    <Text className="text-xs text-gray-600">
+                                                    <Text className="text-xs text-gray-600 text-center">
                                                         min: {selectedUnitPrice.minimum_order} | max: {selectedUnitPrice.quantity_available}
                                                     </Text>
                                                 </View>
@@ -417,10 +477,10 @@ export default function ProductCard({
                                         </View>
 
                                         {/* Right Column - Total Price */}
-                                        <View className="flex-[25%] bg-gray-100 rounded-lg p-3 justify-center items-center flex flex-row gap-2">
-                                                <Text className="text-center text-lg font-semibold">
-                                                    rs {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
-                                                </Text>
+                                        <View className="flex-[35%] bg-gray-100 rounded-lg p-3 justify-center items-center flex flex-row gap-2">
+                                            <Text className="text-center text-lg font-semibold">
+                                                rs {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
+                                            </Text>
                                         </View>
                                     </View>
                                 </View>

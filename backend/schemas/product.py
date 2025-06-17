@@ -1,11 +1,12 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime
-from models.product import CategoryEnum, UnitEnum, ItemEnum
+from models.product import CategoryEnum, UnitEnum, ItemEnum, CustomerTypeEnum
 
 
 class ProductUnitPriceBase(BaseModel):
     unit: UnitEnum
+    customer_type: CustomerTypeEnum  # NEW: Required field
     price_per_unit: float
     quantity_available: float
     minimum_order: float = 1.0
@@ -19,6 +20,7 @@ class ProductUnitPriceUpdate(BaseModel):
     price_per_unit: Optional[float] = None
     quantity_available: Optional[float] = None
     minimum_order: Optional[float] = None
+    # Note: customer_type should not be updatable after creation
 
 
 class ProductUnitPriceResponse(ProductUnitPriceBase):

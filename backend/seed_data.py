@@ -1,13 +1,39 @@
 # seed_data.py
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from core.database import SessionLocal, engine
 from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
-from models.product import FarmerProduct, ProductUnitPrice, ItemEnum, UnitEnum
+from models.product import FarmerProduct, ProductUnitPrice, ItemEnum, UnitEnum, CustomerTypeEnum
 from core.security import get_password_hash
 import random
 
 # Password: farmlink123 (for all users)
 DEFAULT_PASSWORD = "farmlink123"
+
+
+def reset_database(db: Session):
+    """Reset database by dropping all data and recreating tables"""
+    print("🗑️  Resetting database...")
+
+    try:
+        # Import Base to access metadata
+        from core.database import Base
+
+        # Drop all tables
+        print("  - Dropping all existing tables...")
+        Base.metadata.drop_all(bind=engine)
+
+        # Recreate all tables with updated schema
+        print("  - Creating tables with updated schema...")
+        Base.metadata.create_all(bind=engine)
+
+        db.commit()
+        print("✅ Database reset and schema update completed!")
+
+    except Exception as e:
+        print(f"❌ Error during database reset: {e}")
+        db.rollback()
+        raise
 
 
 def create_sample_users(db: Session):
@@ -53,12 +79,6 @@ def create_sample_users(db: Session):
     ]
 
     for farmer_data in farmers_data:
-        # Check if user already exists
-        existing_user = db.query(User).filter(User.email == farmer_data["email"]).first()
-        if existing_user:
-            print(f"Farmer {farmer_data['email']} already exists, skipping...")
-            continue
-
         # Create user
         user = User(
             email=farmer_data["email"],
@@ -114,11 +134,6 @@ def create_sample_users(db: Session):
     ]
 
     for individual_data in individuals_data:
-        existing_user = db.query(User).filter(User.email == individual_data["email"]).first()
-        if existing_user:
-            print(f"Individual {individual_data['email']} already exists, skipping...")
-            continue
-
         user = User(
             email=individual_data["email"],
             hashed_password=get_password_hash(DEFAULT_PASSWORD),
@@ -172,11 +187,6 @@ def create_sample_users(db: Session):
     ]
 
     for business_data in businesses_data:
-        existing_user = db.query(User).filter(User.email == business_data["email"]).first()
-        if existing_user:
-            print(f"Business {business_data['email']} already exists, skipping...")
-            continue
-
         user = User(
             email=business_data["email"],
             hashed_password=get_password_hash(DEFAULT_PASSWORD),
@@ -199,134 +209,173 @@ def create_sample_users(db: Session):
 
 
 def create_sample_products(db: Session):
-    """Create sample products for farmers"""
+    """Create sample products for farmers with individual and business pricing"""
 
-    # Get all farmers (including existing ones)
     farmers = db.query(User).filter(User.role == "farmer").all()
     if not farmers:
         print("No farmers found. Create farmers first.")
         return
 
-    # Product templates with realistic pricing
+    # Product templates with separate individual and business pricing
     product_templates = [
         {
             "item": ItemEnum.TOMATO,
             "description": "Fresh organic tomatoes, pesticide-free, hand-picked daily",
-            "unit_prices": [
-                {"unit": UnitEnum.KG, "price_per_unit": 350.0, "quantity_available": 100, "minimum_order": 1},
-                {"unit": UnitEnum.BASKET, "price_per_unit": 1400.0, "quantity_available": 25, "minimum_order": 1}
+            "pricing": [
+                {
+                    "unit": UnitEnum.KG,
+                    "individual": {"price": 350.0, "quantity": 100, "minimum": 1},
+                    "business": {"price": 320.0, "quantity": 500, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.BASKET,
+                    "individual": {"price": 1400.0, "quantity": 25, "minimum": 1},
+                    "business": {"price": 1250.0, "quantity": 100, "minimum": 25}
+                }
             ]
         },
         {
             "item": ItemEnum.CARROT,
             "description": "Premium highland carrots, sweet and crunchy",
-            "unit_prices": [
-                {"unit": UnitEnum.KG, "price_per_unit": 280.0, "quantity_available": 80, "minimum_order": 2},
-                {"unit": UnitEnum.BUNCH, "price_per_unit": 150.0, "quantity_available": 50, "minimum_order": 1}
+            "pricing": [
+                {
+                    "unit": UnitEnum.KG,
+                    "individual": {"price": 280.0, "quantity": 80, "minimum": 2},
+                    "business": {"price": 250.0, "quantity": 400, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.BUNCH,
+                    "individual": {"price": 150.0, "quantity": 50, "minimum": 1},
+                    "business": {"price": 130.0, "quantity": 200, "minimum": 25}
+                }
             ]
         },
         {
             "item": ItemEnum.BANANA,
             "description": "Sweet Cavendish bananas, perfectly ripened",
-            "unit_prices": [
-                {"unit": UnitEnum.DOZEN, "price_per_unit": 180.0, "quantity_available": 40, "minimum_order": 1},
-                {"unit": UnitEnum.BUNCH, "price_per_unit": 450.0, "quantity_available": 20, "minimum_order": 1}
+            "pricing": [
+                {
+                    "unit": UnitEnum.DOZEN,
+                    "individual": {"price": 180.0, "quantity": 40, "minimum": 1},
+                    "business": {"price": 160.0, "quantity": 200, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.BUNCH,
+                    "individual": {"price": 450.0, "quantity": 20, "minimum": 1},
+                    "business": {"price": 400.0, "quantity": 100, "minimum": 25}
+                }
             ]
         },
         {
             "item": ItemEnum.POTATO,
             "description": "High-quality potatoes, perfect for cooking",
-            "unit_prices": [
-                {"unit": UnitEnum.KG, "price_per_unit": 200.0, "quantity_available": 150, "minimum_order": 5},
-                {"unit": UnitEnum.BASKET, "price_per_unit": 2000.0, "quantity_available": 15, "minimum_order": 1}
+            "pricing": [
+                {
+                    "unit": UnitEnum.KG,
+                    "individual": {"price": 200.0, "quantity": 150, "minimum": 5},
+                    "business": {"price": 180.0, "quantity": 1000, "minimum": 50}
+                },
+                {
+                    "unit": UnitEnum.BASKET,
+                    "individual": {"price": 2000.0, "quantity": 15, "minimum": 1},
+                    "business": {"price": 1800.0, "quantity": 80, "minimum": 25}
+                }
             ]
         },
         {
             "item": ItemEnum.ONION,
             "description": "Fresh red onions, strong flavor and aroma",
-            "unit_prices": [
-                {"unit": UnitEnum.KG, "price_per_unit": 300.0, "quantity_available": 120, "minimum_order": 2},
-                {"unit": UnitEnum.BASKET, "price_per_unit": 2400.0, "quantity_available": 20, "minimum_order": 1}
+            "pricing": [
+                {
+                    "unit": UnitEnum.KG,
+                    "individual": {"price": 300.0, "quantity": 120, "minimum": 2},
+                    "business": {"price": 270.0, "quantity": 600, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.BASKET,
+                    "individual": {"price": 2400.0, "quantity": 20, "minimum": 1},
+                    "business": {"price": 2200.0, "quantity": 100, "minimum": 25}
+                }
             ]
         },
         {
             "item": ItemEnum.CABBAGE,
             "description": "Crispy fresh cabbage, ideal for salads and cooking",
-            "unit_prices": [
-                {"unit": UnitEnum.PIECE, "price_per_unit": 150.0, "quantity_available": 60, "minimum_order": 1},
-                {"unit": UnitEnum.KG, "price_per_unit": 120.0, "quantity_available": 80, "minimum_order": 3}
+            "pricing": [
+                {
+                    "unit": UnitEnum.PIECE,
+                    "individual": {"price": 150.0, "quantity": 60, "minimum": 1},
+                    "business": {"price": 130.0, "quantity": 300, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.KG,
+                    "individual": {"price": 120.0, "quantity": 80, "minimum": 3},
+                    "business": {"price": 100.0, "quantity": 400, "minimum": 25}
+                }
             ]
         },
         {
             "item": ItemEnum.APPLE,
             "description": "Imported fresh apples, crispy and sweet",
-            "unit_prices": [
-                {"unit": UnitEnum.KG, "price_per_unit": 650.0, "quantity_available": 30, "minimum_order": 1},
-                {"unit": UnitEnum.PIECE, "price_per_unit": 80.0, "quantity_available": 200, "minimum_order": 5}
+            "pricing": [
+                {
+                    "unit": UnitEnum.KG,
+                    "individual": {"price": 650.0, "quantity": 30, "minimum": 1},
+                    "business": {"price": 600.0, "quantity": 200, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.PIECE,
+                    "individual": {"price": 80.0, "quantity": 200, "minimum": 5},
+                    "business": {"price": 70.0, "quantity": 1000, "minimum": 50}
+                }
             ]
         },
         {
             "item": ItemEnum.MANGO,
             "description": "Local ripe mangoes, naturally sweet and juicy",
-            "unit_prices": [
-                {"unit": UnitEnum.PIECE, "price_per_unit": 120.0, "quantity_available": 100, "minimum_order": 3},
-                {"unit": UnitEnum.DOZEN, "price_per_unit": 1200.0, "quantity_available": 15, "minimum_order": 1}
+            "pricing": [
+                {
+                    "unit": UnitEnum.PIECE,
+                    "individual": {"price": 120.0, "quantity": 100, "minimum": 3},
+                    "business": {"price": 100.0, "quantity": 500, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.DOZEN,
+                    "individual": {"price": 1200.0, "quantity": 15, "minimum": 1},
+                    "business": {"price": 1000.0, "quantity": 75, "minimum": 25}
+                }
             ]
         },
         {
             "item": ItemEnum.LETTUCE,
             "description": "Fresh green lettuce, perfect for salads",
-            "unit_prices": [
-                {"unit": UnitEnum.PIECE, "price_per_unit": 100.0, "quantity_available": 40, "minimum_order": 2},
-                {"unit": UnitEnum.KG, "price_per_unit": 400.0, "quantity_available": 25, "minimum_order": 1}
+            "pricing": [
+                {
+                    "unit": UnitEnum.PIECE,
+                    "individual": {"price": 100.0, "quantity": 40, "minimum": 2},
+                    "business": {"price": 85.0, "quantity": 200, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.KG,
+                    "individual": {"price": 400.0, "quantity": 25, "minimum": 1},
+                    "business": {"price": 350.0, "quantity": 150, "minimum": 25}
+                }
             ]
         },
         {
             "item": ItemEnum.BELL_PEPPER,
             "description": "Colorful bell peppers, rich in vitamins",
-            "unit_prices": [
-                {"unit": UnitEnum.KG, "price_per_unit": 500.0, "quantity_available": 35, "minimum_order": 1},
-                {"unit": UnitEnum.PIECE, "price_per_unit": 75.0, "quantity_available": 80, "minimum_order": 4}
-            ]
-        },
-        {
-            "item": ItemEnum.CUCUMBER,
-            "description": "Fresh cucumbers, great for salads and cooking",
-            "unit_prices": [
-                {"unit": UnitEnum.KG, "price_per_unit": 180.0, "quantity_available": 70, "minimum_order": 2},
-                {"unit": UnitEnum.PIECE, "price_per_unit": 25.0, "quantity_available": 150, "minimum_order": 5}
-            ]
-        },
-        {
-            "item": ItemEnum.SPINACH,
-            "description": "Organic spinach leaves, rich in iron and nutrients",
-            "unit_prices": [
-                {"unit": UnitEnum.BUNCH, "price_per_unit": 80.0, "quantity_available": 60, "minimum_order": 2},
-                {"unit": UnitEnum.KG, "price_per_unit": 320.0, "quantity_available": 20, "minimum_order": 1}
-            ]
-        },
-        {
-            "item": ItemEnum.PINEAPPLE,
-            "description": "Sweet tropical pineapples, freshly harvested",
-            "unit_prices": [
-                {"unit": UnitEnum.PIECE, "price_per_unit": 250.0, "quantity_available": 30, "minimum_order": 1},
-                {"unit": UnitEnum.KG, "price_per_unit": 300.0, "quantity_available": 40, "minimum_order": 2}
-            ]
-        },
-        {
-            "item": ItemEnum.COCONUT,
-            "description": "Fresh coconuts with sweet water and meat",
-            "unit_prices": [
-                {"unit": UnitEnum.PIECE, "price_per_unit": 100.0, "quantity_available": 80, "minimum_order": 3},
-                {"unit": UnitEnum.DOZEN, "price_per_unit": 1000.0, "quantity_available": 10, "minimum_order": 1}
-            ]
-        },
-        {
-            "item": ItemEnum.EGGPLANT,
-            "description": "Purple eggplants, perfect for curries and stir-fries",
-            "unit_prices": [
-                {"unit": UnitEnum.KG, "price_per_unit": 220.0, "quantity_available": 50, "minimum_order": 2},
-                {"unit": UnitEnum.PIECE, "price_per_unit": 40.0, "quantity_available": 100, "minimum_order": 5}
+            "pricing": [
+                {
+                    "unit": UnitEnum.KG,
+                    "individual": {"price": 500.0, "quantity": 35, "minimum": 1},
+                    "business": {"price": 450.0, "quantity": 200, "minimum": 25}
+                },
+                {
+                    "unit": UnitEnum.PIECE,
+                    "individual": {"price": 75.0, "quantity": 80, "minimum": 4},
+                    "business": {"price": 65.0, "quantity": 400, "minimum": 25}
+                }
             ]
         }
     ]
@@ -338,16 +387,6 @@ def create_sample_products(db: Session):
         selected_products = random.sample(product_templates, random.randint(5, 7))
 
         for product_data in selected_products:
-            # Check if farmer already has this product
-            existing_product = db.query(FarmerProduct).filter(
-                FarmerProduct.farmer_id == farmer.id,
-                FarmerProduct.item == product_data["item"]
-            ).first()
-
-            if existing_product:
-                print(f"  - {product_data['item'].value} already exists, skipping...")
-                continue
-
             # Create product with slight price variation per farmer
             price_variation = random.uniform(0.9, 1.1)  # ±10% price variation
 
@@ -360,18 +399,31 @@ def create_sample_products(db: Session):
             db.add(product)
             db.flush()
 
-            # Add unit prices with variation
-            for up_data in product_data["unit_prices"]:
-                unit_price = ProductUnitPrice(
+            # Add individual and business pricing for each unit
+            for pricing_data in product_data["pricing"]:
+                # Individual pricing
+                individual_unit_price = ProductUnitPrice(
                     farmer_product_id=product.id,
-                    unit=up_data["unit"],
-                    price_per_unit=round(up_data["price_per_unit"] * price_variation, 2),
-                    quantity_available=up_data["quantity_available"] + random.randint(-10, 20),
-                    minimum_order=up_data["minimum_order"]
+                    unit=pricing_data["unit"],
+                    customer_type=CustomerTypeEnum.INDIVIDUAL,
+                    price_per_unit=round(pricing_data["individual"]["price"] * price_variation, 2),
+                    quantity_available=pricing_data["individual"]["quantity"] + random.randint(-10, 20),
+                    minimum_order=pricing_data["individual"]["minimum"]
                 )
-                db.add(unit_price)
+                db.add(individual_unit_price)
 
-            print(f"  + Created {product_data['item'].value}")
+                # Business pricing
+                business_unit_price = ProductUnitPrice(
+                    farmer_product_id=product.id,
+                    unit=pricing_data["unit"],
+                    customer_type=CustomerTypeEnum.BUSINESS,
+                    price_per_unit=round(pricing_data["business"]["price"] * price_variation, 2),
+                    quantity_available=pricing_data["business"]["quantity"] + random.randint(-50, 100),
+                    minimum_order=pricing_data["business"]["minimum"]
+                )
+                db.add(business_unit_price)
+
+            print(f"  + Created {product_data['item'].value} (individual & business pricing)")
 
 
 def seed_database():
@@ -383,6 +435,9 @@ def seed_database():
     # Create database session
     db = SessionLocal()
     try:
+        # Reset database first
+        reset_database(db)
+
         print("\n📧 Creating sample users...")
         create_sample_users(db)
 
@@ -394,6 +449,11 @@ def seed_database():
         print("✅ Database seeding completed successfully!")
         print("=" * 50)
         print(f"🔑 Default password for all users: {DEFAULT_PASSWORD}")
+        print("=" * 50)
+        print("👥 Test accounts:")
+        print("  Individual: alex.thompson@gmail.com")
+        print("  Business: greenmart.business@gmail.com")
+        print("  Farmer: james.farmer@gmail.com")
         print("=" * 50)
 
     except Exception as e:

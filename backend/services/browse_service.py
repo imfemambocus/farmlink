@@ -71,8 +71,8 @@ class BrowseService:
 
             result.append({
                 'id': product.id,
-                'item': product.item,
-                'category': get_item_category(product.item),
+                'item': product.item.value,  # Convert enum to string
+                'category': get_item_category(product.item).value,  # Convert enum to string
                 'description': product.description,
                 'farmer_id': product.farmer_id,
                 'farmer_name': farmer_name,
@@ -81,14 +81,15 @@ class BrowseService:
                 'unit_prices': [
                     {
                         'id': up.id,
-                        'unit': up.unit,
+                        'unit': up.unit.value,  # Convert enum to string
+                        'customer_type': up.customer_type.value,  # ADDED: Include customer_type
                         'price_per_unit': float(up.price_per_unit),
                         'quantity_available': up.quantity_available,
                         'minimum_order': up.minimum_order
                     }
                     for up in product.unit_prices
                 ],
-                'created_at': product.created_at
+                'created_at': product.created_at.isoformat()  # Convert to string
             })
 
         return result
@@ -162,8 +163,8 @@ class BrowseService:
 
             items.append({
                 'id': product.id,
-                'item': product.item,
-                'category': get_item_category(product.item),
+                'item': product.item.value,  # Convert enum to string
+                'category': get_item_category(product.item).value,  # Convert enum to string
                 'description': product.description,
                 'farmer_id': product.farmer_id,
                 'farmer_name': farmer_name,
@@ -172,14 +173,15 @@ class BrowseService:
                 'unit_prices': [
                     {
                         'id': up.id,
-                        'unit': up.unit,
+                        'unit': up.unit.value,  # Convert enum to string
+                        'customer_type': up.customer_type.value,  # ADDED: Include customer_type
                         'price_per_unit': float(up.price_per_unit),
                         'quantity_available': up.quantity_available,
                         'minimum_order': up.minimum_order
                     }
                     for up in product.unit_prices
                 ],
-                'created_at': product.created_at
+                'created_at': product.created_at.isoformat()  # Convert to string
             })
 
         return {
@@ -219,20 +221,21 @@ class BrowseService:
         for product in products:
             product_list.append({
                 'id': product.id,
-                'item': product.item,
-                'category': get_item_category(product.item),
+                'item': product.item.value,  # Convert enum to string
+                'category': get_item_category(product.item).value,  # Convert enum to string
                 'description': product.description,
                 'unit_prices': [
                     {
                         'id': up.id,
-                        'unit': up.unit,
+                        'unit': up.unit.value,  # Convert enum to string
+                        'customer_type': up.customer_type.value,  # ADDED: Include customer_type
                         'price_per_unit': float(up.price_per_unit),
                         'quantity_available': up.quantity_available,
                         'minimum_order': up.minimum_order
                     }
                     for up in product.unit_prices
                 ],
-                'created_at': product.created_at
+                'created_at': product.created_at.isoformat()  # Convert to string
             })
 
         return {
@@ -261,14 +264,14 @@ class BrowseService:
             category = get_item_category(item)
             if category not in categories:
                 categories[category] = {
-                    'name': category,
+                    'name': category.value,  # Convert enum to string
                     'total_products': 0,
                     'items': []
                 }
 
             categories[category]['total_products'] += count
             categories[category]['items'].append({
-                'item': item,
+                'item': item.value,  # Convert enum to string
                 'count': count
             })
 

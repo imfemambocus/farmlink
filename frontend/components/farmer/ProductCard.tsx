@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, Image, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { PRODUCT_IMAGES, getProductImage } from '@/constants/images';
@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface UnitPrice {
     id: number;
     unit: string;
+    customer_type: 'individual' | 'business';
     price_per_unit: number;
     quantity_available: number;
     minimum_order: number;
@@ -83,13 +84,47 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
         return item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
     };
 
-    const getLowestPrice = () => {
-        if (!product.unit_prices.length) return 0;
-        return Math.min(...product.unit_prices.map(up => up.price_per_unit));
+    // Helper functions for pricing calculations
+    const getIndividualPrices = () => {
+        return product.unit_prices.filter(up => up.customer_type === 'individual');
     };
 
-    const getTotalQuantity = () => {
-        return product.unit_prices.reduce((total, up) => total + up.quantity_available, 0);
+    const getBusinessPrices = () => {
+        return product.unit_prices.filter(up => up.customer_type === 'business');
+    };
+
+    const getLowestIndividualPrice = () => {
+        const individualPrices = getIndividualPrices();
+        if (!individualPrices.length) return 0;
+        return Math.min(...individualPrices.map(up => up.price_per_unit));
+    };
+
+    const getLowestBusinessPrice = () => {
+        const businessPrices = getBusinessPrices();
+        if (!businessPrices.length) return 0;
+        return Math.min(...businessPrices.map(up => up.price_per_unit));
+    };
+
+    const getTotalIndividualQuantity = () => {
+        return getIndividualPrices().reduce((total, up) => total + up.quantity_available, 0);
+    };
+
+    const getTotalBusinessQuantity = () => {
+        return getBusinessPrices().reduce((total, up) => total + up.quantity_available, 0);
+    };
+
+    // Group unit prices by unit for modal display
+    const getGroupedPrices = () => {
+        const grouped: { [unit: string]: { individual?: UnitPrice; business?: UnitPrice } } = {};
+
+        currentProduct.unit_prices.forEach(up => {
+            if (!grouped[up.unit]) {
+                grouped[up.unit] = {};
+            }
+            grouped[up.unit][up.customer_type] = up;
+        });
+
+        return grouped;
     };
 
     const getProductBackgroundColor = (item: string) => {
@@ -236,7 +271,7 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                 </View>
 
                 {/* Product Name and Status */}
-                <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center justify-between mb-3">
                     <Text className="text-sm font-medium text-black flex-1">
                         {formatItemName(product.item)}
                     </Text>
@@ -251,9 +286,9 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                     </View>
                 </View>
 
-                {/* Price and Stock Info */}
+                {/* Updated Price and Stock Info - Simplified */}
                 <Text className="text-xs text-gray-600">
-                    from rs {getLowestPrice()}/unit • {getTotalQuantity()} in stock
+                    dual pricing • {getTotalIndividualQuantity() + getTotalBusinessQuantity()} in stock
                 </Text>
             </TouchableOpacity>
 
@@ -288,36 +323,40 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                     </TouchableOpacity>
 
                     <Animated.View
-                        className="bg-surface rounded-t-[40px] overflow-hidden p-3"
+                        className="bg-surface rounded-t-[40px] overflow-hidden"
                         style={[
                             { height: '86%' },
                             modalStyle
                         ]}
                     >
-                        {/* Large Product Image - fixed at top */}
-                        <View
-                            className="h-[24rem] rounded-[40px] w-full mb-3 items-center justify-center"
-                            style={{ backgroundColor: getProductBackgroundColor(product.item) }}
+                        {/* Scrollable Content */}
+                        <ScrollView
+                            className="flex-1 p-3"
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={{ paddingBottom: 20 }}
                         >
-                            {imageError ? (
-                                <Text className="text-sm text-gray-500 text-center px-4">
-                                    Image failed to load
-                                </Text>
-                            ) : (
-                                <Image
-                                    source={productImage}
-                                    style={{
-                                        width: '60%',
-                                        height: '60%',
-                                        resizeMode: 'contain',
-                                    }}
-                                    onError={() => setImageError(true)}
-                                />
-                            )}
-                        </View>
+                            {/* Large Product Image */}
+                            <View
+                                className="h-[24rem] rounded-[40px] w-full mb-6 items-center justify-center"
+                                style={{ backgroundColor: getProductBackgroundColor(product.item) }}
+                            >
+                                {imageError ? (
+                                    <Text className="text-sm text-gray-500 text-center px-4">
+                                        Image failed to load
+                                    </Text>
+                                ) : (
+                                    <Image
+                                        source={productImage}
+                                        style={{
+                                            width: '60%',
+                                            height: '60%',
+                                            resizeMode: 'contain',
+                                        }}
+                                        onError={() => setImageError(true)}
+                                    />
+                                )}
+                            </View>
 
-                        {/* Fixed Content Layout */}
-                        <View className="flex-1 p-2">
                             {/* Name and Status */}
                             <View className="flex-row items-center justify-between mb-4">
                                 <Text className="text-xl font-medium text-black flex-1">
@@ -334,28 +373,75 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                 </View>
                             </View>
 
-                            {/* Pricing & Stock */}
+                            {/* Updated Pricing & Stock */}
                             <View className="mb-6">
-                                <View className="flex-row">
-                                    {currentProduct.unit_prices.map((unitPrice, index) => (
-                                        <View key={unitPrice.id} className="flex-row flex-1">
-                                            <View className="flex-1 p-3 items-center">
-                                                <Text className="text-base font-semibold text-black mb-1">
-                                                    rs {unitPrice.price_per_unit} / {unitPrice.unit}
-                                                </Text>
-                                                <Text className="text-xs text-gray-600 mb-1">
-                                                    {unitPrice.quantity_available} available
-                                                </Text>
-                                                <Text className="text-xs text-gray-500">
-                                                    min: {unitPrice.minimum_order} {unitPrice.unit}
-                                                </Text>
+                                <Text className="text-base font-medium text-black mb-3">
+                                    pricing & stock
+                                </Text>
+
+                                {Object.entries(getGroupedPrices()).map(([unit, prices]) => (
+                                    <View key={unit} className="mb-4 p-3 bg-gray-50 rounded-xl">
+                                        <Text className="text-sm font-medium text-black mb-3 text-center">
+                                            {unit}
+                                        </Text>
+
+                                        <View className="flex-row gap-3">
+                                            {/* Individual Pricing */}
+                                            <View className="flex-1 p-3 bg-white rounded-lg border border-green-200">
+                                                <View className="flex-row items-center mb-2">
+                                                    <Ionicons name="person" size={14} color="#10B981" />
+                                                    <Text className="text-xs font-medium text-green-700 ml-1">
+                                                        Individual
+                                                    </Text>
+                                                </View>
+                                                {prices.individual ? (
+                                                    <>
+                                                        <Text className="text-sm font-semibold text-black mb-1">
+                                                            rs {prices.individual.price_per_unit}
+                                                        </Text>
+                                                        <Text className="text-xs text-gray-600 mb-1">
+                                                            {prices.individual.quantity_available} available
+                                                        </Text>
+                                                        <Text className="text-xs text-gray-500">
+                                                            min: {prices.individual.minimum_order}
+                                                        </Text>
+                                                    </>
+                                                ) : (
+                                                    <Text className="text-xs text-gray-500 italic">
+                                                        Not available
+                                                    </Text>
+                                                )}
                                             </View>
-                                            {index < currentProduct.unit_prices.length - 1 && (
-                                                <View className="w-px bg-gray-200" />
-                                            )}
+
+                                            {/* Business Pricing */}
+                                            <View className="flex-1 p-3 bg-white rounded-lg border border-blue-200">
+                                                <View className="flex-row items-center mb-2">
+                                                    <Ionicons name="business" size={14} color="#3B82F6" />
+                                                    <Text className="text-xs font-medium text-blue-700 ml-1">
+                                                        Business
+                                                    </Text>
+                                                </View>
+                                                {prices.business ? (
+                                                    <>
+                                                        <Text className="text-sm font-semibold text-black mb-1">
+                                                            rs {prices.business.price_per_unit}
+                                                        </Text>
+                                                        <Text className="text-xs text-gray-600 mb-1">
+                                                            {prices.business.quantity_available} available
+                                                        </Text>
+                                                        <Text className="text-xs text-gray-500">
+                                                            min: {prices.business.minimum_order}
+                                                        </Text>
+                                                    </>
+                                                ) : (
+                                                    <Text className="text-xs text-gray-500 italic">
+                                                        Not available
+                                                    </Text>
+                                                )}
+                                            </View>
                                         </View>
-                                    ))}
-                                </View>
+                                    </View>
+                                ))}
                             </View>
 
                             {/* Description */}
@@ -371,7 +457,7 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                             )}
 
                             {/* Product Info */}
-                            <View className="mb-3 p-3 bg-gray-50 rounded-xl">
+                            <View className="mb-6 p-3 bg-gray-50 rounded-xl">
                                 <Text className="text-xs text-gray-600 mb-1">
                                     listed on: {new Date(currentProduct.created_at).toLocaleDateString()}
                                 </Text>
@@ -406,7 +492,7 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                     />
                                 </TouchableOpacity>
                             </View>
-                        </View>
+                        </ScrollView>
                     </Animated.View>
                 </View>
 

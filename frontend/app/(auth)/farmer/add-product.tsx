@@ -20,11 +20,18 @@ interface AvailableItems {
     vegetables: string[];
 }
 
-interface UnitPrice {
+interface UnitPricing {
     unit: string;
-    price_per_unit: string;
-    quantity_available: string;
-    minimum_order: string;
+    individual: {
+        price_per_unit: string;
+        quantity_available: string;
+        minimum_order: string;
+    };
+    business: {
+        price_per_unit: string;
+        quantity_available: string;
+        minimum_order: string;
+    };
 }
 
 interface FormErrors {
@@ -51,8 +58,12 @@ export default function AddProduct() {
     const [selectedCategory, setSelectedCategory] = useState<'fruits' | 'vegetables'>('vegetables');
     const [selectedItem, setSelectedItem] = useState<string>('');
     const [description, setDescription] = useState('');
-    const [unitPrices, setUnitPrices] = useState<UnitPrice[]>([
-        { unit: 'kg', price_per_unit: '', quantity_available: '', minimum_order: '1' }
+    const [unitPricings, setUnitPricings] = useState<UnitPricing[]>([
+        {
+            unit: 'kg',
+            individual: { price_per_unit: '', quantity_available: '', minimum_order: '1' },
+            business: { price_per_unit: '', quantity_available: '', minimum_order: '25' }
+        }
     ]);
     const [errors, setErrors] = useState<FormErrors>({});
     const [loading, setLoading] = useState(false);
@@ -120,32 +131,52 @@ export default function AddProduct() {
             newErrors.item = 'please select an item';
         }
 
-        const validUnitPrices = unitPrices.filter(up =>
-            up.price_per_unit.trim() !== '' &&
-            up.quantity_available.trim() !== ''
+        const validUnitPricings = unitPricings.filter(up =>
+            (up.individual.price_per_unit.trim() !== '' && up.individual.quantity_available.trim() !== '') &&
+            (up.business.price_per_unit.trim() !== '' && up.business.quantity_available.trim() !== '')
         );
 
-        if (validUnitPrices.length === 0) {
-            newErrors.unitPrices = 'at least one unit price is required';
+        if (validUnitPricings.length === 0) {
+            newErrors.unitPricings = 'at least one complete unit pricing (both individual and business) is required';
         }
 
-        validUnitPrices.forEach((unitPrice, index) => {
-            if (!unitPrice.price_per_unit.trim()) {
-                newErrors[`price_${index}`] = 'price is required';
-            } else if (isNaN(Number(unitPrice.price_per_unit)) || Number(unitPrice.price_per_unit) <= 0) {
-                newErrors[`price_${index}`] = 'please enter a valid price';
+        unitPricings.forEach((unitPricing, index) => {
+            // Validate individual pricing - MANDATORY
+            if (!unitPricing.individual.price_per_unit.trim()) {
+                newErrors[`individual_price_${index}`] = 'individual price is required';
+            } else if (isNaN(Number(unitPricing.individual.price_per_unit)) || Number(unitPricing.individual.price_per_unit) <= 0) {
+                newErrors[`individual_price_${index}`] = 'please enter a valid price';
             }
 
-            if (!unitPrice.quantity_available.trim()) {
-                newErrors[`quantity_${index}`] = 'quantity is required';
-            } else if (isNaN(Number(unitPrice.quantity_available)) || Number(unitPrice.quantity_available) <= 0) {
-                newErrors[`quantity_${index}`] = 'please enter a valid quantity';
+            if (!unitPricing.individual.quantity_available.trim()) {
+                newErrors[`individual_quantity_${index}`] = 'individual quantity is required';
+            } else if (isNaN(Number(unitPricing.individual.quantity_available)) || Number(unitPricing.individual.quantity_available) <= 0) {
+                newErrors[`individual_quantity_${index}`] = 'please enter a valid quantity';
             }
 
-            if (!unitPrice.minimum_order.trim()) {
-                newErrors[`minimum_${index}`] = 'minimum order is required';
-            } else if (isNaN(Number(unitPrice.minimum_order)) || Number(unitPrice.minimum_order) <= 0) {
-                newErrors[`minimum_${index}`] = 'please enter a valid minimum order';
+            if (!unitPricing.individual.minimum_order.trim()) {
+                newErrors[`individual_minimum_${index}`] = 'individual minimum order is required';
+            } else if (isNaN(Number(unitPricing.individual.minimum_order)) || Number(unitPricing.individual.minimum_order) <= 0) {
+                newErrors[`individual_minimum_${index}`] = 'please enter a valid minimum order';
+            }
+
+            // Validate business pricing - MANDATORY
+            if (!unitPricing.business.price_per_unit.trim()) {
+                newErrors[`business_price_${index}`] = 'business price is required';
+            } else if (isNaN(Number(unitPricing.business.price_per_unit)) || Number(unitPricing.business.price_per_unit) <= 0) {
+                newErrors[`business_price_${index}`] = 'please enter a valid price';
+            }
+
+            if (!unitPricing.business.quantity_available.trim()) {
+                newErrors[`business_quantity_${index}`] = 'business quantity is required';
+            } else if (isNaN(Number(unitPricing.business.quantity_available)) || Number(unitPricing.business.quantity_available) <= 0) {
+                newErrors[`business_quantity_${index}`] = 'please enter a valid quantity';
+            }
+
+            if (!unitPricing.business.minimum_order.trim()) {
+                newErrors[`business_minimum_${index}`] = 'business minimum order is required';
+            } else if (isNaN(Number(unitPricing.business.minimum_order)) || Number(unitPricing.business.minimum_order) <= 0) {
+                newErrors[`business_minimum_${index}`] = 'please enter a valid minimum order';
             }
         });
 
@@ -153,38 +184,40 @@ export default function AddProduct() {
         return Object.keys(newErrors).length === 0;
     };
 
-    const addUnitPrice = () => {
-        setUnitPrices([...unitPrices, {
+    const addUnitPricing = () => {
+        setUnitPricings([...unitPricings, {
             unit: 'kg',
-            price_per_unit: '',
-            quantity_available: '',
-            minimum_order: '1'
+            individual: { price_per_unit: '', quantity_available: '', minimum_order: '1' },
+            business: { price_per_unit: '', quantity_available: '', minimum_order: '25' }
         }]);
     };
 
-    const removeUnitPrice = (index: number) => {
-        if (unitPrices.length === 1) {
+    const removeUnitPricing = (index: number) => {
+        if (unitPricings.length === 1) {
             showAlert(
                 'error',
                 'Cannot Remove',
-                'A product must have at least one unit price.',
+                'A product must have at least one unit pricing.',
                 [{ text: 'OK', onPress: () => {} }]
             );
             return;
         }
 
-        const newUnitPrices = unitPrices.filter((_, i) => i !== index);
-        setUnitPrices(newUnitPrices);
+        const newUnitPricings = unitPricings.filter((_, i) => i !== index);
+        setUnitPricings(newUnitPricings);
     };
 
-    const updateUnitPrice = (index: number, field: keyof UnitPrice, value: string) => {
-        const newUnitPrices = [...unitPrices];
-        newUnitPrices[index][field] = value;
-        setUnitPrices(newUnitPrices);
+    const updateUnitPricing = (index: number, customerType: 'individual' | 'business', field: string, value: string) => {
+        const newUnitPricings = [...unitPricings];
+        if (field === 'unit') {
+            newUnitPricings[index].unit = value;
+        } else {
+            (newUnitPricings[index][customerType] as any)[field] = value;
+        }
+        setUnitPricings(newUnitPricings);
 
-        const errorKey = field === 'price_per_unit' ? `price_${index}` :
-            field === 'quantity_available' ? `quantity_${index}` :
-                `minimum_${index}`;
+        // Clear related error
+        const errorKey = `${customerType}_${field}_${index}`;
         if (errors[errorKey]) {
             setErrors({ ...errors, [errorKey]: '' });
         }
@@ -203,19 +236,33 @@ export default function AddProduct() {
                 return;
             }
 
-            const validUnitPrices = unitPrices
-                .filter(up => up.price_per_unit.trim() !== '' && up.quantity_available.trim() !== '')
-                .map(up => ({
-                    unit: up.unit,
-                    price_per_unit: parseFloat(up.price_per_unit),
-                    quantity_available: parseFloat(up.quantity_available),
-                    minimum_order: parseFloat(up.minimum_order)
-                }));
+            // Build unit_prices array for backend
+            const unitPricesForBackend: any[] = [];
+
+            unitPricings.forEach(unitPricing => {
+                // Add individual pricing (mandatory)
+                unitPricesForBackend.push({
+                    unit: unitPricing.unit,
+                    customer_type: 'individual',
+                    price_per_unit: parseFloat(unitPricing.individual.price_per_unit),
+                    quantity_available: parseFloat(unitPricing.individual.quantity_available),
+                    minimum_order: parseFloat(unitPricing.individual.minimum_order)
+                });
+
+                // Add business pricing (mandatory)
+                unitPricesForBackend.push({
+                    unit: unitPricing.unit,
+                    customer_type: 'business',
+                    price_per_unit: parseFloat(unitPricing.business.price_per_unit),
+                    quantity_available: parseFloat(unitPricing.business.quantity_available),
+                    minimum_order: parseFloat(unitPricing.business.minimum_order)
+                });
+            });
 
             const payload = {
                 item: selectedItem,
                 description: description.trim() || undefined,
-                unit_prices: validUnitPrices
+                unit_prices: unitPricesForBackend
             };
 
             await api.post('/products', payload, {
@@ -225,7 +272,7 @@ export default function AddProduct() {
             showAlert(
                 'success',
                 'Success!',
-                'Product added successfully!',
+                'Product added successfully with individual and business pricing!',
                 [{ text: 'OK', onPress: () => router.replace('/farmer/dashboard') }]
             );
 
@@ -261,7 +308,7 @@ export default function AddProduct() {
     }
 
     return (
-        <View className="flex-1">
+        <View className="flex-1 bg-surface">
             <Header title="add product" showBackButton={true} />
 
             <ScrollView className="flex-1 bg-white px-6 pt-6" showsVerticalScrollIndicator={false}>
@@ -365,13 +412,13 @@ export default function AddProduct() {
                 </View>
 
                 {/* Unit Prices */}
-                <View className="mb-3">
+                <View>
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-base font-medium text-black">
                             pricing & stock
                         </Text>
                         <TouchableOpacity
-                            onPress={addUnitPrice}
+                            onPress={addUnitPricing}
                             className="flex-row items-center px-3 py-2 bg-green-50 rounded-lg"
                             activeOpacity={0.7}
                         >
@@ -382,15 +429,17 @@ export default function AddProduct() {
                         </TouchableOpacity>
                     </View>
 
-                    {unitPrices.map((unitPrice, index) => (
-                        <View key={index} className="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                            <View className="flex-row justify-between items-center mb-3">
+
+
+                    {unitPricings.map((unitPricing, index) => (
+                        <View key={index} className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <View className="flex-row justify-between items-center mb-4">
                                 <Text className="text-sm font-medium text-black">
                                     unit {index + 1}
                                 </Text>
-                                {unitPrices.length > 1 && (
+                                {unitPricings.length > 1 && (
                                     <TouchableOpacity
-                                        onPress={() => removeUnitPrice(index)}
+                                        onPress={() => removeUnitPricing(index)}
                                         className="p-1"
                                         activeOpacity={0.7}
                                     >
@@ -400,21 +449,21 @@ export default function AddProduct() {
                             </View>
 
                             {/* Unit Selection */}
-                            <View className="mb-3">
+                            <View className="mb-4">
                                 <Text className="text-sm font-medium mb-2 text-black">unit</Text>
                                 <View className="flex-row flex-wrap gap-2">
                                     {UNITS.map((unit) => (
                                         <Pressable
                                             key={unit}
-                                            onPress={() => updateUnitPrice(index, 'unit', unit)}
+                                            onPress={() => updateUnitPricing(index, 'individual', 'unit', unit)}
                                             className={`px-3 py-2 rounded-lg border ${
-                                                unitPrice.unit === unit
+                                                unitPricing.unit === unit
                                                     ? 'border-background bg-background'
                                                     : 'border-gray-300 bg-white'
                                             }`}
                                         >
                                             <Text className={`text-sm font-medium ${
-                                                unitPrice.unit === unit ? 'text-black' : 'text-gray-600'
+                                                unitPricing.unit === unit ? 'text-black' : 'text-gray-600'
                                             }`}>
                                                 {unit}
                                             </Text>
@@ -423,77 +472,161 @@ export default function AddProduct() {
                                 </View>
                             </View>
 
-                            {/* Price, Quantity, Minimum Order */}
-                            <View className="flex-row gap-3">
-                                <View className="flex-1">
-                                    <Text className="text-sm font-medium mb-2 text-black">
-                                        price (rs)
+                            {/* Individual Customer Pricing */}
+                            <View className="mb-4 p-3 bg-white rounded-lg border border-green-200">
+                                <View className="flex-row items-center mb-3">
+                                    <Ionicons name="person" size={16} color="#10B981" />
+                                    <Text className="text-sm font-medium text-green-700 ml-2">
+                                        Individual Customer Pricing
                                     </Text>
-                                    <TextInput
-                                        className={`border rounded-lg px-3 py-2 text-sm bg-white ${
-                                            errors[`price_${index}`] ? 'border-red-500' : 'border-gray-200'
-                                        }`}
-                                        placeholder="0.00"
-                                        placeholderTextColor="#666666"
-                                        value={unitPrice.price_per_unit}
-                                        onChangeText={(value) => updateUnitPrice(index, 'price_per_unit', value)}
-                                        keyboardType="numeric"
-                                    />
-                                    {errors[`price_${index}`] && (
-                                        <Text className="text-red-500 text-xs mt-1">
-                                            {errors[`price_${index}`]}
-                                        </Text>
-                                    )}
                                 </View>
 
-                                <View className="flex-1">
-                                    <Text className="text-sm font-medium mb-2 text-black">
-                                        quantity
-                                    </Text>
-                                    <TextInput
-                                        className={`border rounded-lg px-3 py-2 text-sm bg-white ${
-                                            errors[`quantity_${index}`] ? 'border-red-500' : 'border-gray-200'
-                                        }`}
-                                        placeholder="0"
-                                        placeholderTextColor="#666666"
-                                        value={unitPrice.quantity_available}
-                                        onChangeText={(value) => updateUnitPrice(index, 'quantity_available', value)}
-                                        keyboardType="numeric"
-                                    />
-                                    {errors[`quantity_${index}`] && (
-                                        <Text className="text-red-500 text-xs mt-1">
-                                            {errors[`quantity_${index}`]}
+                                <View className="flex-row gap-3">
+                                    <View className="flex-1">
+                                        <Text className="text-xs font-medium mb-1 text-black">
+                                            price (rs)
                                         </Text>
-                                    )}
+                                        <TextInput
+                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                                errors[`individual_price_${index}`] ? 'border-red-500' : 'border-gray-200'
+                                            }`}
+                                            placeholder="0.00"
+                                            placeholderTextColor="#666666"
+                                            value={unitPricing.individual.price_per_unit}
+                                            onChangeText={(value) => updateUnitPricing(index, 'individual', 'price_per_unit', value)}
+                                            keyboardType="numeric"
+                                        />
+                                        {errors[`individual_price_${index}`] && (
+                                            <Text className="text-red-500 text-xs mt-1">
+                                                {errors[`individual_price_${index}`]}
+                                            </Text>
+                                        )}
+                                    </View>
+
+                                    <View className="flex-1">
+                                        <Text className="text-xs font-medium mb-1 text-black">
+                                            quantity
+                                        </Text>
+                                        <TextInput
+                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                                errors[`individual_quantity_${index}`] ? 'border-red-500' : 'border-gray-200'
+                                            }`}
+                                            placeholder="0"
+                                            placeholderTextColor="#666666"
+                                            value={unitPricing.individual.quantity_available}
+                                            onChangeText={(value) => updateUnitPricing(index, 'individual', 'quantity_available', value)}
+                                            keyboardType="numeric"
+                                        />
+                                        {errors[`individual_quantity_${index}`] && (
+                                            <Text className="text-red-500 text-xs mt-1">
+                                                {errors[`individual_quantity_${index}`]}
+                                            </Text>
+                                        )}
+                                    </View>
+
+                                    <View className="flex-1">
+                                        <Text className="text-xs font-medium mb-1 text-black">
+                                            min. order
+                                        </Text>
+                                        <TextInput
+                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                                errors[`individual_minimum_${index}`] ? 'border-red-500' : 'border-gray-200'
+                                            }`}
+                                            placeholder="1"
+                                            placeholderTextColor="#666666"
+                                            value={unitPricing.individual.minimum_order}
+                                            onChangeText={(value) => updateUnitPricing(index, 'individual', 'minimum_order', value)}
+                                            keyboardType="numeric"
+                                        />
+                                        {errors[`individual_minimum_${index}`] && (
+                                            <Text className="text-red-500 text-xs mt-1">
+                                                {errors[`individual_minimum_${index}`]}
+                                            </Text>
+                                        )}
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* Business Customer Pricing */}
+                            <View className="p-3 bg-white rounded-lg border border-blue-200">
+                                <View className="flex-row items-center mb-3">
+                                    <Ionicons name="business" size={16} color="#3B82F6" />
+                                    <Text className="text-sm font-medium text-blue-700 ml-2">
+                                        Business Customer Pricing (Bulk)
+                                    </Text>
                                 </View>
 
-                                <View className="flex-1">
-                                    <Text className="text-sm font-medium mb-2 text-black">
-                                        min. order
-                                    </Text>
-                                    <TextInput
-                                        className={`border rounded-lg px-3 py-2 text-sm bg-white ${
-                                            errors[`minimum_${index}`] ? 'border-red-500' : 'border-gray-200'
-                                        }`}
-                                        placeholder="1"
-                                        placeholderTextColor="#666666"
-                                        value={unitPrice.minimum_order}
-                                        onChangeText={(value) => updateUnitPrice(index, 'minimum_order', value)}
-                                        keyboardType="numeric"
-                                    />
-                                    {errors[`minimum_${index}`] && (
-                                        <Text className="text-red-500 text-xs mt-1">
-                                            {errors[`minimum_${index}`]}
+                                <View className="flex-row gap-3">
+                                    <View className="flex-1">
+                                        <Text className="text-xs font-medium mb-1 text-black">
+                                            price (rs)
                                         </Text>
-                                    )}
+                                        <TextInput
+                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                                errors[`business_price_${index}`] ? 'border-red-500' : 'border-gray-200'
+                                            }`}
+                                            placeholder="0.00"
+                                            placeholderTextColor="#666666"
+                                            value={unitPricing.business.price_per_unit}
+                                            onChangeText={(value) => updateUnitPricing(index, 'business', 'price_per_unit', value)}
+                                            keyboardType="numeric"
+                                        />
+                                        {errors[`business_price_${index}`] && (
+                                            <Text className="text-red-500 text-xs mt-1">
+                                                {errors[`business_price_${index}`]}
+                                            </Text>
+                                        )}
+                                    </View>
+
+                                    <View className="flex-1">
+                                        <Text className="text-xs font-medium mb-1 text-black">
+                                            quantity
+                                        </Text>
+                                        <TextInput
+                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                                errors[`business_quantity_${index}`] ? 'border-red-500' : 'border-gray-200'
+                                            }`}
+                                            placeholder="0"
+                                            placeholderTextColor="#666666"
+                                            value={unitPricing.business.quantity_available}
+                                            onChangeText={(value) => updateUnitPricing(index, 'business', 'quantity_available', value)}
+                                            keyboardType="numeric"
+                                        />
+                                        {errors[`business_quantity_${index}`] && (
+                                            <Text className="text-red-500 text-xs mt-1">
+                                                {errors[`business_quantity_${index}`]}
+                                            </Text>
+                                        )}
+                                    </View>
+
+                                    <View className="flex-1">
+                                        <Text className="text-xs font-medium mb-1 text-black">
+                                            min. order
+                                        </Text>
+                                        <TextInput
+                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                                errors[`business_minimum_${index}`] ? 'border-red-500' : 'border-gray-200'
+                                            }`}
+                                            placeholder="25"
+                                            placeholderTextColor="#666666"
+                                            value={unitPricing.business.minimum_order}
+                                            onChangeText={(value) => updateUnitPricing(index, 'business', 'minimum_order', value)}
+                                            keyboardType="numeric"
+                                        />
+                                        {errors[`business_minimum_${index}`] && (
+                                            <Text className="text-red-500 text-xs mt-1">
+                                                {errors[`business_minimum_${index}`]}
+                                            </Text>
+                                        )}
+                                    </View>
                                 </View>
                             </View>
                         </View>
                     ))}
 
-                    {errors.unitPrices && (
+                    {errors.unitPricings && (
                         <Text className="text-red-500 text-sm mt-1 ml-1">
-                            {errors.unitPrices}
+                            {errors.unitPricings}
                         </Text>
                     )}
                 </View>

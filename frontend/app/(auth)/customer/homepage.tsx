@@ -17,7 +17,6 @@ import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
 
 interface Farmer {
     id: number;
@@ -38,6 +37,7 @@ interface Product {
     unit_prices: Array<{
         id: number;
         unit: string;
+        customer_type: 'individual' | 'business'; // Updated: Added customer_type
         price_per_unit: number;
         quantity_available: number;
         minimum_order: number;
@@ -130,7 +130,15 @@ export default function CustomerHomePage() {
             ]);
 
             setFarmers(farmersResponse.data);
-            setLatestProducts(productsResponse.data);
+
+            // Filter products that have pricing for the current user type
+            const userRole = user?.role || 'individual';
+            const filteredProducts = productsResponse.data.filter((product: Product) => {
+                const customerType = userRole as 'individual' | 'business';
+                return product.unit_prices.some(up => up.customer_type === customerType);
+            });
+
+            setLatestProducts(filteredProducts);
 
         } catch (error: any) {
             console.error('Error fetching home data:', error);
@@ -278,6 +286,7 @@ export default function CustomerHomePage() {
                     </Text>
                     <Text className="text-base text-gray-600">
                         discover fresh produce from local farmers
+                        {user?.role === 'business' && ' with bulk pricing'}
                     </Text>
                 </View>
 
@@ -338,12 +347,17 @@ export default function CustomerHomePage() {
 
                     {latestProducts.length === 0 ? (
                         <View className="bg-surface rounded-xl p-8 items-center">
-                            <Text className="text-4xl mb-4">🥕</Text>
                             <Text className="text-lg font-medium text-black mb-2">
-                                no products available
+                                {user?.role === 'business'
+                                    ? 'no bulk products available'
+                                    : 'no products available'
+                                }
                             </Text>
                             <Text className="text-gray-600 text-center">
-                                farmers are working hard to bring fresh produce soon
+                                {user?.role === 'business'
+                                    ? 'farmers are working to add bulk pricing options soon'
+                                    : 'farmers are working hard to bring fresh produce soon'
+                                }
                             </Text>
                         </View>
                     ) : (

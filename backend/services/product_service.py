@@ -38,11 +38,15 @@ def create_farmer_product(db: Session, farmer_id: int, product_data: FarmerProdu
     db.add(db_product)
     db.flush()  # Get the ID without committing
 
-    # Add unit prices
+    # Add unit prices - explicitly handle the new customer_type field
     for unit_price_data in product_data.unit_prices:
         db_unit_price = ProductUnitPrice(
             farmer_product_id=db_product.id,
-            **unit_price_data.dict()
+            unit=unit_price_data.unit,
+            customer_type=unit_price_data.customer_type,  # NEW: Explicitly include customer_type
+            price_per_unit=unit_price_data.price_per_unit,
+            quantity_available=unit_price_data.quantity_available,
+            minimum_order=unit_price_data.minimum_order
         )
         db.add(db_unit_price)
 
@@ -107,18 +111,23 @@ def add_unit_price(db: Session, product_id: int, farmer_id: int,
     if not product:
         raise Exception("Product not found")
 
-    # Check if unit price already exists
+    # Check if unit price already exists for this unit AND customer type
     existing = db.query(ProductUnitPrice).filter(
         ProductUnitPrice.farmer_product_id == product_id,
-        ProductUnitPrice.unit == unit_price_data.unit
+        ProductUnitPrice.unit == unit_price_data.unit,
+        ProductUnitPrice.customer_type == unit_price_data.customer_type  # NEW: Include customer_type in check
     ).first()
 
     if existing:
-        raise Exception(f"Price for {unit_price_data.unit.value} already exists. Please update it instead.")
+        raise Exception(f"Price for {unit_price_data.unit.value} ({unit_price_data.customer_type.value}) already exists. Please update it instead.")
 
     db_unit_price = ProductUnitPrice(
         farmer_product_id=product_id,
-        **unit_price_data.dict()
+        unit=unit_price_data.unit,
+        customer_type=unit_price_data.customer_type,  # NEW: Explicitly include customer_type
+        price_per_unit=unit_price_data.price_per_unit,
+        quantity_available=unit_price_data.quantity_available,
+        minimum_order=unit_price_data.minimum_order
     )
     db.add(db_unit_price)
     db.commit()
