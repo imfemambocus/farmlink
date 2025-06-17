@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
 
             setUser(profileRes.data);
-            router.replace('/(auth)');
+            router.replace('/(auth)/customer/homepage');
         } catch (error: any) {
             console.error('Login failed:', error.response?.data || error.message);
             throw error;

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
-import Header from '@/components/Header';
+import Header from '@/components/ui/Header';
 import StatCard from '@/components/farmer/StatCard';
 import ProductCard from '@/components/farmer/ProductCard';
 import FloatingActionButton from '@/components/ui/FloatingActionButton';

@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { AuthContext } from '@/context/AuthContext';
-import Homepage from '@/components/Homepage';
+import Homepage from '@/app/(auth)/customer/homepage';
 import Dashboard from '@/app/(auth)/farmer/dashboard';
 
 export default function AuthIndex() {

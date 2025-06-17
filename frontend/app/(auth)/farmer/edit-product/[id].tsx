@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Header from '@/components/Header';
+import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';

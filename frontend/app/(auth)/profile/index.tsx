@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { AuthContext } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
-import Header from '@/components/Header';
+import Header from '@/components/ui/Header';
 
 interface FormErrors {
     [key: string]: string;
