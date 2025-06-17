@@ -10,9 +10,6 @@ interface HeaderProps {
     showCartButton?: boolean;
     showSettingsButton?: boolean;
     showLogoutButton?: boolean;
-    onBackPress?: () => void;
-    onCartPress?: () => void;
-    onSettingsPress?: () => void;
 }
 
 export default function Header({
@@ -21,38 +18,13 @@ export default function Header({
    showCartButton = false,
    showSettingsButton = false,
    showLogoutButton = false,
-   onBackPress,
-   onCartPress,
-   onSettingsPress
 }: HeaderProps) {
     const { logout } = useContext(AuthContext);
 
-    const handleBackPress = () => {
-        if (onBackPress) {
-            onBackPress();
-        } else {
-            router.back();
-        }
-    };
-
-    const handleCartPress = () => {
-        if (onCartPress) {
-            onCartPress();
-        }
-        // Default cart navigation can be added here later
-    };
-
-    const handleSettingsPress = () => {
-        if (onSettingsPress) {
-            onSettingsPress();
-        } else {
-            router.push('/profile');
-        }
-    };
-
-    const handleLogout = () => {
-        logout();
-    };
+    const handleBackPress = () => router.back();
+    const handleCartPress = () => router.push('/');
+    const handleSettingsPress = () => router.push('/profile');
+    const handleLogout = () => logout();
 
     return (
         <View className="bg-background rounded-bl-[40px] rounded-br-[40px]" style={{ height: '20%' }}>

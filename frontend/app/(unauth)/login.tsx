@@ -6,7 +6,6 @@ import {
     TouchableOpacity,
     Alert,
     ActivityIndicator,
-    SafeAreaView,
     ScrollView
 } from 'react-native';
 import { AuthContext } from '@/context/AuthContext';

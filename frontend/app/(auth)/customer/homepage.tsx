@@ -17,6 +17,7 @@ import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {UnitPrice} from "@/types";
 
 interface Farmer {
     id: number;
@@ -34,14 +35,7 @@ interface Product {
     farmer_name: string;
     farmer_district: string;
     lowest_price: number;
-    unit_prices: Array<{
-        id: number;
-        unit: string;
-        customer_type: 'individual' | 'business'; // Updated: Added customer_type
-        price_per_unit: number;
-        quantity_available: number;
-        minimum_order: number;
-    }>;
+    unit_prices: UnitPrice[];
     created_at: string;
 }
 
@@ -163,47 +157,8 @@ export default function CustomerHomePage() {
         router.push(`/customer/farmers/${farmer.id}`);
     };
 
-    const handleAddToCart = async (product: Product, unitPriceId: number, quantity: number) => {
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) return;
-
-            await api.post('/orders/cart/items', {
-                farmer_product_id: product.id,
-                unit_price_id: unitPriceId,
-                quantity: quantity
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            showAlert(
-                'success',
-                'success',
-                'item added to cart successfully',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
-            );
-
-        } catch (error: any) {
-            console.error('Error adding to cart:', error);
-            showAlert(
-                'error',
-                'error',
-                error.response?.data?.detail || 'failed to add item to cart',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
-            );
-        }
-    };
-
     const handleViewAllProducts = () => {
         router.push('/customer/products');
-    };
-
-    const handleViewCart = () => {
-        router.push('/customer/cart');
-    };
-
-    const formatItemName = (item: string) => {
-        return item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
     };
 
     const getNumColumns = () => {
@@ -232,11 +187,7 @@ export default function CustomerHomePage() {
                     maxWidth: `${100 / numColumns - 2}%`
                 }}
             >
-                <ProductCard
-                    product={item}
-                    onAddToCart={handleAddToCart}
-                    formatItemName={formatItemName}
-                />
+                <ProductCard product={item} />
             </View>
         );
     };
@@ -247,7 +198,6 @@ export default function CustomerHomePage() {
                 <Header
                     title="farmlink"
                     showCartButton={true}
-                    onCartPress={handleViewCart}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -262,7 +212,6 @@ export default function CustomerHomePage() {
             <Header
                 title="farmlink"
                 showCartButton={true}
-                onCartPress={handleViewCart}
                 showSettingsButton={true}
             />
 

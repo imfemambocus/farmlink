@@ -18,14 +18,7 @@ import FloatingActionButton from '@/components/ui/FloatingActionButton';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-interface UnitPrice {
-    id: number;
-    unit: string;
-    price_per_unit: number;
-    quantity_available: number;
-    minimum_order: number;
-}
+import {UnitPrice} from "@/types";
 
 interface Product {
     id: number;

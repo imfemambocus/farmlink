@@ -18,24 +18,13 @@ import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import {AlertState} from "@/types";
 
 interface Farmer {
     id: number;
     name: string;
     district: string;
     product_count: number;
-}
-
-interface AlertState {
-    visible: boolean;
-    type: 'success' | 'error' | 'warning' | 'info';
-    title: string;
-    message: string;
-    buttons: Array<{
-        text: string;
-        onPress: () => void;
-        style?: 'default' | 'cancel' | 'destructive';
-    }>;
 }
 
 export default function FarmersScreen() {
@@ -273,7 +262,6 @@ export default function FarmersScreen() {
                     title="farmers"
                     showBackButton={true}
                     showCartButton={true}
-                    onCartPress={() => router.push('/customer/cart')}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -289,7 +277,6 @@ export default function FarmersScreen() {
                 title="farmers"
                 showBackButton={true}
                 showCartButton={true}
-                onCartPress={() => router.push('/customer/cart')}
             />
 
             <ScrollView

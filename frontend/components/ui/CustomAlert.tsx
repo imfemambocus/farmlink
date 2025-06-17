@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -28,13 +28,13 @@ interface CustomAlertProps {
 const { height: screenHeight } = Dimensions.get('window');
 
 const CustomAlert: React.FC<CustomAlertProps> = ({
-                                                     visible,
-                                                     type,
-                                                     title,
-                                                     message,
-                                                     buttons,
-                                                     onClose,
-                                                 }) => {
+     visible,
+     type,
+     title,
+     message,
+     buttons,
+     onClose,
+ }) => {
     const slideAnim = useRef(new Animated.Value(screenHeight)).current;
     const opacityAnim = useRef(new Animated.Value(0)).current;
 

@@ -5,15 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import { AuthContext } from '@/context/AuthContext';
 import {useRouter} from "expo-router";
-
-interface UnitPrice {
-    id: number;
-    unit: string;
-    customer_type: 'individual' | 'business';
-    price_per_unit: number;
-    quantity_available: number;
-    minimum_order: number;
-}
+import {getProductBackgroundColor} from "@/utils/products";
+import {UnitPrice} from "@/types";
 
 interface Product {
     id: number;
@@ -30,8 +23,6 @@ interface Product {
 
 interface ProductCardProps {
     product: Product;
-    onAddToCart: (product: Product, unitPriceId: number, quantity: number) => void;
-    formatItemName: (item: string) => string;
 }
 
 // Helper functions
@@ -48,11 +39,7 @@ const getQuantityStep = (userRole: string): number => {
     return userRole === 'business' ? 25 : 1;
 };
 
-export default function ProductCard({
-    product,
-    onAddToCart,
-    formatItemName,
-}: ProductCardProps) {
+export default function ProductCard({ product }: ProductCardProps) {
     const { user } = useContext(AuthContext);
     const router = useRouter();
     const [modalVisible, setModalVisible] = useState(false);
@@ -70,47 +57,6 @@ export default function ProductCard({
 
     // Filter unit prices based on user role
     const filteredUnitPrices = getFilteredUnitPrices(product.unit_prices, userRole);
-
-    const getProductBackgroundColor = (item: string) => {
-        const colorMap: { [key: string]: string } = {
-            'tomato': '#ffebee',
-            'potato': '#f3e5ab',
-            'carrot': '#ffecce',
-            'banana': '#fff9c4',
-            'apple': '#ffebee',
-            'orange': '#fff3e0',
-            'mango': '#fff9c4',
-            'pineapple': '#fff9c4',
-            'papaya': '#fff3e0',
-            'guava': '#f1f8e9',
-            'lychee': '#fce4ec',
-            'coconut': '#f5f5f5',
-            'lemon': '#fffde7',
-            'lime': '#f1f8e9',
-            'watermelon': '#ffebee',
-            'melon': '#f1f8e9',
-            'grapes': '#f3e5f5',
-            'strawberry': '#ffebee',
-            'onion': '#f5f5f5',
-            'cabbage': '#f1f8e9',
-            'lettuce': '#f1f8e9',
-            'spinach': '#e8f5e8',
-            'broccoli': '#e8f5e8',
-            'cauliflower': '#f5f5f5',
-            'bell_pepper': '#f1f8e9',
-            'chili': '#ffebee',
-            'cucumber': '#e8f5e8',
-            'eggplant': '#f3e5f5',
-            'okra': '#e8f5e8',
-            'green_beans': '#e8f5e8',
-            'pumpkin': '#fff3e0',
-            'beetroot': '#fce4ec',
-            'radish': '#ffebee',
-            'ginger': '#fff3e0',
-            'garlic': '#f5f5f5'
-        };
-        return colorMap[item] || '#f5f5f5';
-    };
 
     const openModal = () => {
         if (filteredUnitPrices.length > 0) {
@@ -151,20 +97,6 @@ export default function ProductCard({
 
         if (newQuantity >= minQuantity && newQuantity <= selectedUnitPrice.quantity_available) {
             setQuantity(newQuantity);
-        }
-    };
-
-    const handleAddToCart = async () => {
-        if (!selectedUnitPrice || addingToCart) return;
-
-        setAddingToCart(true);
-        try {
-            await onAddToCart(product, selectedUnitPrice.id, quantity);
-            closeModal();
-        } catch (error) {
-            // Error is handled in parent component
-        } finally {
-            setAddingToCart(false);
         }
     };
 
@@ -211,7 +143,7 @@ export default function ProductCard({
                 {/* Product Name and Category Tag */}
                 <View className="flex-row items-center justify-between mb-3">
                     <Text className="text-sm font-medium text-black flex-1" numberOfLines={1}>
-                        {formatItemName(product.item)}
+                        {product.item.toLowerCase()}
                     </Text>
                     <View className="px-3 py-1 bg-light-100 rounded-full">
                         <Text className="text-xs text-black font-medium">
@@ -247,7 +179,6 @@ export default function ProductCard({
                                 const minOrder = firstUnitPrice.minimum_order;
                                 const adjustedMinOrder = Math.ceil(minOrder / quantityStep) * quantityStep;
                                 const finalQuantity = Math.max(adjustedMinOrder, quantityStep);
-                                onAddToCart(product, firstUnitPrice.id, finalQuantity);
                             }
                         }}
                         className="bg-background px-2 py-2 rounded-lg"
@@ -323,7 +254,7 @@ export default function ProductCard({
                             <View className="mb-3">
                                 <View className="flex-row items-center justify-between mb-1">
                                     <Text className="text-xl font-medium text-black flex-1">
-                                        {formatItemName(product.item)}
+                                        {product.item.toLowerCase()}
                                     </Text>
                                     <View className="flex-row items-center gap-2">
                                         {userRole === 'business' && (
@@ -489,7 +420,7 @@ export default function ProductCard({
                             {/* Action Button */}
                             <View className="pb-2">
                                 <TouchableOpacity
-                                    onPress={handleAddToCart}
+                                    onPress={() => {}}
                                     className="bg-background py-4 px-6 rounded-xl"
                                     activeOpacity={0.7}
                                     disabled={addingToCart || !selectedUnitPrice}

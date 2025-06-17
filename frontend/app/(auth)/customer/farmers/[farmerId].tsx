@@ -17,19 +17,14 @@ import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import {AlertState, UnitPrice} from "@/types";
 
 interface Product {
     id: number;
     item: string;
     category: string;
     description?: string;
-    unit_prices: Array<{
-        id: number;
-        unit: string;
-        price_per_unit: number;
-        quantity_available: number;
-        minimum_order: number;
-    }>;
+    unit_prices: UnitPrice[];
     created_at: string;
 }
 
@@ -41,18 +36,6 @@ interface FarmerDetails {
     email: string;
     products: Product[];
     product_count: number;
-}
-
-interface AlertState {
-    visible: boolean;
-    type: 'success' | 'error' | 'warning' | 'info';
-    title: string;
-    message: string;
-    buttons: Array<{
-        text: string;
-        onPress: () => void;
-        style?: 'default' | 'cancel' | 'destructive';
-    }>;
 }
 
 type CategoryTab = 'all' | 'fruits' | 'vegetables';
@@ -158,41 +141,6 @@ export default function FarmerDetailScreen() {
         fetchFarmerDetails();
     };
 
-    const handleAddToCart = async (product: Product, unitPriceId: number, quantity: number) => {
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) return;
-
-            await api.post('/orders/cart/items', {
-                farmer_product_id: product.id,
-                unit_price_id: unitPriceId,
-                quantity: quantity
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            showAlert(
-                'success',
-                'success',
-                'item added to cart successfully',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
-            );
-
-        } catch (error: any) {
-            console.error('Error adding to cart:', error);
-            showAlert(
-                'error',
-                'error',
-                error.response?.data?.detail || 'failed to add item to cart',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
-            );
-        }
-    };
-
-    const formatItemName = (item: string) => {
-        return item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
-    };
-
     const getFilteredProducts = () => {
         if (!farmer?.products) return [];
 
@@ -235,11 +183,7 @@ export default function FarmerDetailScreen() {
                     maxWidth: `${100 / numColumns - 2}%`
                 }}
             >
-                <ProductCard
-                    product={transformedProduct}
-                    onAddToCart={handleAddToCart}
-                    formatItemName={formatItemName}
-                />
+                <ProductCard product={transformedProduct} />
             </View>
         );
     };
@@ -311,7 +255,6 @@ export default function FarmerDetailScreen() {
                     title="farmer details"
                     showBackButton={true}
                     showCartButton={true}
-                    onCartPress={() => router.push('/customer/cart')}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -328,7 +271,6 @@ export default function FarmerDetailScreen() {
                     title="farmer details"
                     showBackButton={true}
                     showCartButton={true}
-                    onCartPress={() => router.push('/customer/cart')}
                 />
                 <View className="flex-1 justify-center items-center px-6">
                     <Text className="text-4xl mb-4">😞</Text>
@@ -351,7 +293,6 @@ export default function FarmerDetailScreen() {
                 title={farmer.name.toLowerCase()}
                 showBackButton={true}
                 showCartButton={true}
-                onCartPress={() => router.push('/customer/cart')}
             />
 
             <ScrollView

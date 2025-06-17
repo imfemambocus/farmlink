@@ -276,41 +276,6 @@ export default function ProductsScreen() {
         }
     };
 
-    const handleAddToCart = async (product: Product, unitPriceId: number, quantity: number) => {
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) return;
-
-            await api.post('/orders/cart/items', {
-                farmer_product_id: product.id,
-                unit_price_id: unitPriceId,
-                quantity: quantity
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            showAlert(
-                'success',
-                'success',
-                'item added to cart successfully',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
-            );
-
-        } catch (error: any) {
-            console.error('Error adding to cart:', error);
-            showAlert(
-                'error',
-                'error',
-                error.response?.data?.detail || 'failed to add item to cart',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
-            );
-        }
-    };
-
-    const formatItemName = (item: string) => {
-        return item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
-    };
-
     const getNumColumns = () => {
         if (screenWidth < 400) return 1;
         if (screenWidth < 768) return 2;
@@ -330,11 +295,7 @@ export default function ProductsScreen() {
                     maxWidth: `${100 / numColumns - 2}%`
                 }}
             >
-                <ProductCard
-                    product={item}
-                    onAddToCart={handleAddToCart}
-                    formatItemName={formatItemName}
-                />
+                <ProductCard product={item} />
             </View>
         );
     };
@@ -456,7 +417,6 @@ export default function ProductsScreen() {
                     title="products"
                     showBackButton={true}
                     showCartButton={true}
-                    onCartPress={() => router.push('/customer/cart')}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -472,7 +432,6 @@ export default function ProductsScreen() {
                 title="products"
                 showBackButton={true}
                 showCartButton={true}
-                onCartPress={() => router.push('/customer/cart')}
             />
 
             <ScrollView

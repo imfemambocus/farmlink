@@ -2,19 +2,12 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, Image, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { PRODUCT_IMAGES, getProductImage } from '@/constants/images';
+import { getProductImage } from '@/constants/images';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-interface UnitPrice {
-    id: number;
-    unit: string;
-    customer_type: 'individual' | 'business';
-    price_per_unit: number;
-    quantity_available: number;
-    minimum_order: number;
-}
+import {getProductBackgroundColor} from "@/utils/products";
+import {UnitPrice} from "@/types";
 
 interface ProductCardProps {
     product: {
@@ -93,18 +86,6 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
         return product.unit_prices.filter(up => up.customer_type === 'business');
     };
 
-    const getLowestIndividualPrice = () => {
-        const individualPrices = getIndividualPrices();
-        if (!individualPrices.length) return 0;
-        return Math.min(...individualPrices.map(up => up.price_per_unit));
-    };
-
-    const getLowestBusinessPrice = () => {
-        const businessPrices = getBusinessPrices();
-        if (!businessPrices.length) return 0;
-        return Math.min(...businessPrices.map(up => up.price_per_unit));
-    };
-
     const getTotalIndividualQuantity = () => {
         return getIndividualPrices().reduce((total, up) => total + up.quantity_available, 0);
     };
@@ -125,47 +106,6 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
         });
 
         return grouped;
-    };
-
-    const getProductBackgroundColor = (item: string) => {
-        const colorMap: { [key: string]: string } = {
-            'tomato': '#ffebee',
-            'potato': '#f3e5ab',
-            'carrot': '#ffecce',
-            'banana': '#fff9c4',
-            'apple': '#ffebee',
-            'orange': '#fff3e0',
-            'mango': '#fff9c4',
-            'pineapple': '#fff9c4',
-            'papaya': '#fff3e0',
-            'guava': '#f1f8e9',
-            'lychee': '#fce4ec',
-            'coconut': '#f5f5f5',
-            'lemon': '#fffde7',
-            'lime': '#f1f8e9',
-            'watermelon': '#ffebee',
-            'melon': '#f1f8e9',
-            'grapes': '#f3e5f5',
-            'strawberry': '#ffebee',
-            'onion': '#f5f5f5',
-            'cabbage': '#f1f8e9',
-            'lettuce': '#f1f8e9',
-            'spinach': '#e8f5e8',
-            'broccoli': '#e8f5e8',
-            'cauliflower': '#f5f5f5',
-            'bell_pepper': '#f1f8e9',
-            'chili': '#ffebee',
-            'cucumber': '#e8f5e8',
-            'eggplant': '#f3e5f5',
-            'okra': '#e8f5e8',
-            'green_beans': '#e8f5e8',
-            'pumpkin': '#fff3e0',
-            'beetroot': '#fce4ec',
-            'radish': '#ffebee',
-            'ginger': '#fff3e0',
-            'garlic': '#f5f5f5'
-        };
-        return colorMap[item] || '#f5f5f5';
     };
 
     const openModal = () => {

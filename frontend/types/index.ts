@@ -57,3 +57,24 @@ export interface AuthContextType {
     logout: () => void;
     updateProfile: (profileData: ProfileUpdateData) => Promise<void>;
 }
+
+export interface UnitPrice {
+    id: number;
+    unit: string;
+    customer_type: 'individual' | 'business';
+    price_per_unit: number;
+    quantity_available: number;
+    minimum_order: number;
+}
+
+export interface AlertState {
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons: Array<{
+        text: string;
+        onPress: () => void;
+        style?: 'default' | 'cancel' | 'destructive';
+    }>;
+}
