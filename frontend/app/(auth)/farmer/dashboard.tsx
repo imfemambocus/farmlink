@@ -318,7 +318,7 @@ export default function FarmerDashboard() {
                 style={{
                     flex: 1,
                     marginBottom: isLastRow ? 0 : 12,
-                    marginHorizontal: 6,
+                    marginHorizontal: 4,
                     maxWidth: `${100 / numColumns - 2}%`
                 }}
             >
@@ -362,7 +362,7 @@ export default function FarmerDashboard() {
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
                 {/* Welcome Section */}
-                <View className="px-6 pt-6 pb-4">
+                <View className="px-5 pt-6 pb-4">
                     <Text className="text-xl font-medium text-black mb-2">
                         welcome back, {user?.farmer_profile?.first_name.toLowerCase()}!
                     </Text>
@@ -406,7 +406,7 @@ export default function FarmerDashboard() {
                 </View>
 
                 {/* Products Section */}
-                <View className="px-6">
+                <View className="px-5">
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-xl font-medium text-black">
                             my products

@@ -101,7 +101,7 @@ export default function Login() {
                             <View className="relative">
                                 <TextInput
                                     className={`
-                                    border rounded-xl px-4 pr-12 text-base bg-surface border-black text-black
+                                    border rounded-xl px-4 pr-12 text-base bg-surface border-black text-black leading-[1.2]
                                     ${errors.email ? 'border-red-500 text-red-500' : ''}
                                 `}
                                     style={{
@@ -143,7 +143,7 @@ export default function Login() {
                             <View className="relative">
                                 <TextInput
                                     className={`
-                                    border rounded-xl px-4 pr-12 text-base bg-surface border-black text-black
+                                    border rounded-xl px-4 pr-12 text-base bg-surface border-black text-black leading-[1.2]
                                     ${errors.password ? 'border-red-500 text-red-500' : ''}
                                 `}
                                     style={{

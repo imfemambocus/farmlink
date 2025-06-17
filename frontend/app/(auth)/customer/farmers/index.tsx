@@ -184,7 +184,7 @@ export default function FarmersScreen() {
                 style={{
                     flex: 1,
                     marginBottom: isLastRow ? 0 : 12,
-                    marginHorizontal: 6,
+                    marginHorizontal: 4,
                     maxWidth: `${100 / numColumns - 2}%`
                 }}
             >
@@ -201,7 +201,7 @@ export default function FarmersScreen() {
         <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingLeft: 24 }}
+            contentContainerStyle={{ paddingHorizontal: 18 }}
             className="mb-4"
         >
             <TouchableOpacity
@@ -242,8 +242,7 @@ export default function FarmersScreen() {
     );
 
     const EmptyFarmersComponent = () => (
-        <View className="flex-1 justify-center items-center px-6">
-            <Text className="text-6xl mb-4">👨‍🌾</Text>
+        <View className="flex-1 justify-center items-center px-6 py-20">
             <Text className="text-xl font-medium text-black mb-2 text-center">
                 no farmers found
             </Text>
@@ -303,47 +302,44 @@ export default function FarmersScreen() {
                         colors={['#4CAF50']}
                     />
                 }
-                stickyHeaderIndices={[0]}
+                contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {/* Search and Filter Header */}
-                <View className="bg-surface pb-4">
-                    {/* Search Bar */}
-                    <View className="px-6 pt-6 pb-4">
-                        <View className="mb-4">
-                            <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
-                                <Ionicons name="search" size={20} color="#666666" />
-                                <TextInput
-                                    value={searchText}
-                                    onChangeText={setSearchText}
-                                    placeholder="search farmers or districts..."
-                                    className="flex-1 ml-3 text-base text-black"
-                                    style={{ textAlignVertical: 'center' }}
-                                />
-                                {searchText && (
-                                    <TouchableOpacity
-                                        onPress={handleClearFilters}
-                                        className="ml-2 p-1"
-                                        activeOpacity={0.7}
-                                    >
-                                        <Ionicons name="close-circle" size={20} color="#666666" />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
+                {/* Search Bar */}
+                <View className="px-5 pt-6 pb-4">
+                    <View className="mb-4">
+                        <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
+                            <Ionicons name="search" size={20} color="#666666" />
+                            <TextInput
+                                value={searchText}
+                                onChangeText={setSearchText}
+                                placeholder="search farmers or districts..."
+                                className="flex-1 ml-3 text-base text-black"
+                                style={{ textAlignVertical: 'center' }}
+                            />
+                            {searchText && (
+                                <TouchableOpacity
+                                    onPress={handleClearFilters}
+                                    className="ml-2 p-1"
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="close-circle" size={20} color="#666666" />
+                                </TouchableOpacity>
+                            )}
                         </View>
-
-                        {/* Results Summary */}
-                        <Text className="text-sm text-gray-600">
-                            {filteredFarmers.length} farmer{filteredFarmers.length !== 1 ? 's' : ''} found
-                            {selectedDistrict && ` in ${selectedDistrict}`}
-                        </Text>
                     </View>
 
-                    {/* District Filter */}
-                    <DistrictFilter />
+                    {/* Results Summary */}
+                    <Text className="text-sm text-gray-600">
+                        {filteredFarmers.length} farmer{filteredFarmers.length !== 1 ? 's' : ''} found
+                        {selectedDistrict && ` in ${selectedDistrict}`}
+                    </Text>
                 </View>
 
+                {/* District Filter */}
+                <DistrictFilter />
+
                 {/* Farmers Grid */}
-                <View className="px-6">
+                <View className="px-5">
                     {filteredFarmers.length === 0 ? (
                         <EmptyFarmersComponent />
                     ) : (
@@ -354,7 +350,6 @@ export default function FarmersScreen() {
                             numColumns={getNumColumns()}
                             key={getNumColumns()}
                             scrollEnabled={false}
-                            contentContainerStyle={{ paddingBottom: 100 }}
                             showsVerticalScrollIndicator={false}
                         />
                     )}

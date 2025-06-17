@@ -172,7 +172,7 @@ export default function ProfileEditScreen() {
             <View className="relative">
                 <TextInput
                     className={`
-                        border rounded-xl px-4 text-base bg-surface border-black text-black
+                        border rounded-xl px-4 text-base bg-surface border-black text-black leading-[1.2]
                         ${errors[field] ? 'border-red-500 text-red-500' : ''}
                     `}
                     style={{
@@ -249,7 +249,12 @@ export default function ProfileEditScreen() {
                             </Text>
                         </View>
                         <Text className="text-base text-gray-900 font-sans">
-                            {user.email}
+                            {user.role === 'business'
+                                ? user.business_profile?.business_name
+                                : user.role === 'farmer'
+                                    ? user.farmer_profile?.first_name
+                                    : user.individual_profile?.first_name
+                            }
                         </Text>
                     </View>
 

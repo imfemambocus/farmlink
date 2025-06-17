@@ -178,7 +178,7 @@ export default function ProductCard({
                         {formatItemName(product.item)}
                     </Text>
                     <View className="px-3 py-1 bg-light-100 rounded-full">
-                        <Text className="text-xs text-action-green font-medium">
+                        <Text className="text-xs text-black font-medium">
                             {product.category}
                         </Text>
                     </View>
@@ -377,7 +377,7 @@ export default function ProductCard({
                                     </Text>
                                     <View className="flex-row gap-4">
                                         {/* Left Column - Quantity Controls */}
-                                        <View className="flex-1">
+                                        <View className="flex-[75%]">
                                             <View className="flex-row items-center justify-between bg-gray-100 rounded-lg p-2">
                                                 <TouchableOpacity
                                                     onPress={() => adjustQuantity(-1)}
@@ -417,7 +417,7 @@ export default function ProductCard({
                                         </View>
 
                                         {/* Right Column - Total Price */}
-                                        <View className="flex-1 bg-gray-100 rounded-lg p-3 justify-center items-center flex flex-row gap-2">
+                                        <View className="flex-[25%] bg-gray-100 rounded-lg p-3 justify-center items-center flex flex-row gap-2">
                                                 <Text className="text-center text-lg font-semibold">
                                                     rs {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
                                                 </Text>

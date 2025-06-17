@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext, useCallback } from 'react';
 import {
     View,
     Text,
@@ -8,8 +8,7 @@ import {
     FlatList,
     TextInput,
     TouchableOpacity,
-    Dimensions,
-    Modal
+    Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
@@ -43,8 +42,6 @@ interface SearchFilters {
     search: string;
     category: string;
     district: string;
-    minPrice: string;
-    maxPrice: string;
 }
 
 interface AlertState {
@@ -60,9 +57,9 @@ interface AlertState {
 }
 
 const categories = [
-    { value: '', label: 'All Categories' },
-    { value: 'fruits', label: 'Fruits' },
-    { value: 'vegetables', label: 'Vegetables' }
+    { value: '', label: 'all categories' },
+    { value: 'fruits', label: 'fruits' },
+    { value: 'vegetables', label: 'vegetables' }
 ];
 
 export default function ProductsScreen() {
@@ -73,20 +70,11 @@ export default function ProductsScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [searchText, setSearchText] = useState('');
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState<SearchFilters>({
+    const [districts, setDistricts] = useState<string[]>([]);
+    const [activeFilters, setActiveFilters] = useState<SearchFilters>({
         search: '',
         category: '',
-        district: '',
-        minPrice: '',
-        maxPrice: ''
-    });
-    const [appliedFilters, setAppliedFilters] = useState<SearchFilters>({
-        search: '',
-        category: '',
-        district: '',
-        minPrice: '',
-        maxPrice: ''
+        district: ''
     });
     const [pagination, setPagination] = useState({
         offset: 0,
@@ -126,6 +114,20 @@ export default function ProductsScreen() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
+    // Debounce search function
+    const debounceSearch = useCallback(
+        (() => {
+            let timeoutId: number;
+            return (searchValue: string) => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    setActiveFilters(prev => ({ ...prev, search: searchValue }));
+                }, 500);
+            };
+        })(),
+        []
+    );
+
     useEffect(() => {
         if (user?.role !== 'individual' && user?.role !== 'business') {
             router.replace('/(auth)');
@@ -142,14 +144,24 @@ export default function ProductsScreen() {
         return () => subscription?.remove();
     }, [user]);
 
+    // Trigger search when activeFilters change
+    useEffect(() => {
+        if (!loading) {
+            fetchProducts(true);
+        }
+    }, [activeFilters]);
+
+    // Handle search text changes with debouncing
+    useEffect(() => {
+        debounceSearch(searchText);
+    }, [searchText, debounceSearch]);
+
     const buildSearchParams = (isNewSearch: boolean = false) => {
         const params = new URLSearchParams();
 
-        if (appliedFilters.search) params.append('search', appliedFilters.search);
-        if (appliedFilters.category) params.append('category', appliedFilters.category);
-        if (appliedFilters.district) params.append('district', appliedFilters.district);
-        if (appliedFilters.minPrice) params.append('min_price', appliedFilters.minPrice);
-        if (appliedFilters.maxPrice) params.append('max_price', appliedFilters.maxPrice);
+        if (activeFilters.search) params.append('search', activeFilters.search);
+        if (activeFilters.category) params.append('category', activeFilters.category);
+        if (activeFilters.district) params.append('district', activeFilters.district);
 
         params.append('limit', pagination.limit.toString());
         params.append('offset', isNewSearch ? '0' : pagination.offset.toString());
@@ -166,7 +178,7 @@ export default function ProductsScreen() {
             }
 
             if (isNewSearch) {
-                setLoading(true);
+                setLoading(products.length === 0); // Only show loading spinner on initial load
             } else {
                 setLoadingMore(true);
             }
@@ -177,6 +189,13 @@ export default function ProductsScreen() {
             });
 
             const newProducts = response.data.items || [];
+
+            // Extract unique districts for filtering (only on fresh searches)
+            if (isNewSearch && newProducts.length > 0) {
+                const uniqueDistricts = [...new Set(newProducts.map((product: Product) => product.farmer_district))];
+                // @ts-ignore
+                setDistricts(uniqueDistricts.sort());
+            }
 
             if (isNewSearch) {
                 setProducts(newProducts);
@@ -210,32 +229,24 @@ export default function ProductsScreen() {
         }
     };
 
-    const handleSearch = () => {
-        setAppliedFilters({ ...filters, search: searchText });
+    const handleCategoryFilter = (category: string) => {
+        setActiveFilters(prev => ({ ...prev, category }));
         setPagination(prev => ({ ...prev, offset: 0 }));
-        setTimeout(() => fetchProducts(true), 100);
     };
 
-    const handleApplyFilters = () => {
-        setAppliedFilters({ ...filters });
+    const handleDistrictFilter = (district: string) => {
+        setActiveFilters(prev => ({ ...prev, district }));
         setPagination(prev => ({ ...prev, offset: 0 }));
-        setShowFilters(false);
-        setTimeout(() => fetchProducts(true), 100);
     };
 
     const handleClearFilters = () => {
-        const clearedFilters = {
+        setSearchText('');
+        setActiveFilters({
             search: '',
             category: '',
-            district: '',
-            minPrice: '',
-            maxPrice: ''
-        };
-        setFilters(clearedFilters);
-        setAppliedFilters(clearedFilters);
-        setSearchText('');
+            district: ''
+        });
         setPagination(prev => ({ ...prev, offset: 0 }));
-        setTimeout(() => fetchProducts(true), 100);
     };
 
     const handleRefresh = () => {
@@ -247,10 +258,6 @@ export default function ProductsScreen() {
         if (!loadingMore && pagination.hasMore) {
             fetchProducts(false);
         }
-    };
-
-    const handleProductPress = (product: Product) => {
-        router.push(`/customer/product/${product.id}`);
     };
 
     const handleAddToCart = async (product: Product, unitPriceId: number, quantity: number) => {
@@ -303,13 +310,12 @@ export default function ProductsScreen() {
                 style={{
                     flex: 1,
                     marginBottom: isLastRow ? 0 : 12,
-                    marginHorizontal: 6,
+                    marginHorizontal: 4,
                     maxWidth: `${100 / numColumns - 2}%`
                 }}
             >
                 <ProductCard
                     product={item}
-                    onPress={() => handleProductPress(item)}
                     onAddToCart={handleAddToCart}
                     formatItemName={formatItemName}
                 />
@@ -326,9 +332,102 @@ export default function ProductsScreen() {
         );
     };
 
-    const getActiveFilterCount = () => {
-        return Object.values(appliedFilters).filter(value => value !== '').length;
-    };
+    const CategoryFilter = () => (
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 18 }}
+            className="mb-4"
+        >
+            {categories.map((category) => (
+                <TouchableOpacity
+                    key={category.value}
+                    onPress={() => handleCategoryFilter(category.value)}
+                    className={`mr-3 px-4 py-2 rounded-full ${
+                        activeFilters.category === category.value
+                            ? 'bg-background'
+                            : 'bg-gray-100 border border-gray-100'
+                    }`}
+                    activeOpacity={0.7}
+                >
+                    <Text className={`text-sm font-medium ${
+                        activeFilters.category === category.value ? 'text-black' : 'text-gray-600'
+                    }`}>
+                        {category.label}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </ScrollView>
+    );
+
+    const DistrictFilter = () => (
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 18 }}
+            className="mb-4"
+        >
+            <TouchableOpacity
+                onPress={() => handleDistrictFilter('')}
+                className={`mr-3 px-4 py-2 rounded-full ${
+                    activeFilters.district === ''
+                        ? 'bg-background'
+                        : 'bg-gray-100 border border-gray-100'
+                }`}
+                activeOpacity={0.7}
+            >
+                <Text className={`text-sm font-medium ${
+                    activeFilters.district === '' ? 'text-black' : 'text-gray-600'
+                }`}>
+                    all districts
+                </Text>
+            </TouchableOpacity>
+
+            {districts.map((district) => (
+                <TouchableOpacity
+                    key={district}
+                    onPress={() => handleDistrictFilter(district)}
+                    className={`mr-3 px-4 py-2 rounded-full ${
+                        activeFilters.district === district
+                            ? 'bg-background'
+                            : 'bg-gray-100 border border-gray-100'
+                    }`}
+                    activeOpacity={0.7}
+                >
+                    <Text className={`text-sm font-medium ${
+                        activeFilters.district === district ? 'text-black' : 'text-gray-600'
+                    }`}>
+                        {district.toLowerCase()}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </ScrollView>
+    );
+
+    const EmptyProductsComponent = () => (
+        <View className="flex-1 justify-center items-center px-6 py-20">
+            <Text className="text-xl font-medium text-black mb-2 text-center">
+                no products found
+            </Text>
+            <Text className="text-gray-600 text-center mb-6">
+                {searchText || activeFilters.category || activeFilters.district
+                    ? 'try adjusting your search or filters'
+                    : 'no products are currently available'
+                }
+            </Text>
+            {(searchText || activeFilters.category || activeFilters.district) && (
+                <TouchableOpacity
+                    onPress={handleClearFilters}
+                    className="bg-action-green px-6 py-3 rounded-xl"
+                    activeOpacity={0.7}
+                >
+                    <Text className="text-white font-medium">
+                        clear filters
+                    </Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
 
     if (loading) {
         return (
@@ -356,202 +455,76 @@ export default function ProductsScreen() {
                 onCartPress={() => router.push('/customer/cart')}
             />
 
-            {/* Search and Filter Bar */}
-            <View className="px-6 pt-6 pb-4">
-                <View className="flex-row items-center mb-4">
-                    <View className="flex-1 flex-row items-center bg-background rounded-xl px-4 py-3 mr-3">
-                        <Ionicons name="search" size={20} color="#666666" />
-                        <TextInput
-                            value={searchText}
-                            onChangeText={setSearchText}
-                            placeholder="search products..."
-                            className="flex-1 ml-3 text-base text-black"
-                            onSubmitEditing={handleSearch}
-                        />
-                    </View>
-
-                    <TouchableOpacity
-                        onPress={() => setShowFilters(true)}
-                        className="bg-background p-3 rounded-xl relative"
-                        activeOpacity={0.7}
-                    >
-                        <Ionicons name="filter" size={20} color="#000" />
-                        {getActiveFilterCount() > 0 && (
-                            <View className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full items-center justify-center">
-                                <Text className="text-xs text-white font-medium">
-                                    {getActiveFilterCount()}
-                                </Text>
-                            </View>
-                        )}
-                    </TouchableOpacity>
-                </View>
-
-                {/* Results Summary */}
-                <Text className="text-sm text-gray-600">
-                    {pagination.total} product{pagination.total !== 1 ? 's' : ''} found
-                    {appliedFilters.search && ` for "${appliedFilters.search}"`}
-                </Text>
-            </View>
-
-            {/* Products List */}
-            {products.length === 0 ? (
-                <View className="flex-1 justify-center items-center px-6">
-                    <Text className="text-4xl mb-4">🔍</Text>
-                    <Text className="text-xl font-medium text-black mb-2 text-center">
-                        no products found
-                    </Text>
-                    <Text className="text-gray-600 text-center mb-6">
-                        try adjusting your search or filters
-                    </Text>
-                    <TouchableOpacity
-                        onPress={handleClearFilters}
-                        className="bg-action-green px-6 py-3 rounded-xl"
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-white font-medium">
-                            clear filters
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            ) : (
-                <FlatList
-                    data={products}
-                    renderItem={renderProductItem}
-                    keyExtractor={(item) => item.id.toString()}
-                    numColumns={getNumColumns()}
-                    key={getNumColumns()}
-                    contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 100 }}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            colors={['#4CAF50']}
-                        />
-                    }
-                    onEndReached={handleLoadMore}
-                    onEndReachedThreshold={0.1}
-                    ListFooterComponent={renderFooter}
-                />
-            )}
-
-            {/* Filter Modal */}
-            <Modal
-                visible={showFilters}
-                animationType="slide"
-                presentationStyle="pageSheet"
+            <ScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        colors={['#4CAF50']}
+                    />
+                }
+                contentContainerStyle={{ paddingBottom: 100 }}
             >
-                <View className="flex-1 bg-surface">
-                    <View className="flex-row justify-between items-center p-6 border-b border-gray-200">
-                        <Text className="text-xl font-medium text-black">filters</Text>
-                        <TouchableOpacity
-                            onPress={() => setShowFilters(false)}
-                            className="p-2"
-                            activeOpacity={0.7}
-                        >
-                            <Ionicons name="close" size={24} color="#000" />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView className="flex-1" contentContainerStyle={{ padding: 24 }}>
-                        {/* Category Filter */}
-                        <View className="mb-6">
-                            <Text className="text-base font-medium text-black mb-3">category</Text>
-                            {categories.map((category) => (
+                {/* Search Bar */}
+                <View className="px-5 pt-6 pb-4">
+                    <View className="mb-4">
+                        <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
+                            <Ionicons name="search" size={20} color="#666666" />
+                            <TextInput
+                                value={searchText}
+                                onChangeText={setSearchText}
+                                placeholder="search products..."
+                                className="flex-1 ml-3 text-base text-black leading-[1.2]"
+                            />
+                            {searchText && (
                                 <TouchableOpacity
-                                    key={category.value}
-                                    onPress={() => setFilters(prev => ({ ...prev, category: category.value }))}
-                                    className={`flex-row items-center p-3 rounded-xl mb-2 ${
-                                        filters.category === category.value
-                                            ? 'bg-light-100 border border-action-green'
-                                            : 'bg-background'
-                                    }`}
+                                    onPress={handleClearFilters}
+                                    className="ml-2 p-1"
                                     activeOpacity={0.7}
                                 >
-                                    <View className={`w-5 h-5 rounded-full border-2 items-center justify-center mr-3 ${
-                                        filters.category === category.value
-                                            ? 'border-action-green'
-                                            : 'border-gray-300'
-                                    }`}>
-                                        {filters.category === category.value && (
-                                            <View className="w-2.5 h-2.5 rounded-full bg-action-green" />
-                                        )}
-                                    </View>
-                                    <Text className={`text-base ${
-                                        filters.category === category.value ? 'text-action-green font-medium' : 'text-black'
-                                    }`}>
-                                        {category.label}
-                                    </Text>
+                                    <Ionicons name="close-circle" size={20} color="#666666" />
                                 </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* District Filter */}
-                        <View className="mb-6">
-                            <Text className="text-base font-medium text-black mb-3">district</Text>
-                            <View className="bg-background rounded-xl p-4">
-                                <TextInput
-                                    value={filters.district}
-                                    onChangeText={(text) => setFilters(prev => ({ ...prev, district: text }))}
-                                    placeholder="enter district name..."
-                                    className="text-base text-black"
-                                />
-                            </View>
-                        </View>
-
-                        {/* Price Range Filter */}
-                        <View className="mb-6">
-                            <Text className="text-base font-medium text-black mb-3">price range (rs)</Text>
-                            <View className="flex-row items-center">
-                                <View className="flex-1 bg-background rounded-xl p-4 mr-3">
-                                    <TextInput
-                                        value={filters.minPrice}
-                                        onChangeText={(text) => setFilters(prev => ({ ...prev, minPrice: text }))}
-                                        placeholder="min price"
-                                        keyboardType="numeric"
-                                        className="text-base text-black"
-                                    />
-                                </View>
-                                <Text className="text-gray-600 mx-2">to</Text>
-                                <View className="flex-1 bg-background rounded-xl p-4 ml-3">
-                                    <TextInput
-                                        value={filters.maxPrice}
-                                        onChangeText={(text) => setFilters(prev => ({ ...prev, maxPrice: text }))}
-                                        placeholder="max price"
-                                        keyboardType="numeric"
-                                        className="text-base text-black"
-                                    />
-                                </View>
-                            </View>
-                        </View>
-                    </ScrollView>
-
-                    {/* Filter Actions */}
-                    <View className="p-6 border-t border-gray-200">
-                        <View className="flex-row gap-3">
-                            <TouchableOpacity
-                                onPress={handleClearFilters}
-                                className="flex-1 py-4 bg-gray-200 rounded-xl"
-                                activeOpacity={0.7}
-                            >
-                                <Text className="text-center font-medium text-black">
-                                    clear all
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                onPress={handleApplyFilters}
-                                className="flex-1 py-4 bg-action-green rounded-xl"
-                                activeOpacity={0.7}
-                            >
-                                <Text className="text-center font-medium text-white">
-                                    apply filters
-                                </Text>
-                            </TouchableOpacity>
+                            )}
                         </View>
                     </View>
+
+                    {/* Results Summary */}
+                    <Text className="text-sm text-gray-600">
+                        {pagination.total} product{pagination.total !== 1 ? 's' : ''} found
+                        {activeFilters.search && ` for "${activeFilters.search}"`}
+                        {activeFilters.category && ` in ${activeFilters.category}`}
+                        {activeFilters.district && ` from ${activeFilters.district}`}
+                    </Text>
                 </View>
-            </Modal>
+
+                {/* Category Filter */}
+                <CategoryFilter />
+
+                {/* District Filter */}
+                <DistrictFilter />
+
+                {/* Products Grid */}
+                <View className="px-5">
+                    {products.length === 0 ? (
+                        <EmptyProductsComponent />
+                    ) : (
+                        <FlatList
+                            data={products}
+                            renderItem={renderProductItem}
+                            keyExtractor={(item) => item.id.toString()}
+                            numColumns={getNumColumns()}
+                            key={getNumColumns()}
+                            scrollEnabled={false}
+                            showsVerticalScrollIndicator={false}
+                            ListFooterComponent={renderFooter}
+                            onEndReached={handleLoadMore}
+                            onEndReachedThreshold={0.1}
+                        />
+                    )}
+                </View>
+            </ScrollView>
 
             {/* Custom Alert */}
             <CustomAlert

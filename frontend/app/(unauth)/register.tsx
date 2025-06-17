@@ -198,7 +198,7 @@ export default function Register() {
             <View className="relative">
                 <TextInput
                     className={`
-                        border rounded-xl px-4 pr-12 text-base bg-surface border-black text-black
+                        border rounded-xl px-4 pr-12 text-base bg-surface border-black text-black leading-[1.2]
                         ${errors[field] ? 'border-red-500 text-red-500' : ''}
                     `}
                     style={{
@@ -272,27 +272,19 @@ export default function Register() {
                         <Text className="text-base font-medium mb-3 text-black">
                             account type
                         </Text>
-                        <View className="flex-row flex-wrap gap-3">
+                        <View className="flex-row gap-2">
                             {roles.map((role) => (
                                 <Pressable
                                     key={role.value}
                                     onPress={() => handleChange('role', role.value)}
-                                    className={`flex-row items-center px-4 py-3 rounded-xl border-2 ${
+                                    className={`flex-1 items-center py-3 px-2 rounded-xl ${
                                         form.role === role.value
-                                            ? 'border-success bg-light-100'
-                                            : 'border-gray-300 bg-surface'
+                                            ? 'bg-background'
+                                            : 'bg-gray-100'
                                     }`}
-                                    style={{ minWidth: 100 }}
                                 >
-                                    <View
-                                        className={`w-4 h-4 rounded-full mr-3 ${
-                                            form.role === role.value
-                                                ? 'bg-success'
-                                                : 'bg-white border-2 border-gray-400'
-                                        }`}
-                                    />
                                     <Text className={`text-sm font-medium ${
-                                        form.role === role.value ? 'text-success' : 'text-black'
+                                        form.role === role.value ? 'text-black' : 'text-gray-600'
                                     }`}>
                                         {role.label}
                                     </Text>

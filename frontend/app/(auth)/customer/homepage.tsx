@@ -220,7 +220,7 @@ export default function CustomerHomePage() {
                 style={{
                     flex: 1,
                     marginBottom: isLastRow ? 0 : 12,
-                    marginHorizontal: 6,
+                    marginHorizontal: 4,
                     maxWidth: `${100 / numColumns - 2}%`
                 }}
             >
