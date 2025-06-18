@@ -288,8 +288,8 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                     <Image
                                         source={productImage}
                                         style={{
-                                            width: '60%',
-                                            height: '60%',
+                                            width: '80%',
+                                            height: '80%',
                                             resizeMode: 'contain',
                                         }}
                                         onError={() => setImageError(true)}

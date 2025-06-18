@@ -239,8 +239,8 @@ export default function ProductCard({ product }: ProductCardProps) {
                                 <Image
                                     source={productImage}
                                     style={{
-                                        width: '60%',
-                                        height: '60%',
+                                        width: '80%',
+                                        height: '80%',
                                         resizeMode: 'contain',
                                     }}
                                     onError={() => setImageError(true)}
