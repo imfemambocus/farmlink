@@ -127,7 +127,7 @@ export default function FarmerDashboard() {
 
     // Calculate number of columns based on screen width
     const getNumColumns = () => {
-        if (screenWidth < 400) return 1; // Very small screens (phones in portrait)
+        if (screenWidth < 390) return 1; // Very small screens (phones in portrait)
         if (screenWidth < 768) return 2; // Normal phones and small tablets
         return 3; // Tablets and larger screens
     };

@@ -155,7 +155,7 @@ export default function FarmerDetailScreen() {
     };
 
     const getNumColumns = () => {
-        if (screenWidth < 400) return 1;
+        if (screenWidth < 390) return 1;
         if (screenWidth < 768) return 2;
         return 3;
     };
