@@ -8,7 +8,7 @@ class UserResponseBase(BaseModel):
     role: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Profile details for responses
 class FarmerProfileResponse(BaseModel):
@@ -18,7 +18,7 @@ class FarmerProfileResponse(BaseModel):
     district: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class IndividualProfileResponse(BaseModel):
     first_name: str
@@ -30,7 +30,7 @@ class IndividualProfileResponse(BaseModel):
     post_code: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class BusinessProfileResponse(BaseModel):
     business_name: str
@@ -41,7 +41,7 @@ class BusinessProfileResponse(BaseModel):
     post_code: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Full user response including profile info
 class UserResponse(UserResponseBase):

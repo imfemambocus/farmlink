@@ -1,3 +1,4 @@
+# schemas/order.py - UNIFIED SYSTEM ONLY
 from pydantic import BaseModel, validator
 from typing import Optional, List
 from datetime import datetime
@@ -5,7 +6,10 @@ from decimal import Decimal
 from models.order import OrderStatusEnum, PaymentStatusEnum, PaymentMethodEnum
 
 
-# Cart Schemas
+# ==========================================
+# CART SCHEMAS
+# ==========================================
+
 class CartItemBase(BaseModel):
     farmer_product_id: int
     unit_price_id: int
@@ -38,13 +42,13 @@ class CartItemResponse(CartItemBase):
     total_price: Decimal
     created_at: datetime
 
-    # Product information
+    # Product information (added dynamically by OrderService)
     product_name: Optional[str] = None
     unit_name: Optional[str] = None
     farmer_name: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class CartFarmerGroup(BaseModel):
@@ -64,24 +68,129 @@ class CartResponse(BaseModel):
     updated_at: Optional[datetime]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
-# Order Schemas
-class OrderItemResponse(BaseModel):
+# ==========================================
+# UNIFIED ORDER SCHEMAS
+# ==========================================
+
+class UnifiedOrderItemResponse(BaseModel):
     id: int
+    farmer_id: int
     item_name: str
     unit: str
     unit_price: Decimal
     quantity: float
     total_price: Decimal
     product_description: Optional[str]
+    created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
+class UnifiedOrderResponse(BaseModel):
+    id: int
+    order_number: str
+    status: OrderStatusEnum
+    total_amount: Decimal
+    delivery_fee: Decimal
+    final_amount: Decimal
+
+    customer_name: str
+    customer_phone: str
+    customer_email: str
+
+    delivery_address: str
+    delivery_notes: Optional[str]
+
+    items: List[UnifiedOrderItemResponse]
+
+    created_at: datetime
+    updated_at: datetime
+    delivered_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class UnifiedOrderListItem(BaseModel):
+    id: int
+    order_number: str
+    status: OrderStatusEnum
+    final_amount: Decimal
+    farmer_count: Optional[int] = None  # For customer view
+    item_count: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UnifiedOrderUpdateRequest(BaseModel):
+    status: OrderStatusEnum
+
+
+# ==========================================
+# PAYMENT SCHEMAS
+# ==========================================
+
+class UnifiedPaymentResponse(BaseModel):
+    id: int
+    payment_method: PaymentMethodEnum
+    status: PaymentStatusEnum
+    amount: Decimal
+    currency: str
+    stripe_payment_intent_id: Optional[str]
+    created_at: datetime
+    completed_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+# ==========================================
+# FARMER PAYMENT SCHEMAS
+# ==========================================
+
+class FarmerPaymentResponse(BaseModel):
+    id: int
+    farmer_id: int
+    gross_amount: Decimal
+    platform_fee: Decimal
+    net_amount: Decimal
+    platform_fee_percentage: float
+    payment_status: str
+    paid_at: Optional[datetime]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ==========================================
+# FARMER DASHBOARD SCHEMAS
+# ==========================================
+
+class FarmerOrderSummary(BaseModel):
+    total_orders: int
+    confirmed_orders: int
+    processing_orders: int
+    out_for_delivery_orders: int
+    delivered_orders: int
+    total_gross_revenue: float
+    total_net_revenue: float
+    pending_revenue: float
+
+
+# ==========================================
+# LEGACY COMPATIBILITY (if needed for migration)
+# ==========================================
+
+# You can add these if you need backwards compatibility during migration
 class OrderCreateRequest(BaseModel):
+    """Legacy order create - now redirects to cart-based checkout"""
     farmer_id: int
     delivery_address: str
     delivery_notes: Optional[str] = None
@@ -92,97 +201,3 @@ class OrderCreateRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError('Delivery address is required')
         return v.strip()
-
-
-class OrderResponse(BaseModel):
-    id: int
-    order_number: str
-    status: OrderStatusEnum
-    total_amount: Decimal
-    delivery_fee: Decimal
-    final_amount: Decimal
-
-    customer_name: str
-    customer_phone: str
-    farmer_name: Optional[str] = None
-    farmer_district: Optional[str] = None
-
-    delivery_address: str
-    delivery_notes: Optional[str]
-
-    items: List[OrderItemResponse]
-
-    created_at: datetime
-    updated_at: datetime
-    out_for_delivery_at: Optional[datetime]
-    delivered_at: Optional[datetime]
-
-    class Config:
-        orm_mode = True
-
-
-class OrderListItem(BaseModel):
-    id: int
-    order_number: str
-    status: OrderStatusEnum
-    final_amount: Decimal
-    customer_name: Optional[str] = None  # For farmer view
-    farmer_name: Optional[str] = None  # For customer view
-    items_count: int
-    created_at: datetime
-
-    class Config:
-        orm_mode = True
-
-
-class OrderUpdateRequest(BaseModel):
-    status: OrderStatusEnum
-
-
-# Payment Schemas
-class PaymentResponse(BaseModel):
-    id: int
-    payment_method: PaymentMethodEnum
-    status: PaymentStatusEnum
-    amount: Decimal
-    currency: str
-    transaction_id: Optional[str]
-    created_at: datetime
-    completed_at: Optional[datetime]
-
-    class Config:
-        orm_mode = True
-
-
-class PaymentProcessRequest(BaseModel):
-    payment_method: PaymentMethodEnum
-    customer_notes: Optional[str] = None
-    # Add other payment gateway specific fields as needed
-
-
-# Browse/Homepage Schemas
-class FarmerBrowseItem(BaseModel):
-    id: int
-    name: str
-    district: str
-    product_count: int
-
-
-class ProductBrowseItem(BaseModel):
-    id: int
-    item: str
-    category: str
-    description: Optional[str]
-    farmer_id: int
-    farmer_name: str
-    farmer_district: str
-    lowest_price: float
-    unit_prices: List[dict]
-    created_at: datetime
-
-
-class FarmerProductsResponse(BaseModel):
-    id: int
-    name: str
-    district: str
-    products: List[dict]

@@ -4,9 +4,12 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } fr
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import { AuthContext } from '@/context/AuthContext';
-import {useRouter} from "expo-router";
-import {getProductBackgroundColor} from "@/utils/products";
-import {UnitPrice} from "@/types";
+import { useRouter } from "expo-router";
+import { getProductBackgroundColor } from "@/utils/products";
+import { UnitPrice } from "@/types";
+import { useCart } from '@/context/CartContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '@/services/api';
 
 interface Product {
     id: number;
@@ -41,6 +44,7 @@ const getQuantityStep = (userRole: string): number => {
 
 export default function ProductCard({ product }: ProductCardProps) {
     const { user } = useContext(AuthContext);
+    const { triggerCartFlash } = useCart();
     const router = useRouter();
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedUnitPrice, setSelectedUnitPrice] = useState<UnitPrice | null>(null);
@@ -57,6 +61,54 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     // Filter unit prices based on user role
     const filteredUnitPrices = getFilteredUnitPrices(product.unit_prices, userRole);
+
+    const addToCart = async (unitPriceId: number, selectedQuantity: number) => {
+        try {
+            setAddingToCart(true);
+            const token = await AsyncStorage.getItem('token');
+
+            if (!token) {
+                router.replace('/login');
+                return;
+            }
+
+            await api.post('/orders/cart/items', {
+                farmer_product_id: product.id,
+                unit_price_id: unitPriceId,
+                quantity: selectedQuantity
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            // Trigger cart flash animation instead of showing alert
+            triggerCartFlash();
+
+        } catch (error: any) {
+            console.error('Error adding to cart:', error);
+            // For errors, we could still show a brief message or just log
+            // For now, we'll just log the error
+        } finally {
+            setAddingToCart(false);
+        }
+    };
+
+    const quickAddToCart = async () => {
+        if (filteredUnitPrices.length > 0) {
+            const firstUnitPrice = filteredUnitPrices[0];
+            const minOrder = firstUnitPrice.minimum_order;
+            const adjustedMinOrder = Math.ceil(minOrder / quantityStep) * quantityStep;
+            const finalQuantity = Math.max(adjustedMinOrder, quantityStep);
+
+            await addToCart(firstUnitPrice.id, finalQuantity);
+        }
+    };
+
+    const addToCartFromModal = async () => {
+        if (selectedUnitPrice) {
+            await addToCart(selectedUnitPrice.id, quantity);
+            closeModal(); // Close modal after adding to cart
+        }
+    };
 
     const openModal = () => {
         if (filteredUnitPrices.length > 0) {
@@ -173,18 +225,19 @@ export default function ProductCard({ product }: ProductCardProps) {
                     <TouchableOpacity
                         onPress={(e) => {
                             e.stopPropagation();
-                            // Add first unit price with minimum quantity
-                            if (filteredUnitPrices.length > 0) {
-                                const firstUnitPrice = filteredUnitPrices[0];
-                                const minOrder = firstUnitPrice.minimum_order;
-                                const adjustedMinOrder = Math.ceil(minOrder / quantityStep) * quantityStep;
-                                const finalQuantity = Math.max(adjustedMinOrder, quantityStep);
-                            }
+                            quickAddToCart();
                         }}
                         className="bg-background px-2 py-2 rounded-lg"
                         activeOpacity={0.7}
+                        disabled={addingToCart}
                     >
-                        <Ionicons name="basket" size={16} color="black" />
+                        {addingToCart ? (
+                            <View className="w-4 h-4">
+                                <Text className="text-xs text-center">...</Text>
+                            </View>
+                        ) : (
+                            <Ionicons name="basket" size={16} color="black" />
+                        )}
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
@@ -286,7 +339,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                         <TouchableOpacity
                                             onPress={() => {
                                                 closeModal();
-                                                router.push(`/customer/farmers/${product.farmer_id}`);
+                                                router.push(`/(auth)/customer/farmers/${product.farmer_id}`);
                                             }}
                                             activeOpacity={0.7}
                                         >
@@ -420,7 +473,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                             {/* Action Button */}
                             <View className="pb-2">
                                 <TouchableOpacity
-                                    onPress={() => {}}
+                                    onPress={addToCartFromModal}
                                     className="bg-background py-4 px-6 rounded-xl"
                                     activeOpacity={0.7}
                                     disabled={addingToCart || !selectedUnitPrice}

@@ -27,7 +27,7 @@ class ProductUnitPriceResponse(ProductUnitPriceBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class FarmerProductBase(BaseModel):
@@ -58,7 +58,7 @@ class FarmerProductResponse(FarmerProductBase):
     category: Optional[CategoryEnum] = None  # Make it optional
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
     def __init__(self, **data):
         # Auto-compute category if not provided
@@ -90,4 +90,4 @@ class ProductListItem(BaseModel):
     description: Optional[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True

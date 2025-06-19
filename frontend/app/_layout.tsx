@@ -4,6 +4,7 @@ import {useFonts} from "expo-font";
 import {useEffect} from "react";
 import * as SplashScreen from 'expo-splash-screen';
 import './globals.css';
+import {CartProvider} from "@/context/CartContext";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -25,11 +26,13 @@ export default function RootLayout() {
 
     return (
         <AuthProvider>
-            <Stack
-                screenOptions={{
-                    headerShown: false,
-                }}
-            />
+            <CartProvider>
+                <Stack
+                    screenOptions={{
+                        headerShown: false,
+                    }}
+                />
+            </CartProvider>
         </AuthProvider>
     );
 }

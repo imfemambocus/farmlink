@@ -1,20 +1,24 @@
+# services/order_service.py - UNIFIED SYSTEM ONLY
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, desc
-from models.order import Cart, CartItem, Order, OrderItem, Payment, OrderStatusEnum, PaymentStatusEnum
+from sqlalchemy import desc
+from models.order import Cart, CartItem, UnifiedOrder, UnifiedOrderItem, UnifiedPayment, OrderStatusEnum, \
+    PaymentStatusEnum, FarmerPayment
 from models.product import FarmerProduct, ProductUnitPrice
-from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
-from schemas.order import CartItemCreate, CartItemUpdate, OrderCreateRequest, OrderUpdateRequest, CartFarmerGroup
+from models.user import User
+from schemas.order import CartItemCreate, CartItemUpdate
 from typing import List, Optional, Dict, Tuple
 from decimal import Decimal
 from datetime import datetime
-import uuid
 
 
 class OrderService:
     def __init__(self, db: Session):
         self.db = db
 
-    # Cart Management
+    # ==========================================
+    # CART MANAGEMENT
+    # ==========================================
+
     def get_or_create_cart(self, user_id: int) -> Cart:
         """Get existing cart or create new one for user"""
         cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
@@ -225,148 +229,86 @@ class OrderService:
         self.db.commit()
         return True
 
-    # Order Management
-    def create_order_from_cart(self, user_id: int, order_data: OrderCreateRequest) -> Order:
-        """Create order from cart items for specific farmer"""
-        try:
-            cart = self.get_or_create_cart(user_id)
+    # ==========================================
+    # UNIFIED ORDER MANAGEMENT
+    # ==========================================
 
-            # Get cart items for specific farmer
-            cart_items = (
-                self.db.query(CartItem)
-                .join(FarmerProduct)
-                .filter(
-                    CartItem.cart_id == cart.id,
-                    FarmerProduct.farmer_id == order_data.farmer_id
-                )
-                .all()
+    def get_customer_orders(self, user_id: int, status: Optional[str] = None) -> List[UnifiedOrder]:
+        """Get unified orders for customer"""
+        query = (
+            self.db.query(UnifiedOrder)
+            .options(
+                joinedload(UnifiedOrder.items),
+                joinedload(UnifiedOrder.payment)
             )
+            .filter(UnifiedOrder.customer_id == user_id)
+        )
 
-            if not cart_items:
-                raise ValueError("No items found for this farmer in your cart")
+        if status:
+            query = query.filter(UnifiedOrder.status == status)
 
-            # Get user profile for order snapshot
-            user = self.db.query(User).get(user_id)
-            customer_name = ""
-            customer_phone = ""
+        return query.order_by(desc(UnifiedOrder.created_at)).all()
 
-            if user.role == "individual" and user.individual_profile:
-                customer_name = f"{user.individual_profile.first_name} {user.individual_profile.last_name}"
-                customer_phone = user.individual_profile.phone_number
-            elif user.role == "business" and user.business_profile:
-                customer_name = user.business_profile.business_name
-                customer_phone = user.business_profile.phone_number
-
-            # Calculate totals
-            total_amount = sum(item.total_price for item in cart_items)
-            delivery_fee = Decimal('50.00')  # Fixed delivery fee for now
-            final_amount = total_amount + delivery_fee
-
-            # Generate order number
-            order_number = f"ORD-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
-
-            # Create order
-            order = Order(
-                order_number=order_number,
-                customer_id=user_id,
-                farmer_id=order_data.farmer_id,
-                total_amount=total_amount,
-                delivery_fee=delivery_fee,
-                final_amount=final_amount,
-                customer_name=customer_name,
-                customer_phone=customer_phone,
-                customer_email=user.email,
-                delivery_address=order_data.delivery_address,
-                delivery_notes=order_data.delivery_notes,
-                status=OrderStatusEnum.CONFIRMED
+    def get_farmer_orders(self, farmer_id: int, status: Optional[str] = None) -> List[UnifiedOrder]:
+        """Get unified orders that contain items from this farmer"""
+        query = (
+            self.db.query(UnifiedOrder)
+            .join(UnifiedOrderItem)
+            .options(
+                joinedload(UnifiedOrder.items),
+                joinedload(UnifiedOrder.payment)
             )
+            .filter(UnifiedOrderItem.farmer_id == farmer_id)
+        )
 
-            self.db.add(order)
-            self.db.flush()
+        if status:
+            query = query.filter(UnifiedOrder.status == status)
 
-            # Create order items and reduce stock
-            for cart_item in cart_items:
-                product = cart_item.farmer_product
-                unit_price_obj = cart_item.unit_price
+        return query.order_by(desc(UnifiedOrder.created_at)).all()
 
-                # Double-check stock availability
-                if cart_item.quantity > unit_price_obj.quantity_available:
-                    raise ValueError(f"Not enough stock for {product.item.value}")
-
-                order_item = OrderItem(
-                    order_id=order.id,
-                    farmer_product_id=cart_item.farmer_product_id,
-                    item_name=product.item.value.replace('_', ' ').title(),
-                    unit=unit_price_obj.unit.value,
-                    unit_price=cart_item.unit_price_snapshot,
-                    quantity=cart_item.quantity,
-                    total_price=cart_item.total_price,
-                    product_description=product.description
-                )
-                self.db.add(order_item)
-
-                # Reduce stock quantity
-                unit_price_obj.quantity_available -= cart_item.quantity
-
-            # Create payment record
-            payment = Payment(
-                order_id=order.id,
-                payment_method=order_data.payment_method,
-                amount=final_amount,
-                currency="LKR",
-                status=PaymentStatusEnum.PENDING
+    def get_order_by_id(self, order_id: int, user_id: int) -> Optional[UnifiedOrder]:
+        """Get unified order by ID (customer or farmer can access)"""
+        # Check if user is customer
+        order = (
+            self.db.query(UnifiedOrder)
+            .options(
+                joinedload(UnifiedOrder.items),
+                joinedload(UnifiedOrder.payment),
+                joinedload(UnifiedOrder.farmer_payments)
             )
-            self.db.add(payment)
+            .filter(
+                UnifiedOrder.id == order_id,
+                UnifiedOrder.customer_id == user_id
+            )
+            .first()
+        )
 
-            # Remove items from cart
-            for cart_item in cart_items:
-                self.db.delete(cart_item)
-
-            self.db.commit()
-            self.db.refresh(order)
+        if order:
             return order
 
-        except Exception as e:
-            self.db.rollback()
-            raise e
-
-    def get_customer_orders(self, user_id: int, status: Optional[str] = None) -> List[Order]:
-        """Get orders for customer"""
-        query = (
-            self.db.query(Order)
-            .options(
-                joinedload(Order.items),
-                joinedload(Order.farmer).joinedload(User.farmer_profile)
-            )
-            .filter(Order.customer_id == user_id)
-        )
-
-        if status:
-            query = query.filter(Order.status == status)
-
-        return query.order_by(desc(Order.created_at)).all()
-
-    def get_farmer_orders(self, farmer_id: int, status: Optional[str] = None) -> List[Order]:
-        """Get orders for farmer"""
-        query = (
-            self.db.query(Order)
-            .options(joinedload(Order.items))
-            .filter(Order.farmer_id == farmer_id)
-        )
-
-        if status:
-            query = query.filter(Order.status == status)
-
-        return query.order_by(desc(Order.created_at)).all()
-
-    def update_order_status(self, order_id: int, user_id: int, update_data: OrderUpdateRequest) -> Order:
-        """Update order status (farmers only)"""
+        # Check if user is farmer with items in this order
         order = (
-            self.db.query(Order)
-            .filter(
-                Order.id == order_id,
-                Order.farmer_id == user_id
+            self.db.query(UnifiedOrder)
+            .join(UnifiedOrderItem)
+            .options(
+                joinedload(UnifiedOrder.items),
+                joinedload(UnifiedOrder.payment),
+                joinedload(UnifiedOrder.farmer_payments)
             )
+            .filter(
+                UnifiedOrder.id == order_id,
+                UnifiedOrderItem.farmer_id == user_id
+            )
+            .first()
+        )
+
+        return order
+
+    def update_order_status(self, order_id: int, user_id: int, new_status: OrderStatusEnum) -> UnifiedOrder:
+        """Update unified order status (admin or system only)"""
+        order = (
+            self.db.query(UnifiedOrder)
+            .filter(UnifiedOrder.id == order_id)
             .first()
         )
 
@@ -374,12 +316,9 @@ class OrderService:
             raise ValueError("Order not found")
 
         # Update status and timestamps
-        old_status = order.status
-        order.status = update_data.status
+        order.status = new_status
 
-        if update_data.status == OrderStatusEnum.OUT_FOR_DELIVERY and not order.out_for_delivery_at:
-            order.out_for_delivery_at = datetime.utcnow()
-        elif update_data.status == OrderStatusEnum.DELIVERED and not order.delivered_at:
+        if new_status == OrderStatusEnum.DELIVERED and not order.delivered_at:
             order.delivered_at = datetime.utcnow()
             # Mark payment as successful when delivered
             if order.payment:
@@ -390,59 +329,52 @@ class OrderService:
         self.db.refresh(order)
         return order
 
-    def get_order_by_id(self, order_id: int, user_id: int) -> Optional[Order]:
-        """Get order by ID (customer or farmer can access)"""
-        return (
-            self.db.query(Order)
-            .options(
-                joinedload(Order.items),
-                joinedload(Order.farmer).joinedload(User.farmer_profile),
-                joinedload(Order.customer),
-                joinedload(Order.payment)
-            )
-            .filter(
-                Order.id == order_id,
-                (Order.customer_id == user_id) | (Order.farmer_id == user_id)
-            )
-            .first()
-        )
-
     def get_farmer_order_summary(self, farmer_id: int) -> Dict:
         """Get order summary for farmer dashboard"""
         from sqlalchemy import func
 
-        # Get order counts by status
-        summary = (
+        # Get farmer payment records (this is how we track farmer-specific revenue)
+        farmer_payments = (
             self.db.query(
-                Order.status,
-                func.count(Order.id).label('count'),
-                func.sum(Order.final_amount).label('total_amount')
+                UnifiedOrder.status,
+                func.count(UnifiedOrder.id).label('count'),
+                func.sum(FarmerPayment.gross_amount).label('gross_amount'),
+                func.sum(FarmerPayment.net_amount).label('net_amount')
             )
-            .filter(Order.farmer_id == farmer_id)
-            .group_by(Order.status)
+            .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
+            .filter(FarmerPayment.farmer_id == farmer_id)
+            .group_by(UnifiedOrder.status)
             .all()
         )
 
         result = {
             'total_orders': 0,
             'confirmed_orders': 0,
+            'processing_orders': 0,
             'out_for_delivery_orders': 0,
             'delivered_orders': 0,
-            'total_revenue': 0,
+            'total_gross_revenue': 0,
+            'total_net_revenue': 0,
             'pending_revenue': 0
         }
 
-        for status, count, amount in summary:
+        for status, count, gross_amount, net_amount in farmer_payments:
             result['total_orders'] += count
-            amount_float = float(amount or 0)
-            result['total_revenue'] += amount_float
+            gross_float = float(gross_amount or 0)
+            net_float = float(net_amount or 0)
+
+            result['total_gross_revenue'] += gross_float
+            result['total_net_revenue'] += net_float
 
             if status == OrderStatusEnum.CONFIRMED:
                 result['confirmed_orders'] = count
-                result['pending_revenue'] += amount_float
+                result['pending_revenue'] += net_float
+            elif status == OrderStatusEnum.PROCESSING:
+                result['processing_orders'] = count
+                result['pending_revenue'] += net_float
             elif status == OrderStatusEnum.OUT_FOR_DELIVERY:
                 result['out_for_delivery_orders'] = count
-                result['pending_revenue'] += amount_float
+                result['pending_revenue'] += net_float
             elif status == OrderStatusEnum.DELIVERED:
                 result['delivered_orders'] = count
 

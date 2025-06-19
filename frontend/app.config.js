@@ -29,7 +29,7 @@ export default {
         "expo-splash-screen",
         {
           image: "./assets/images/logo.png",
-          imageWidth: 128,
+          imageWidth: 64,
           resizeMode: "contain",
           backgroundColor: "#F2FBE0",
         },
@@ -42,7 +42,9 @@ export default {
       typedRoutes: true,
     },
     extra: {
-      API_BASE_URL: process.env.API_BASE_URL || "http://10.0.2.2:8000",
+      STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || "pk_test_51RbVKCR2koWNU5mYXZLTBS8F2QFV6BNavZXTeL8vi2W84bBMncWqogZCYDdOKZxsLF3sqkOqytjofCnFzk3DTCB100zbpCFyuk",
+      MERCHANT_IDENTIFIER: process.env.MERCHANT_IDENTIFIER || "",
+      API_BASE_URL: process.env.API_BASE_URL || "http://localhost:8000",
     },
   },
 };
