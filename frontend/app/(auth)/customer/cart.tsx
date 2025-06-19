@@ -508,12 +508,12 @@ export default function CartScreen() {
                         <View className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                             <View className="flex-row items-center">
                                 <Ionicons name="business-outline" size={20} color="#2563eb" />
-                                <Text className="text-blue-700 font-medium ml-2">
+                                <Text className="text-blue-700 text-sm font-medium ml-2">
                                     business bulk pricing applied
                                 </Text>
                             </View>
-                            <Text className="text-blue-600 text-sm mt-1">
-                                you're getting special wholesale prices for bulk orders
+                            <Text className="text-blue-600 text-xs mt-1">
+                                you&#39;re getting special wholesale prices for bulk orders
                             </Text>
                         </View>
                     )}
@@ -522,7 +522,7 @@ export default function CartScreen() {
                     {cart.farmer_groups.map(renderFarmerGroup)}
 
                     {/* Bottom Checkout Section */}
-                    <View className="bg-white rounded-xl p-5 mt-4">
+                    <View className="bg-white rounded-xl p-2 mt-4">
                         <View className="flex-row justify-between items-center mb-4">
                             <View>
                                 <Text className="text-sm text-gray-600">total amount</Text>

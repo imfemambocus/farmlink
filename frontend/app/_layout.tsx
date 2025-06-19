@@ -1,10 +1,11 @@
 import { Stack } from "expo-router";
 import { AuthProvider } from '@/context/AuthContext';
-import {useFonts} from "expo-font";
-import {useEffect} from "react";
+import { useFonts } from "expo-font";
+import { useEffect } from "react";
 import * as SplashScreen from 'expo-splash-screen';
 import './globals.css';
-import {CartProvider} from "@/context/CartContext";
+import { CartProvider } from "@/context/CartContext";
+import { FarmerOrdersProvider } from "@/context/FarmerOrdersContext";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -27,11 +28,13 @@ export default function RootLayout() {
     return (
         <AuthProvider>
             <CartProvider>
-                <Stack
-                    screenOptions={{
-                        headerShown: false,
-                    }}
-                />
+                <FarmerOrdersProvider>
+                    <Stack
+                        screenOptions={{
+                            headerShown: false,
+                        }}
+                    />
+                </FarmerOrdersProvider>
             </CartProvider>
         </AuthProvider>
     );

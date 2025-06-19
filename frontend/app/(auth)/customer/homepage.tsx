@@ -213,6 +213,7 @@ export default function CustomerHomePage() {
                 title="farmlink"
                 showCartButton={true}
                 showSettingsButton={true}
+                showOrdersButton={true}
             />
 
             <ScrollView
@@ -231,7 +232,7 @@ export default function CustomerHomePage() {
                 <View className="px-5 pt-6 pb-4">
                     <Text className="text-xl font-semibold text-black mb-2">
                         welcome back, {user?.individual_profile?.first_name?.toLowerCase() ||
-                        user?.business_profile?.business_name?.toLowerCase() || 'there'}!
+                        user?.business_profile?.contact_name?.toLowerCase() || 'there'}!
                     </Text>
                     <Text className="text-base text-gray-600">
                         discover fresh produce from local farmers

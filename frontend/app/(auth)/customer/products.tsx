@@ -432,6 +432,7 @@ export default function ProductsScreen() {
                 title="products"
                 showBackButton={true}
                 showCartButton={true}
+                showOrdersButton={true}
             />
 
             <ScrollView

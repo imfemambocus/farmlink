@@ -588,7 +588,7 @@ function CheckoutScreen() {
             <Header title="Checkout" showBackButton={true} />
 
             <ScrollView
-                className="flex-1 px-5 pt-6"
+                className="flex-1 px-2 pt-3"
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 20 }}
             >
@@ -597,7 +597,7 @@ function CheckoutScreen() {
                 {renderPaymentMethods()}
 
                 {/* Payment Button */}
-                <View className="mb-8">
+                <View className="mb-8 px-5">
                     <TouchableOpacity
                         onPress={handlePayment}
                         className="bg-background py-4 px-6 rounded-xl"

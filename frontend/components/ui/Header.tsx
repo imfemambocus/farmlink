@@ -1,9 +1,11 @@
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { useFarmerOrders } from '@/context/FarmerOrdersContext';
+import { useCallback } from 'react';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -19,6 +21,7 @@ interface HeaderProps {
     showCartButton?: boolean;
     showSettingsButton?: boolean;
     showLogoutButton?: boolean;
+    showOrdersButton?: boolean;
 }
 
 export default function Header({
@@ -27,11 +30,13 @@ export default function Header({
    showCartButton = false,
    showSettingsButton = false,
    showLogoutButton = false,
+   showOrdersButton = false,
 }: HeaderProps) {
-    const { logout } = useContext(AuthContext);
+    const { logout, user } = useContext(AuthContext);
     const { cartItemCount, isFlashing, refreshCartCount } = useCart();
+    const { pendingOrdersCount, refreshPendingOrdersCount } = useFarmerOrders();
 
-    // Animation values - ONLY for the badge
+    // Animation values - ONLY for the cart badge
     const badgeScale = useSharedValue(1);
     const badgeBackgroundColor = useSharedValue(0);
 
@@ -39,6 +44,24 @@ export default function Header({
     const handleCartPress = () => router.push('/(auth)/customer/cart');
     const handleSettingsPress = () => router.push('/profile');
     const handleLogout = () => logout();
+
+    const handleOrdersPress = () => {
+        if (user?.farmer_profile) {
+            router.push('/(auth)/farmer/orders');
+        } else {
+            router.push('/(auth)/customer/orders');
+        }
+    }
+
+    // Refresh pending orders count when screen comes into focus
+    // This ensures the count updates when navigating back from order details
+    useFocusEffect(
+        useCallback(() => {
+            if (user?.role === 'farmer' && showOrdersButton) {
+                refreshPendingOrdersCount();
+            }
+        }, [user?.role, showOrdersButton, refreshPendingOrdersCount])
+    );
 
     // Animated styles for cart badge ONLY
     const animatedBadgeStyle = useAnimatedStyle(() => {
@@ -79,7 +102,7 @@ export default function Header({
                     <Text className="text-2xl font-semibold text-black">
                         {title.toLowerCase()}
                     </Text>
-                    <View className="flex-row items-center gap-4">
+                    <View className="flex-row items-center gap-5">
                         {showCartButton && (
                             <TouchableOpacity
                                 onPress={handleCartPress}
@@ -88,7 +111,7 @@ export default function Header({
                             >
                                 {/* Cart icon - NO animation */}
                                 <Ionicons
-                                    name="cart-outline"
+                                    name="cart"
                                     size={24}
                                     color="#000000"
                                 />
@@ -125,13 +148,67 @@ export default function Header({
                                 )}
                             </TouchableOpacity>
                         )}
+                        {showOrdersButton && user?.role === 'farmer' && (
+                            <TouchableOpacity
+                                onPress={handleOrdersPress}
+                                activeOpacity={0.7}
+                                className="relative"
+                            >
+                                <Ionicons
+                                    name="receipt"
+                                    size={24}
+                                    color="#000000"
+                                />
+
+                                {/* Orders Badge for farmers - NO animation (static) */}
+                                {pendingOrdersCount > 0 && (
+                                    <View
+                                        style={{
+                                            position: 'absolute',
+                                            top: -8,
+                                            right: -8,
+                                            backgroundColor: '#f59e0b', // amber-500
+                                            borderRadius: 10,
+                                            minWidth: 20,
+                                            height: 20,
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            borderWidth: 2,
+                                            borderColor: '#ffffff',
+                                        }}
+                                    >
+                                        <Text
+                                            className="text-white text-xs font-bold"
+                                            style={{
+                                                fontSize: pendingOrdersCount > 99 ? 8 : 10,
+                                                lineHeight: pendingOrdersCount > 99 ? 10 : 12
+                                            }}
+                                        >
+                                            {pendingOrdersCount > 99 ? '99+' : pendingOrdersCount}
+                                        </Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        )}
+                        {showOrdersButton && user?.role !== 'farmer' && (
+                            <TouchableOpacity
+                                onPress={handleOrdersPress}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons
+                                    name="receipt"
+                                    size={24}
+                                    color="#000000"
+                                />
+                            </TouchableOpacity>
+                        )}
                         {showSettingsButton && (
                             <TouchableOpacity
                                 onPress={handleSettingsPress}
                                 activeOpacity={0.7}
                             >
                                 <Ionicons
-                                    name="settings-outline"
+                                    name="settings"
                                     size={24}
                                     color="#000000"
                                 />
@@ -155,7 +232,7 @@ export default function Header({
                                 activeOpacity={0.7}
                             >
                                 <Ionicons
-                                    name="log-out-outline"
+                                    name="log-out"
                                     size={24}
                                     color="#000000"
                                 />

@@ -107,7 +107,7 @@ def clear_cart(
 # UNIFIED ORDER ENDPOINTS
 # ==========================================
 
-@router.get("/orders", response_model=List[UnifiedOrderListItem])
+@router.get("", response_model=List[UnifiedOrderListItem])
 def get_my_orders(
         status: Optional[OrderStatusEnum] = Query(None, description="Filter by order status"),
         current_user=Depends(get_current_user),
@@ -153,7 +153,7 @@ def get_my_orders(
     return result
 
 
-@router.get("/orders/{order_id}", response_model=UnifiedOrderResponse)
+@router.get("/{order_id}", response_model=UnifiedOrderResponse)
 def get_order(
         order_id: int,
         current_user=Depends(get_current_user),
@@ -168,16 +168,27 @@ def get_order(
 
     # For farmers, filter items to show only their products
     items = order.items
+    farmer_total_amount = order.total_amount  # Default to full amount
+    farmer_final_amount = order.final_amount  # Default to full amount
+
     if current_user.role == 'farmer':
+        # Filter items for this farmer only
         items = [item for item in order.items if item.farmer_id == current_user.id]
+
+        # Calculate farmer-specific totals
+        farmer_total_amount = sum(item.total_price for item in items)
+
+        # For final amount, we don't add delivery fee since that's shared
+        # The farmer only gets paid for their items
+        farmer_final_amount = farmer_total_amount
 
     return UnifiedOrderResponse(
         id=order.id,
         order_number=order.order_number,
         status=order.status,
-        total_amount=order.total_amount,
-        delivery_fee=order.delivery_fee,
-        final_amount=order.final_amount,
+        total_amount=farmer_total_amount,  # Farmer's items only
+        delivery_fee=0,  # Delivery fee is handled by platform
+        final_amount=farmer_final_amount,  # Farmer's portion only
         customer_name=order.customer_name,
         customer_phone=order.customer_phone,
         customer_email=order.customer_email,
@@ -190,39 +201,67 @@ def get_order(
     )
 
 
-@router.put("/orders/{order_id}/status", response_model=UnifiedOrderResponse)
+@router.put("/{order_id}/status", response_model=UnifiedOrderResponse)
 def update_order_status(
         order_id: int,
         update_data: UnifiedOrderUpdateRequest,
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Update unified order status (admin only - farmers can't change order status in unified system)"""
-    # In unified system, individual farmers don't control order status
-    # This is typically handled by admin/system or delivery service
-    if current_user.role not in ['admin', 'system']:  # Add admin role check
-        raise HTTPException(status_code=403, detail="Only admin can update order status")
+    """Update unified order status - farmers can update orders containing their products"""
+    service = OrderService(db)
+
+    # Get the order first to check permissions
+    order = service.get_order_by_id(order_id, current_user.id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Permission checks based on user role
+    if current_user.role == 'farmer':
+        # Check if farmer has items in this order
+        farmer_items = [item for item in order.items if item.farmer_id == current_user.id]
+        if not farmer_items:
+            raise HTTPException(status_code=403, detail="You can only update orders containing your products")
+
+        # Define which statuses farmers can set
+        allowed_statuses = ['processing', 'out_for_delivery', 'delivered', 'cancelled']
+        if update_data.status not in allowed_statuses:
+            raise HTTPException(status_code=403, detail=f"Farmers cannot set status to {update_data.status}")
+
+        # Prevent farmers from changing delivered/cancelled orders
+        if order.status in ['delivered', 'cancelled']:
+            raise HTTPException(status_code=403, detail="Cannot modify delivered or cancelled orders")
+
+    elif current_user.role in ['admin', 'system']:
+        # Admins can change any order to any status
+        pass
+    else:
+        raise HTTPException(status_code=403, detail="Not authorized to update order status")
 
     try:
-        service = OrderService(db)
-        order = service.update_order_status(order_id, current_user.id, update_data.status)
+        updated_order = service.update_order_status(order_id, current_user.id, update_data.status)
+
+        # For farmers, filter items to show only their products in response
+        items = updated_order.items
+        if current_user.role == 'farmer':
+            items = [item for item in updated_order.items if item.farmer_id == current_user.id]
 
         return UnifiedOrderResponse(
-            id=order.id,
-            order_number=order.order_number,
-            status=order.status,
-            total_amount=order.total_amount,
-            delivery_fee=order.delivery_fee,
-            final_amount=order.final_amount,
-            customer_name=order.customer_name,
-            customer_phone=order.customer_phone,
-            customer_email=order.customer_email,
-            delivery_address=order.delivery_address,
-            delivery_notes=order.delivery_notes,
-            items=order.items,
-            created_at=order.created_at,
-            updated_at=order.updated_at,
-            delivered_at=order.delivered_at
+            id=updated_order.id,
+            order_number=updated_order.order_number,
+            status=updated_order.status,
+            total_amount=updated_order.total_amount,
+            delivery_fee=updated_order.delivery_fee,
+            final_amount=updated_order.final_amount,
+            customer_name=updated_order.customer_name,
+            customer_phone=updated_order.customer_phone,
+            customer_email=updated_order.customer_email,
+            delivery_address=updated_order.delivery_address,
+            delivery_notes=updated_order.delivery_notes,
+            items=items,
+            created_at=updated_order.created_at,
+            updated_at=updated_order.updated_at,
+            delivered_at=updated_order.delivered_at
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

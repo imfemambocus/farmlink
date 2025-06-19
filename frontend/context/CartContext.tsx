@@ -1,6 +1,7 @@
 // context/CartContext.tsx
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthContext } from '@/context/AuthContext';
 import api from '@/services/api';
 
 interface CartContextType {
@@ -30,13 +31,23 @@ interface CartProviderProps {
 }
 
 export const CartProvider = ({ children }: CartProviderProps) => {
+    const { user } = useContext(AuthContext);
     const [cartItemCount, setCartItemCount] = useState(0);
     const [isFlashing, setIsFlashing] = useState(false);
 
     const refreshCartCount = async () => {
         try {
+            // Only fetch cart for customers (individual/business users)
+            if (!user || !['individual', 'business'].includes(user.role)) {
+                setCartItemCount(0);
+                return;
+            }
+
             const token = await AsyncStorage.getItem('token');
-            if (!token) return;
+            if (!token) {
+                setCartItemCount(0);
+                return;
+            }
 
             const response = await api.get('/orders/cart', {
                 headers: { Authorization: `Bearer ${token}` }
@@ -59,8 +70,13 @@ export const CartProvider = ({ children }: CartProviderProps) => {
     };
 
     useEffect(() => {
-        refreshCartCount();
-    }, []);
+        // Only refresh when user changes and is a customer
+        if (user && ['individual', 'business'].includes(user.role)) {
+            refreshCartCount();
+        } else {
+            setCartItemCount(0);
+        }
+    }, [user]);
 
     return (
         <CartContext.Provider value={{

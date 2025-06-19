@@ -367,7 +367,7 @@ export default function OrderSuccessScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={() => router.push('/customer/products')}
+                        onPress={() => router.push('/customer/orders')}
                         className="flex-1 bg-background py-4 px-6 rounded-xl"
                         activeOpacity={0.7}
                     >

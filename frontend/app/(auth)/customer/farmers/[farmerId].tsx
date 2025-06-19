@@ -293,6 +293,7 @@ export default function FarmerDetailScreen() {
                 title={farmer.name.toLowerCase()}
                 showBackButton={true}
                 showCartButton={true}
+                showOrdersButton={true}
             />
 
             <ScrollView

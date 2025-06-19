@@ -277,6 +277,7 @@ export default function FarmersScreen() {
                 title="farmers"
                 showBackButton={true}
                 showCartButton={true}
+                showOrdersButton={true}
             />
 
             <ScrollView
