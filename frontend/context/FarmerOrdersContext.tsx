@@ -1,4 +1,4 @@
-// context/FarmerOrdersContext.tsx
+// context/FarmerOrdersContext.tsx - Fixed version
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '@/context/AuthContext';
@@ -29,15 +29,17 @@ interface FarmerOrdersProviderProps {
 export const FarmerOrdersProvider = ({ children }: FarmerOrdersProviderProps) => {
     const { user } = useContext(AuthContext);
     const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
+    const [isLoading, setIsLoading] = useState(false); // Add loading state to prevent multiple calls
 
     const refreshPendingOrdersCount = async () => {
         try {
             // Only fetch for farmers
-            if (user?.role !== 'farmer') {
+            if (user?.role !== 'farmer' || isLoading) {
                 setPendingOrdersCount(0);
                 return;
             }
 
+            setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             if (!token) {
                 setPendingOrdersCount(0);
@@ -57,17 +59,19 @@ export const FarmerOrdersProvider = ({ children }: FarmerOrdersProviderProps) =>
         } catch (error) {
             console.error('Error fetching pending orders count:', error);
             setPendingOrdersCount(0);
+        } finally {
+            setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        // Only refresh when user changes and is a farmer
+        // Only refresh when user.id changes and is a farmer
         if (user?.role === 'farmer') {
             refreshPendingOrdersCount();
         } else {
             setPendingOrdersCount(0);
         }
-    }, [user]);
+    }, [user?.id]); // Only depend on user.id, not the entire user object
 
     return (
         <FarmerOrdersContext.Provider value={{

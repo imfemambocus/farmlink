@@ -103,7 +103,7 @@ class PushNotificationService:
             farmer_id: Optional[int] = None,
             data: Optional[Dict] = None
     ) -> Notification:
-        """Create notification record and send push notification"""
+        """Create notification record and send push notification - SQLite optimized"""
 
         # Create notification record
         notification = Notification(
@@ -117,7 +117,7 @@ class PushNotificationService:
         )
         self.db.add(notification)
 
-        # Get user's device tokens
+        # Get user's device tokens separately (SQLite-friendly)
         device_tokens = (
             self.db.query(DeviceToken)
             .filter(
@@ -128,6 +128,7 @@ class PushNotificationService:
         )
 
         expo_tokens = [token.expo_push_token for token in device_tokens]
+        print(f"Found {len(expo_tokens)} device tokens for user {user_id}")
 
         # Send push notification
         if expo_tokens:
@@ -146,8 +147,14 @@ class PushNotificationService:
             if success:
                 notification.is_sent = True
                 notification.sent_at = datetime.utcnow()
+                print(f"Push notification sent successfully to user {user_id}")
+            else:
+                print(f"Failed to send push notification to user {user_id}")
+        else:
+            print(f"No device tokens found for user {user_id}")
 
-        self.db.commit()
+        # Commit this notification separately
+        self.db.flush()  # Use flush instead of commit to keep transaction open
         return notification
 
     def notify_new_order_to_farmers(self, order: UnifiedOrder):
@@ -155,6 +162,7 @@ class PushNotificationService:
 
         # Get unique farmer IDs from order items
         farmer_ids = set(item.farmer_id for item in order.items)
+        print(f"Processing order {order.id}, farmer IDs: {farmer_ids}")
 
         for farmer_id in farmer_ids:
             # Get farmer's items for this order
@@ -162,32 +170,117 @@ class PushNotificationService:
             item_count = len(farmer_items)
             total_amount = sum(item.total_price for item in farmer_items)
 
-            # Create farmer status record
-            farmer_status = UnifiedOrderFarmerStatus(
-                order_id=order.id,
-                farmer_id=farmer_id,
-                status="confirmed"
+            print(f"Farmer {farmer_id}: {item_count} items, total: {total_amount}")
+
+            # Create farmer status record - THIS IS IMPORTANT!
+            existing_status = (
+                self.db.query(UnifiedOrderFarmerStatus)
+                .filter(
+                    UnifiedOrderFarmerStatus.order_id == order.id,
+                    UnifiedOrderFarmerStatus.farmer_id == farmer_id
+                )
+                .first()
             )
-            self.db.add(farmer_status)
+
+            if not existing_status:
+                farmer_status = UnifiedOrderFarmerStatus(
+                    order_id=order.id,
+                    farmer_id=farmer_id,
+                    status="confirmed"
+                )
+                self.db.add(farmer_status)
+                print(f"Created farmer status record for farmer {farmer_id}")
+            else:
+                print(f"Farmer status record already exists for farmer {farmer_id}")
 
             # Send notification to farmer
             title = "New Order Received!"
             message = f"Order #{order.order_number} - {item_count} items, Rs {total_amount:.2f}"
 
-            self.create_and_send_notification(
+            # Create notification record
+            notification = Notification(
                 user_id=farmer_id,
-                notification_type=NotificationTypeEnum.ORDER_CREATED,
+                order_id=order.id,
+                farmer_id=None,  # This is sent TO the farmer, not FROM them
+                type=NotificationTypeEnum.ORDER_CREATED,
                 title=title,
                 message=message,
-                order_id=order.id,
-                data={
+                data=json.dumps({
                     "order_number": order.order_number,
                     "item_count": item_count,
                     "amount": float(total_amount)
-                }
+                })
+            )
+            self.db.add(notification)
+            print(f"Created notification for farmer {farmer_id}")
+
+            # Get device tokens for push notification
+            device_tokens = (
+                self.db.query(DeviceToken)
+                .filter(
+                    DeviceToken.user_id == farmer_id,
+                    DeviceToken.is_active == True
+                )
+                .all()
             )
 
-        self.db.commit()
+            expo_tokens = [token.expo_push_token for token in device_tokens]
+            print(f"Found {len(expo_tokens)} device tokens for farmer {farmer_id}")
+
+            # Send push notification
+            if expo_tokens:
+                success = self.send_push_notification(
+                    expo_tokens,
+                    title,
+                    message,
+                    {
+                        "order_id": order.id,
+                        "farmer_id": farmer_id,
+                        "type": NotificationTypeEnum.ORDER_CREATED.value,
+                        "order_number": order.order_number,
+                        "item_count": item_count,
+                        "amount": float(total_amount)
+                    }
+                )
+
+                if success:
+                    notification.is_sent = True
+                    notification.sent_at = datetime.utcnow()
+                    print(f"Push notification sent successfully to farmer {farmer_id}")
+                else:
+                    print(f"Failed to send push notification to farmer {farmer_id}")
+            else:
+                print(f"No device tokens found for farmer {farmer_id}")
+
+        # Commit everything at once
+        try:
+            self.db.commit()
+            print(f"Successfully committed notifications for order {order.id}")
+        except Exception as e:
+            print(f"Error committing notifications: {e}")
+            self.db.rollback()
+            raise
+
+        # Debug: Check what was actually created AFTER commit
+        notifications = (
+            self.db.query(Notification)
+            .filter(Notification.order_id == order.id)
+            .all()
+        )
+        print(f"Total notifications in DB for order {order.id}: {len(notifications)}")
+
+        farmer_statuses = (
+            self.db.query(UnifiedOrderFarmerStatus)
+            .filter(UnifiedOrderFarmerStatus.order_id == order.id)
+            .all()
+        )
+        print(f"Total farmer status records in DB for order {order.id}: {len(farmer_statuses)}")
+
+        # If still zero, there's a transaction issue
+        if len(notifications) == 0 and len(farmer_ids) > 0:
+            print("WARNING: Notifications were not saved to database!")
+        if len(farmer_statuses) == 0 and len(farmer_ids) > 0:
+            print("WARNING: Farmer status records were not saved to database!")
 
     def notify_order_status_change(self, order: UnifiedOrder, farmer_id: int, new_status: str, old_status: str):
         """Send notification to customer when farmer changes order status"""

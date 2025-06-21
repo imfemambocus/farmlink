@@ -1,5 +1,5 @@
 // Updated Header component with notification badge
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, use } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -24,22 +24,24 @@ interface HeaderProps {
     showSettingsButton?: boolean;
     showLogoutButton?: boolean;
     showOrdersButton?: boolean;
-    showNotificationButton?: boolean; // Add this prop
+    showNotificationButton?: boolean;
+    showHomeButton?: boolean;
 }
 
 export default function Header({
-                                   title,
-                                   showBackButton = false,
-                                   showCartButton = false,
-                                   showSettingsButton = false,
-                                   showLogoutButton = false,
-                                   showOrdersButton = false,
-                                   showNotificationButton = false, // Add this prop
-                               }: HeaderProps) {
+   title,
+   showBackButton = false,
+   showCartButton = false,
+   showSettingsButton = false,
+   showLogoutButton = false,
+   showOrdersButton = false,
+   showNotificationButton = false,
+    showHomeButton = false,
+}: HeaderProps) {
     const { logout, user } = useContext(AuthContext);
     const { cartItemCount, isFlashing, refreshCartCount } = useCart();
     const { pendingOrdersCount, refreshPendingOrdersCount } = useFarmerOrders();
-    const { unreadCount, refreshNotifications } = useNotifications(); // Add this
+    const { unreadCount, refreshNotifications } = useNotifications();
 
     // Animation values - ONLY for the cart badge
     const badgeScale = useSharedValue(1);
@@ -49,7 +51,15 @@ export default function Header({
     const handleCartPress = () => router.push('/(auth)/customer/cart');
     const handleSettingsPress = () => router.push('/profile');
     const handleLogout = () => logout();
-    const handleNotificationPress = () => router.push('/(auth)/notifications'); // Add this
+    const handleNotificationPress = () => router.push('/(auth)/notifications');
+
+    const handleHomePress = () => {
+        if (user?.farmer_profile) {
+            router.push('/(auth)/farmer/dashboard');
+        } else {
+            router.push('/(auth)/customer/homepage');
+        }
+    }
 
     const handleOrdersPress = () => {
         if (user?.farmer_profile) {
@@ -62,13 +72,21 @@ export default function Header({
     // Refresh counts when screen comes into focus
     useFocusEffect(
         useCallback(() => {
-            if (user?.role === 'farmer' && showOrdersButton) {
+            // Only refresh counts when on specific screens that need real-time updates
+            const shouldRefreshFarmerOrders = user?.role === 'farmer' && showOrdersButton &&
+                (title === 'dashboard' || title === 'my orders');
+
+            const shouldRefreshNotifications = showNotificationButton &&
+                (title === 'notifications' || title === 'dashboard' || title === 'farmlink');
+
+            if (shouldRefreshFarmerOrders) {
                 refreshPendingOrdersCount();
             }
-            if (showNotificationButton) {
-                refreshNotifications(); // Add this
+
+            if (shouldRefreshNotifications) {
+                refreshNotifications();
             }
-        }, [user?.role, showOrdersButton, showNotificationButton, refreshPendingOrdersCount, refreshNotifications])
+        }, [user?.role, showOrdersButton, showNotificationButton, title]) // Added title dependency
     );
 
     // Animated styles for cart badge ONLY
@@ -108,6 +126,18 @@ export default function Header({
                         {title.toLowerCase()}
                     </Text>
                     <View className="flex-row items-center gap-5">
+                        {showHomeButton && (
+                            <TouchableOpacity
+                                onPress={handleHomePress}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons
+                                    name="home-sharp"
+                                    size={20}
+                                    color="#000000"
+                                />
+                            </TouchableOpacity>
+                        )}
                         {showNotificationButton && (
                             <TouchableOpacity
                                 onPress={handleNotificationPress}
@@ -116,7 +146,7 @@ export default function Header({
                             >
                                 <Ionicons
                                     name="notifications"
-                                    size={24}
+                                    size={20}
                                     color="#000000"
                                 />
 
@@ -158,7 +188,7 @@ export default function Header({
                             >
                                 <Ionicons
                                     name="cart"
-                                    size={24}
+                                    size={20}
                                     color="#000000"
                                 />
 
@@ -201,7 +231,7 @@ export default function Header({
                             >
                                 <Ionicons
                                     name="receipt"
-                                    size={24}
+                                    size={20}
                                     color="#000000"
                                 />
 
@@ -241,7 +271,7 @@ export default function Header({
                             >
                                 <Ionicons
                                     name="receipt"
-                                    size={24}
+                                    size={20}
                                     color="#000000"
                                 />
                             </TouchableOpacity>
@@ -253,7 +283,7 @@ export default function Header({
                             >
                                 <Ionicons
                                     name="settings"
-                                    size={24}
+                                    size={20}
                                     color="#000000"
                                 />
                             </TouchableOpacity>
@@ -264,8 +294,8 @@ export default function Header({
                                 activeOpacity={0.7}
                             >
                                 <Ionicons
-                                    name="arrow-back"
-                                    size={24}
+                                    name="arrow-back-sharp"
+                                    size={20}
                                     color="#000000"
                                 />
                             </TouchableOpacity>
@@ -277,7 +307,7 @@ export default function Header({
                             >
                                 <Ionicons
                                     name="log-out"
-                                    size={24}
+                                    size={20}
                                     color="#000000"
                                 />
                             </TouchableOpacity>

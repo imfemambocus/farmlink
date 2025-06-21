@@ -584,7 +584,12 @@ export default function FarmerOrdersScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title="my orders" showBackButton={true} />
+                <Header
+                    title="my orders"
+                    showBackButton={true}
+                    showNotificationButton={true}
+                    showHomeButton={true}
+                />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">loading orders...</Text>
@@ -599,6 +604,7 @@ export default function FarmerOrdersScreen() {
                 title="my orders"
                 showBackButton={true}
                 showNotificationButton={true}
+                showHomeButton={true}
             />
 
             {orders.length === 0 ? (

@@ -1,4 +1,4 @@
-// app/(auth)/customer/cart.tsx - Enhanced Version
+// app/(auth)/customer/cart.tsx - Complete Version with Fixed AI Recipe Slider
 import { useEffect, useState, useContext, useCallback } from 'react';
 import {
     View,
@@ -14,20 +14,12 @@ import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
+import RecipeSuggestions from '@/components/customer/RecipeSuggestions';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import { getProductBackgroundColor } from '@/utils/products';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/api';
-
-interface UnitPrice {
-    id: number;
-    unit: string;
-    customer_type: 'individual' | 'business';
-    price_per_unit: number;
-    quantity_available: number;
-    minimum_order: number;
-}
 
 interface CartItem {
     id: number;
@@ -91,7 +83,7 @@ export default function CartScreen() {
         type: 'success' | 'error' | 'warning' | 'info',
         title: string,
         message: string,
-        buttons: Array<{
+        buttons?: Array<{
             text: string;
             onPress: () => void;
             style?: 'default' | 'cancel' | 'destructive';
@@ -102,7 +94,7 @@ export default function CartScreen() {
             type,
             title,
             message,
-            buttons
+            buttons: buttons || [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
         });
     };
 
@@ -145,8 +137,6 @@ export default function CartScreen() {
             }));
 
             setCart(processedCart);
-
-            // Refresh the cart count in context
             await refreshCartCount();
 
         } catch (error: any) {
@@ -163,10 +153,7 @@ export default function CartScreen() {
                     updated_at: null
                 });
             }
-
-            // Also refresh count when there's an error
             await refreshCartCount();
-
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -201,16 +188,14 @@ export default function CartScreen() {
             showAlert(
                 'success',
                 'Updated',
-                'Item quantity updated successfully',
-                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
+                'Item quantity updated successfully'
             );
         } catch (error: any) {
             console.error('Error updating item:', error);
             showAlert(
                 'error',
                 'Update Failed',
-                error.response?.data?.detail || 'Failed to update item quantity',
-                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
+                error.response?.data?.detail || 'Failed to update item quantity'
             );
         } finally {
             setUpdatingItem(null);
@@ -238,55 +223,14 @@ export default function CartScreen() {
                             showAlert(
                                 'success',
                                 'Removed',
-                                'Item removed from cart',
-                                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
+                                'Item removed from cart'
                             );
                         } catch (error: any) {
                             console.error('Error removing item:', error);
                             showAlert(
                                 'error',
                                 'Remove Failed',
-                                'Failed to remove item from cart',
-                                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
-                            );
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
-    const clearCart = async () => {
-        showAlert(
-            'warning',
-            'Clear Cart',
-            'Are you sure you want to remove all items from your cart?',
-            [
-                { text: 'Cancel', onPress: hideAlert, style: 'cancel' },
-                {
-                    text: 'Clear All',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            const token = await AsyncStorage.getItem('token');
-                            await api.delete('/orders/cart', {
-                                headers: { Authorization: `Bearer ${token}` }
-                            });
-                            await fetchCart();
-
-                            showAlert(
-                                'success',
-                                'Cart Cleared',
-                                'All items removed from cart',
-                                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
-                            );
-                        } catch (error: any) {
-                            console.error('Error clearing cart:', error);
-                            showAlert(
-                                'error',
-                                'Clear Failed',
-                                'Failed to clear cart',
-                                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
+                                'Failed to remove item from cart'
                             );
                         }
                     }
@@ -300,14 +244,19 @@ export default function CartScreen() {
             showAlert(
                 'info',
                 'Empty Cart',
-                'Your cart is empty. Add some items before checkout.',
-                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
+                'Your cart is empty. Add some items before checkout.'
             );
             return;
         }
 
         router.push('/(auth)/customer/checkout');
     };
+
+    // Handle when AI adds ingredients to cart
+    const handleIngredientsAdded = useCallback(async () => {
+        // Refresh cart to show new items
+        await fetchCart();
+    }, [fetchCart]);
 
     const getQuantityStep = (userRole: string): number => {
         return userRole === 'business' ? 25 : 1;
@@ -325,6 +274,25 @@ export default function CartScreen() {
     const formatPrice = (price: number | string | undefined): string => {
         const numPrice = Number(price) || 0;
         return numPrice.toFixed(2);
+    };
+
+    // Convert cart items to format needed for AI
+    const getCartItemsForAI = (): Array<{product_name: string, quantity: number, unit_name: string}> => {
+        if (!cart) return [];
+
+        const allItems: Array<{product_name: string, quantity: number, unit_name: string}> = [];
+
+        cart.farmer_groups.forEach(group => {
+            group.items.forEach(item => {
+                allItems.push({
+                    product_name: item.product_name,
+                    quantity: item.quantity,
+                    unit_name: item.unit_name
+                });
+            });
+        });
+
+        return allItems;
     };
 
     const renderCartItem = (item: CartItem) => {
@@ -470,10 +438,13 @@ export default function CartScreen() {
             <Header
                 title="my cart"
                 showBackButton={true}
+                showHomeButton={true}
+                showOrdersButton={true}
             />
 
             {isEmpty ? (
                 <View className="flex-1 justify-center items-center px-6">
+                    <Ionicons name="basket-outline" size={64} color="#d1d5db" />
                     <Text className="text-xl font-medium text-black mt-4 mb-2">
                         your cart is empty
                     </Text>
@@ -521,8 +492,16 @@ export default function CartScreen() {
                     {/* Farmer Groups */}
                     {cart.farmer_groups.map(renderFarmerGroup)}
 
-                    {/* Bottom Checkout Section */}
-                    <View className="bg-white rounded-xl p-2 mt-4">
+                    {/* AI Recipe Suggestions - Only for individual customers */}
+                    <RecipeSuggestions
+                        cartItems={getCartItemsForAI()}
+                        customerType={user?.role as 'individual' | 'business'}
+                        onIngredientsAdded={handleIngredientsAdded}
+                        onAlert={showAlert}
+                    />
+
+                    {/* Bottom Checkout Section - Reverted to original */}
+                    <View className="bg-white rounded-xl p-2 mt-4 mb-4">
                         <View className="flex-row justify-between items-center mb-4">
                             <View>
                                 <Text className="text-sm text-gray-600">total amount</Text>

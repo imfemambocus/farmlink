@@ -212,13 +212,13 @@ class StripePaymentService:
             )
             self.db.add(payment)
 
-            # Send notifications to farmers about new order
-            self.notification_service.notify_new_order_to_farmers(order)
-
             # Clear cart items
             self.clear_cart_items(cart_id)
 
             self.db.commit()
+
+            # Now send notifications (this will handle its own commit)
+            self.notification_service.notify_new_order_to_farmers(order)
 
             return {
                 'order_id': order.id,

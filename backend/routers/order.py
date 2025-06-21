@@ -2,14 +2,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+
+from models.notification import UnifiedOrderFarmerStatus
+from models.user import FarmerProfile, User
 from schemas.order import (
     CartItemCreate, CartItemUpdate, CartItemResponse, CartResponse,
     UnifiedOrderResponse, UnifiedOrderListItem, UnifiedOrderUpdateRequest,
-    UnifiedPaymentResponse, FarmerOrderSummary
+    FarmerOrderSummary
 )
 from services.order_service import OrderService
 from core.security import get_current_user, get_db
-from models.order import OrderStatusEnum
+from models.order import OrderStatusEnum, UnifiedOrder, UnifiedOrderItem
 
 router = APIRouter()
 
@@ -199,6 +202,78 @@ def get_order(
         updated_at=order.updated_at,
         delivered_at=order.delivered_at
     )
+
+
+@router.get("/{order_id}/farmers")
+def get_order_farmers(
+        order_id: int,
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Get farmer information for an order (SQLite-optimized)"""
+
+    # First, get the order and check permissions
+    order = db.query(UnifiedOrder).filter(UnifiedOrder.id == order_id).first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Get order items separately
+    order_items = (
+        db.query(UnifiedOrderItem)
+        .filter(UnifiedOrderItem.order_id == order_id)
+        .all()
+    )
+
+    # Check permissions
+    farmer_ids_in_order = set(item.farmer_id for item in order_items)
+
+    if current_user.id != order.customer_id and current_user.id not in farmer_ids_in_order:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Get farmer info separately for each farmer
+    farmers_info = {}
+    for farmer_id in farmer_ids_in_order:
+        # Query farmer and profile separately to avoid SQLite join issues
+        farmer = db.query(User).filter(User.id == farmer_id).first()
+
+        if farmer:
+            # Get farmer profile separately
+            farmer_profile = (
+                db.query(FarmerProfile)
+                .filter(FarmerProfile.user_id == farmer_id)
+                .first()
+            )
+
+            if farmer_profile:
+                farmer_name = f"{farmer_profile.first_name} {farmer_profile.last_name}"
+                farmer_district = farmer_profile.district
+            else:
+                farmer_name = f"Farmer {farmer_id}"
+                farmer_district = "Unknown District"
+        else:
+            farmer_name = f"Farmer {farmer_id}"
+            farmer_district = "Unknown District"
+
+        # Check for farmer status (if notification system is working)
+        farmer_status = (
+            db.query(UnifiedOrderFarmerStatus)
+            .filter(
+                UnifiedOrderFarmerStatus.order_id == order_id,
+                UnifiedOrderFarmerStatus.farmer_id == farmer_id
+            )
+            .first()
+        )
+
+        status = farmer_status.status if farmer_status else "confirmed"
+
+        farmers_info[farmer_id] = {
+            "farmer_name": farmer_name,
+            "farmer_district": farmer_district,
+            "status": status
+        }
+
+    return {"farmers": farmers_info}
 
 
 @router.put("/{order_id}/status", response_model=UnifiedOrderResponse)

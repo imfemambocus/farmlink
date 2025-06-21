@@ -1,5 +1,5 @@
 // app/(auth)/notifications.tsx
-import { useEffect, useState } from 'react';
+import {useContext, useEffect, useState} from 'react';
 import {
     View,
     Text,
@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import Header from '@/components/ui/Header';
 import { useNotifications } from '@/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
+import {AuthContext} from "@/context/AuthContext";
 
 interface AppNotification {
     id: number;
@@ -28,6 +29,7 @@ interface AppNotification {
 }
 
 export default function NotificationsScreen() {
+    const { user } = useContext(AuthContext);
     const router = useRouter();
     const { notifications, unreadCount, refreshNotifications, markAsRead, markAllAsRead } = useNotifications();
     const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ export default function NotificationsScreen() {
 
         // Navigate based on notification type and data
         if (notification.order_id) {
-            router.push(`/(auth)/customer/orders`); // You can make this more specific
+            router.push(`/(auth)/${user?.farmer_profile ? 'farmer' : 'customer'}/orders`);
         }
     };
 
@@ -221,7 +223,7 @@ export default function NotificationsScreen() {
                         no notifications yet
                     </Text>
                     <Text className="text-gray-600 text-center">
-                        you'll receive notifications about order updates and new orders here
+                        you&#39;ll receive notifications about order updates and new orders here
                     </Text>
                 </View>
             ) : (

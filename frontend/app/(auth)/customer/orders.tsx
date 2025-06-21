@@ -1,4 +1,4 @@
-// Updated app/(auth)/customer/orders.tsx - Add per-farmer status tracking
+// Updated app/(auth)/customer/orders.tsx - Smart status display for multi vs single farmer orders
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -62,7 +62,6 @@ interface OrderDetails {
     delivered_at?: string;
 }
 
-// Add farmer status interface
 interface FarmerStatus {
     farmer_name: string;
     status: string;
@@ -139,7 +138,7 @@ export default function OrdersScreen() {
 
             // Fetch farmer statuses for this order
             try {
-                const statusResponse = await api.get(`/notification/order/${orderId}/farmer-statuses`, { // Changed from /notifications to /notification
+                const statusResponse = await api.get(`/notification/order/${orderId}/farmer-statuses`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -149,7 +148,6 @@ export default function OrdersScreen() {
                 }));
             } catch (statusError) {
                 console.error('Error fetching farmer statuses:', statusError);
-                // If farmer statuses fail to load, we'll still show the order details
             }
 
         } catch (error: any) {
@@ -323,11 +321,39 @@ export default function OrdersScreen() {
         });
     };
 
+    // Helper function to determine if order has multiple farmers
+    const getOrderType = (order: Order) => {
+        const details = orderDetails[order.id];
+        if (!details) return { isMultiFarmer: false, farmerCount: order.farmer_count || 1 };
+
+        const farmerIds = new Set(details.items.map(item => item.farmer_id));
+        return {
+            isMultiFarmer: farmerIds.size > 1,
+            farmerCount: farmerIds.size
+        };
+    };
+
+    // Get the single farmer's status for single-farmer orders
+    const getSingleFarmerStatus = (order: Order): OrderStatus => {
+        const details = orderDetails[order.id];
+        if (!details) return order.status;
+
+        const farmerIds = new Set(details.items.map(item => item.farmer_id));
+        if (farmerIds.size === 1) {
+            const farmerId = Array.from(farmerIds)[0];
+            const farmerStatus = farmerStatuses[order.id]?.[farmerId];
+            return (farmerStatus?.status as OrderStatus) || 'confirmed';
+        }
+        return order.status;
+    };
+
     const renderOrder = (order: Order) => {
         const isExpanded = expandedOrders.has(order.id);
         const details = orderDetails[order.id];
         const isLoadingDetails = loadingOrderDetails.has(order.id);
         const animationValue = getAnimationValue(order.id);
+        const { isMultiFarmer, farmerCount } = getOrderType(order);
+        const displayStatus = isMultiFarmer ? order.status : getSingleFarmerStatus(order);
 
         return (
             <View key={order.id} className="bg-white rounded-xl mb-4 overflow-hidden border border-gray-200">
@@ -348,17 +374,36 @@ export default function OrdersScreen() {
                         </View>
 
                         <View className="items-end">
-                            <View
-                                className="px-3 py-1 rounded-full mb-1"
-                                style={{ backgroundColor: getStatusColor(order.status) + '20' }}
-                            >
-                                <Text
-                                    className="text-xs font-medium capitalize"
-                                    style={{ color: getStatusColor(order.status) }}
+                            {/* Smart Status Display */}
+                            {farmerCount > 1 ? (
+                                // Multi-farmer: Show "Expand" text
+                                <View className="px-3 py-1 rounded-full mb-1 bg-gray-100">
+                                    <View className="flex-row items-center">
+                                        <Text className="text-xs font-medium text-gray-500 mr-1">
+                                            expand
+                                        </Text>
+                                        <Ionicons
+                                            name={isExpanded ? "chevron-up" : "chevron-down"}
+                                            size={12}
+                                            color="#6b7280"
+                                        />
+                                    </View>
+                                </View>
+                            ) : (
+                                // Single farmer: Show farmer's actual status
+                                <View
+                                    className="px-3 py-1 rounded-full mb-1"
+                                    style={{ backgroundColor: getStatusColor(displayStatus) + '20' }}
                                 >
-                                    {getStatusText(order.status)}
-                                </Text>
-                            </View>
+                                    <Text
+                                        className="text-xs font-medium capitalize"
+                                        style={{ color: getStatusColor(displayStatus) }}
+                                    >
+                                        {getStatusText(displayStatus)}
+                                    </Text>
+                                </View>
+                            )}
+
                             <Text className="text-lg font-bold text-black">
                                 rs {formatPrice(order.final_amount)}
                             </Text>
@@ -370,11 +415,9 @@ export default function OrdersScreen() {
                         <Text className="text-sm text-gray-600">
                             {order.item_count} item{order.item_count !== 1 ? 's' : ''}
                         </Text>
-                        {order.farmer_count && (
-                            <Text className="text-sm text-gray-600">
-                                {order.farmer_count} farmer{order.farmer_count !== 1 ? 's' : ''}
-                            </Text>
-                        )}
+                        <Text className="text-sm text-gray-600">
+                            {farmerCount} farmer{farmerCount !== 1 ? 's' : ''}
+                        </Text>
                     </View>
                 </TouchableOpacity>
 
@@ -408,13 +451,15 @@ export default function OrdersScreen() {
                                     )}
                                 </View>
 
-                                {/* Items grouped by farmer with individual statuses */}
+                                {/* Items grouped by farmer with smart status display */}
                                 <View className="mb-4">
-                                    <Text className="text-sm font-medium text-black mb-3">order items by farmer</Text>
+                                    <Text className="text-sm font-medium text-black mb-3">
+                                        {isMultiFarmer ? 'order items by farmer' : 'order items'}
+                                    </Text>
 
                                     {groupItemsByFarmer(details.items, order.id).map((farmerGroup, index) => (
                                         <View key={farmerGroup.farmer_id} className="mb-4 last:mb-0">
-                                            {/* Farmer Header with Status */}
+                                            {/* Farmer Header with Smart Status */}
                                             <View className="bg-gray-50 rounded-lg p-3 mb-2">
                                                 <View className="flex-row items-center justify-between mb-2">
                                                     <View className="flex-1">
@@ -429,20 +474,22 @@ export default function OrdersScreen() {
                                                         </View>
                                                     </View>
 
-                                                    {/* Individual Farmer Status */}
+                                                    {/* Status only for multi-farmer orders */}
                                                     <View className="items-end">
-                                                        <View
-                                                            className="px-2 py-1 rounded-full"
-                                                            style={{ backgroundColor: getStatusColor(farmerGroup.status as OrderStatus) + '20' }}
-                                                        >
-                                                            <Text
-                                                                className="text-xs font-medium"
-                                                                style={{ color: getStatusColor(farmerGroup.status as OrderStatus) }}
+                                                        {isMultiFarmer && (
+                                                            <View
+                                                                className="px-2 py-1 rounded-full mb-1"
+                                                                style={{ backgroundColor: getStatusColor(farmerGroup.status as OrderStatus) + '20' }}
                                                             >
-                                                                {getStatusText(farmerGroup.status as OrderStatus)}
-                                                            </Text>
-                                                        </View>
-                                                        <Text className="text-xs text-gray-600 mt-1">
+                                                                <Text
+                                                                    className="text-xs font-medium"
+                                                                    style={{ color: getStatusColor(farmerGroup.status as OrderStatus) }}
+                                                                >
+                                                                    {getStatusText(farmerGroup.status as OrderStatus)}
+                                                                </Text>
+                                                            </View>
+                                                        )}
+                                                        <Text className="text-xs text-gray-600">
                                                             rs {formatPrice(farmerGroup.total)}
                                                         </Text>
                                                     </View>
@@ -487,7 +534,11 @@ export default function OrdersScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title="my orders" showBackButton={true} showNotificationButton={true} />
+                <Header
+                    title="my orders"
+                    showBackButton={true}
+                    showNotificationButton={true}
+                />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">loading orders...</Text>
@@ -498,7 +549,11 @@ export default function OrdersScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title="my orders" showBackButton={true} showNotificationButton={true} />
+            <Header
+                title="my orders"
+                showBackButton={true}
+                showNotificationButton={true}
+            />
 
             {orders.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-6">

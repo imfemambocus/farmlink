@@ -1,4 +1,4 @@
-// context/NotificationContext.tsx
+// context/NotificationContext.tsx - Fixed version
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '@/context/AuthContext';
@@ -78,6 +78,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     const { user } = useContext(AuthContext);
     const [unreadCount, setUnreadCount] = useState(0);
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
+    const [isLoading, setIsLoading] = useState(false); // Add loading state to prevent multiple calls
     const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
     const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
@@ -105,7 +106,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
 
             // Get push token
             const token = await Notifications.getExpoPushTokenAsync({
-                projectId: process.env.EXPO_PROJECT_ID, // Add this to your app.config.js
+                projectId: process.env.EXPO_PROJECT_ID,
             });
 
             // Configure notification channel for Android
@@ -133,10 +134,9 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             const authToken = await AsyncStorage.getItem('token');
             if (!authToken) return;
 
-            // Generate a unique device ID (you might want to use a more robust method)
             const deviceId = await Device.deviceName + '_' + Date.now();
 
-            await api.post('/notification/device-token', { // Changed from /notifications to /notification
+            await api.post('/notification/device-token', {
                 expo_push_token: expoPushToken,
                 device_id: deviceId,
                 platform: Platform.OS
@@ -152,12 +152,13 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
 
     const refreshNotifications = async () => {
         try {
-            if (!user) return;
+            if (!user || isLoading) return; // Prevent multiple simultaneous calls
 
+            setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
             if (!token) return;
 
-            const response = await api.get('/notification', { // Changed from /notifications to /notification
+            const response = await api.get('/notification', {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -166,6 +167,8 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
 
         } catch (error) {
             console.error('Error fetching notifications:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -174,7 +177,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             const token = await AsyncStorage.getItem('token');
             if (!token) return;
 
-            await api.put(`/notification/${notificationId}/read`, {}, { // Changed from /notifications to /notification
+            await api.put(`/notification/${notificationId}/read`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -198,7 +201,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             const token = await AsyncStorage.getItem('token');
             if (!token) return;
 
-            await api.put('/notification/read-all', {}, { // Changed from /notifications to /notification
+            await api.put('/notification/read-all', {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -219,60 +222,48 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
 
     const handleNotificationReceived = (notification: Notifications.Notification) => {
         console.log('Notification received:', notification);
-
-        // Refresh notifications when a new one comes in
         refreshNotifications();
 
-        // You can add custom logic here for different notification types
         const data = notification.request.content.data as NotificationData;
         if (data?.type === 'order_created') {
-            // Handle new order notification for farmers
             console.log('New order notification received');
         } else if (data?.type === 'order_status_changed') {
-            // Handle status change notification for customers
             console.log('Order status change notification received');
         }
     };
 
     const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
         console.log('Notification tapped:', response);
-
         const data = response.notification.request.content.data as NotificationData;
 
-        // Navigate based on notification type
         if (data?.order_id) {
-            // Navigate to order details
-            // You'll need to import router and navigate appropriately
             console.log('Navigate to order:', data.order_id);
         }
     };
 
     useEffect(() => {
         if (user) {
-            // Register for push notifications
+            // Only run once when user changes
             registerForPushNotifications();
-
-            // Fetch initial notifications
             refreshNotifications();
 
-            // Set up notification listeners
-            notificationListener.current = Notifications.addNotificationReceivedListener(handleNotificationReceived);
-            responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+            // Set up notification listeners - Fixed deprecation
+            const notifSub = Notifications.addNotificationReceivedListener(handleNotificationReceived);
+            const responseSub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+
+            notificationListener.current = notifSub;
+            responseListener.current = responseSub;
+
+            return () => {
+                // Fixed deprecation warning - use .remove() instead
+                notifSub.remove();
+                responseSub.remove();
+            };
         } else {
-            // Clear notifications when user logs out
             setNotifications([]);
             setUnreadCount(0);
         }
-
-        return () => {
-            if (notificationListener.current) {
-                Notifications.removeNotificationSubscription(notificationListener.current);
-            }
-            if (responseListener.current) {
-                Notifications.removeNotificationSubscription(responseListener.current);
-            }
-        };
-    }, [user]);
+    }, [user?.id]); // Only depend on user.id, not the entire user object
 
     return (
         <NotificationContext.Provider value={{

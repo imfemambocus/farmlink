@@ -159,7 +159,11 @@ export default function OrderSuccessScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title="Order Confirmation" showBackButton={false} />
+            <Header
+                title="Order Confirmation"
+                showHomeButton={true}
+                showOrdersButton={true}
+            />
 
             <ScrollView
                 className="flex-1"
@@ -352,31 +356,6 @@ export default function OrderSuccessScreen() {
                     </View>
                 </View>
             </ScrollView>
-
-            {/* Bottom Action Buttons */}
-            <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-10 pt-5 pb-10">
-                <View className="flex-row gap-3">
-                    <TouchableOpacity
-                        onPress={() => router.push('/customer/homepage')}
-                        className="flex-1 bg-gray-100 py-4 px-6 rounded-xl"
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-center font-medium text-black text-sm">
-                            home
-                        </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        onPress={() => router.push('/customer/orders')}
-                        className="flex-1 bg-background py-4 px-6 rounded-xl"
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-center font-medium text-black text-sm">
-                            orders
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
         </View>
     );
 }

@@ -1,7 +1,7 @@
 export default {
   expo: {
-    name: "FarmLink",
-    slug: "farm-link",
+    name: "Farmlink",
+    slug: "farmlink",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/logo.png",
@@ -78,6 +78,7 @@ export default {
       },
       STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || "pk_test_51RbVKCR2koWNU5mYXZLTBS8F2QFV6BNavZXTeL8vi2W84bBMncWqogZCYDdOKZxsLF3sqkOqytjofCnFzk3DTCB100zbpCFyuk",
       MERCHANT_IDENTIFIER: process.env.MERCHANT_IDENTIFIER || "",
+      EXPO_PUBLIC_OPENAI_API_KEY: process.env.EXPO_PUBLIC_OPENAI_API_KEY || "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",
       API_BASE_URL: process.env.API_BASE_URL || "http://localhost:8000",
     },
     owner: "imfestudio",
