@@ -538,6 +538,7 @@ export default function OrdersScreen() {
                     title="my orders"
                     showBackButton={true}
                     showNotificationButton={true}
+                    showHomeButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -553,6 +554,7 @@ export default function OrdersScreen() {
                 title="my orders"
                 showBackButton={true}
                 showNotificationButton={true}
+                showHomeButton={true}
             />
 
             {orders.length === 0 ? (

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 # Password: test (for all test users)
-DEFAULT_PASSWORD = "test"
+DEFAULT_PASSWORD = "testing"
 
 
 def reset_database(db: Session):
