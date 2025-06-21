@@ -1,4 +1,4 @@
-// app/(auth)/customer/orders.tsx
+// Updated app/(auth)/customer/orders.tsx - Add per-farmer status tracking
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -62,11 +62,23 @@ interface OrderDetails {
     delivered_at?: string;
 }
 
+// Add farmer status interface
+interface FarmerStatus {
+    farmer_name: string;
+    status: string;
+    farmer_district?: string;
+}
+
+interface FarmerStatuses {
+    [farmerId: number]: FarmerStatus;
+}
+
 export default function OrdersScreen() {
     const { user } = useContext(AuthContext);
     const router = useRouter();
     const [orders, setOrders] = useState<Order[]>([]);
     const [orderDetails, setOrderDetails] = useState<{ [key: number]: OrderDetails }>({});
+    const [farmerStatuses, setFarmerStatuses] = useState<{ [key: number]: FarmerStatuses }>({});
     const [expandedOrders, setExpandedOrders] = useState<Set<number>>(new Set());
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -114,14 +126,32 @@ export default function OrdersScreen() {
 
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await api.get(`/orders/${orderId}`, {
+
+            // Fetch order details
+            const orderResponse = await api.get(`/orders/${orderId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             setOrderDetails(prev => ({
                 ...prev,
-                [orderId]: response.data
+                [orderId]: orderResponse.data
             }));
+
+            // Fetch farmer statuses for this order
+            try {
+                const statusResponse = await api.get(`/notification/order/${orderId}/farmer-statuses`, { // Changed from /notifications to /notification
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                setFarmerStatuses(prev => ({
+                    ...prev,
+                    [orderId]: statusResponse.data.farmer_statuses
+                }));
+            } catch (statusError) {
+                console.error('Error fetching farmer statuses:', statusError);
+                // If farmer statuses fail to load, we'll still show the order details
+            }
+
         } catch (error: any) {
             console.error('Error fetching order details:', error);
         } finally {
@@ -266,6 +296,33 @@ export default function OrdersScreen() {
         );
     };
 
+    // Group items by farmer for display
+    const groupItemsByFarmer = (items: OrderItem[], orderId: number) => {
+        const grouped: { [key: number]: { farmer_id: number; items: OrderItem[]; total: number } } = {};
+
+        items.forEach(item => {
+            if (!grouped[item.farmer_id]) {
+                grouped[item.farmer_id] = {
+                    farmer_id: item.farmer_id,
+                    items: [],
+                    total: 0
+                };
+            }
+            grouped[item.farmer_id].items.push(item);
+            grouped[item.farmer_id].total += Number(item.total_price);
+        });
+
+        return Object.values(grouped).map(group => {
+            const farmerStatus = farmerStatuses[orderId]?.[group.farmer_id];
+            return {
+                ...group,
+                farmer_name: farmerStatus?.farmer_name || 'Unknown Farmer',
+                farmer_district: farmerStatus?.farmer_district || 'Unknown District',
+                status: farmerStatus?.status || 'confirmed'
+            };
+        });
+    };
+
     const renderOrder = (order: Order) => {
         const isExpanded = expandedOrders.has(order.id);
         const details = orderDetails[order.id];
@@ -327,7 +384,7 @@ export default function OrdersScreen() {
                         style={{
                             maxHeight: animationValue.interpolate({
                                 inputRange: [0, 1],
-                                outputRange: [0, 1000], // Adjust max height as needed
+                                outputRange: [0, 1500],
                             }),
                             opacity: animationValue,
                         }}
@@ -351,12 +408,53 @@ export default function OrdersScreen() {
                                     )}
                                 </View>
 
-                                {/* Order Items */}
+                                {/* Items grouped by farmer with individual statuses */}
                                 <View className="mb-4">
-                                    <Text className="text-sm font-medium text-black mb-3">order items</Text>
-                                    <View className="bg-gray-50 rounded-lg p-3">
-                                        {details.items.map(renderOrderItem)}
-                                    </View>
+                                    <Text className="text-sm font-medium text-black mb-3">order items by farmer</Text>
+
+                                    {groupItemsByFarmer(details.items, order.id).map((farmerGroup, index) => (
+                                        <View key={farmerGroup.farmer_id} className="mb-4 last:mb-0">
+                                            {/* Farmer Header with Status */}
+                                            <View className="bg-gray-50 rounded-lg p-3 mb-2">
+                                                <View className="flex-row items-center justify-between mb-2">
+                                                    <View className="flex-1">
+                                                        <Text className="text-sm font-medium text-black">
+                                                            {farmerGroup.farmer_name.toLowerCase()}
+                                                        </Text>
+                                                        <View className="flex-row items-center mt-1">
+                                                            <Ionicons name="location-outline" size={12} color="#666666" />
+                                                            <Text className="text-xs text-gray-600 ml-1">
+                                                                {farmerGroup.farmer_district.toLowerCase()}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+
+                                                    {/* Individual Farmer Status */}
+                                                    <View className="items-end">
+                                                        <View
+                                                            className="px-2 py-1 rounded-full"
+                                                            style={{ backgroundColor: getStatusColor(farmerGroup.status as OrderStatus) + '20' }}
+                                                        >
+                                                            <Text
+                                                                className="text-xs font-medium"
+                                                                style={{ color: getStatusColor(farmerGroup.status as OrderStatus) }}
+                                                            >
+                                                                {getStatusText(farmerGroup.status as OrderStatus)}
+                                                            </Text>
+                                                        </View>
+                                                        <Text className="text-xs text-gray-600 mt-1">
+                                                            rs {formatPrice(farmerGroup.total)}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+
+                                            {/* Farmer's Items */}
+                                            <View className="bg-white border border-gray-100 rounded-lg p-3">
+                                                {farmerGroup.items.map(renderOrderItem)}
+                                            </View>
+                                        </View>
+                                    ))}
                                 </View>
 
                                 {/* Order Total Breakdown */}
@@ -389,7 +487,7 @@ export default function OrdersScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title="my orders" showBackButton={true} />
+                <Header title="my orders" showBackButton={true} showNotificationButton={true} />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">loading orders...</Text>
@@ -400,7 +498,7 @@ export default function OrdersScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title="my orders" showBackButton={true} />
+            <Header title="my orders" showBackButton={true} showNotificationButton={true} />
 
             {orders.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-6">

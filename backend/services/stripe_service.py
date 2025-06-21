@@ -12,6 +12,8 @@ import uuid
 from datetime import datetime
 import os
 import json
+from services.notification_service import PushNotificationService
+
 
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_51RbVKCR2koWNU5mYSnmPAflOWt81mMJWmDDZyh7u6OE6ene713vJjY1nEoaSGaQgcqfgUmaTqwraPYHnSXXlvAvA00nUOCyvoS")
@@ -21,6 +23,7 @@ class StripePaymentService:
     def __init__(self, db: Session):
         self.db = db
         self.platform_fee_percentage = 10.0  # 10% commission for FarmLink
+        self.notification_service = PushNotificationService(db)
 
     def create_payment_intent(
             self,
@@ -80,7 +83,7 @@ class StripePaymentService:
             delivery_info: Dict,
             payment_method_type: str = "stripe_card"
     ) -> Dict:
-        """Confirm payment and create unified order"""
+        """Confirm payment and create unified order with notifications"""
         try:
             # Retrieve payment intent from Stripe with expanded charges
             payment_intent = stripe.PaymentIntent.retrieve(
@@ -208,6 +211,9 @@ class StripePaymentService:
                 })
             )
             self.db.add(payment)
+
+            # Send notifications to farmers about new order
+            self.notification_service.notify_new_order_to_farmers(order)
 
             # Clear cart items
             self.clear_cart_items(cart_id)

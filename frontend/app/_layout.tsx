@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import './globals.css';
 import { CartProvider } from "@/context/CartContext";
 import { FarmerOrdersProvider } from "@/context/FarmerOrdersContext";
+import {NotificationProvider} from "@/context/NotificationContext";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -29,11 +30,13 @@ export default function RootLayout() {
         <AuthProvider>
             <CartProvider>
                 <FarmerOrdersProvider>
-                    <Stack
-                        screenOptions={{
-                            headerShown: false,
-                        }}
-                    />
+                    <NotificationProvider>
+                        <Stack
+                            screenOptions={{
+                                headerShown: false,
+                            }}
+                        />
+                    </NotificationProvider>
                 </FarmerOrdersProvider>
             </CartProvider>
         </AuthProvider>

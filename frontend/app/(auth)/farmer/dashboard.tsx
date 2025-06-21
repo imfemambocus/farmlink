@@ -605,7 +605,12 @@ export default function FarmerDashboard() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title="dashboard" showSettingsButton={true} showOrdersButton={true} />
+            <Header
+                title="dashboard"
+                showSettingsButton={true}
+                showOrdersButton={true}
+                showNotificationButton={true}
+            />
 
             <ScrollView
                 className="flex-1"

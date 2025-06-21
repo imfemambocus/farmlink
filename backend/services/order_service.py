@@ -9,11 +9,13 @@ from schemas.order import CartItemCreate, CartItemUpdate
 from typing import List, Optional, Dict, Tuple
 from decimal import Decimal
 from datetime import datetime
+from services.notification_service import PushNotificationService
 
 
 class OrderService:
     def __init__(self, db: Session):
         self.db = db
+        self.notification_service = PushNotificationService(db)
 
     # ==========================================
     # CART MANAGEMENT
@@ -304,8 +306,8 @@ class OrderService:
 
         return order
 
-    def update_order_status(self, order_id: int, user_id: int, new_status: OrderStatusEnum) -> UnifiedOrder:
-        """Update unified order status (admin or system only)"""
+    def update_order_status(self, order_id: int, user_id: int, new_status: str) -> UnifiedOrder:
+        """Update unified order status with notifications"""
         order = (
             self.db.query(UnifiedOrder)
             .filter(UnifiedOrder.id == order_id)
@@ -315,18 +317,35 @@ class OrderService:
         if not order:
             raise ValueError("Order not found")
 
+        old_status = order.status
+
         # Update status and timestamps
         order.status = new_status
 
-        if new_status == OrderStatusEnum.DELIVERED and not order.delivered_at:
+        if new_status == "delivered" and not order.delivered_at:
             order.delivered_at = datetime.utcnow()
             # Mark payment as successful when delivered
             if order.payment:
-                order.payment.status = PaymentStatusEnum.SUCCESSFUL
+                order.payment.status = "successful"
                 order.payment.completed_at = datetime.utcnow()
 
         self.db.commit()
         self.db.refresh(order)
+
+        # Send notification to customer about farmer's status change
+        # Check if the user updating is a farmer
+        user = self.db.query(User).get(user_id)
+        if user and user.role == 'farmer':
+            # Check if farmer has items in this order
+            farmer_items = [item for item in order.items if item.farmer_id == user_id]
+            if farmer_items:
+                self.notification_service.notify_order_status_change(
+                    order=order,
+                    farmer_id=user_id,
+                    new_status=new_status,
+                    old_status=old_status
+                )
+
         return order
 
     def get_farmer_order_summary(self, farmer_id: int) -> Dict:

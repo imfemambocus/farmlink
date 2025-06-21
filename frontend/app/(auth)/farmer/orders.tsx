@@ -595,7 +595,11 @@ export default function FarmerOrdersScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title="my orders" showBackButton={true} />
+            <Header
+                title="my orders"
+                showBackButton={true}
+                showNotificationButton={true}
+            />
 
             {orders.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-6">

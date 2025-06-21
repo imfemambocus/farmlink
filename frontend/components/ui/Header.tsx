@@ -1,3 +1,4 @@
+// Updated Header component with notification badge
 import { useContext, useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -5,6 +6,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useFarmerOrders } from '@/context/FarmerOrdersContext';
+import { useNotifications } from '@/context/NotificationContext'; // Add this import
 import { useCallback } from 'react';
 import Animated, {
     useSharedValue,
@@ -22,19 +24,22 @@ interface HeaderProps {
     showSettingsButton?: boolean;
     showLogoutButton?: boolean;
     showOrdersButton?: boolean;
+    showNotificationButton?: boolean; // Add this prop
 }
 
 export default function Header({
-   title,
-   showBackButton = false,
-   showCartButton = false,
-   showSettingsButton = false,
-   showLogoutButton = false,
-   showOrdersButton = false,
-}: HeaderProps) {
+                                   title,
+                                   showBackButton = false,
+                                   showCartButton = false,
+                                   showSettingsButton = false,
+                                   showLogoutButton = false,
+                                   showOrdersButton = false,
+                                   showNotificationButton = false, // Add this prop
+                               }: HeaderProps) {
     const { logout, user } = useContext(AuthContext);
     const { cartItemCount, isFlashing, refreshCartCount } = useCart();
     const { pendingOrdersCount, refreshPendingOrdersCount } = useFarmerOrders();
+    const { unreadCount, refreshNotifications } = useNotifications(); // Add this
 
     // Animation values - ONLY for the cart badge
     const badgeScale = useSharedValue(1);
@@ -44,6 +49,7 @@ export default function Header({
     const handleCartPress = () => router.push('/(auth)/customer/cart');
     const handleSettingsPress = () => router.push('/profile');
     const handleLogout = () => logout();
+    const handleNotificationPress = () => router.push('/(auth)/notifications'); // Add this
 
     const handleOrdersPress = () => {
         if (user?.farmer_profile) {
@@ -53,34 +59,34 @@ export default function Header({
         }
     }
 
-    // Refresh pending orders count when screen comes into focus
-    // This ensures the count updates when navigating back from order details
+    // Refresh counts when screen comes into focus
     useFocusEffect(
         useCallback(() => {
             if (user?.role === 'farmer' && showOrdersButton) {
                 refreshPendingOrdersCount();
             }
-        }, [user?.role, showOrdersButton, refreshPendingOrdersCount])
+            if (showNotificationButton) {
+                refreshNotifications(); // Add this
+            }
+        }, [user?.role, showOrdersButton, showNotificationButton, refreshPendingOrdersCount, refreshNotifications])
     );
 
     // Animated styles for cart badge ONLY
     const animatedBadgeStyle = useAnimatedStyle(() => {
         return {
             transform: [{ scale: badgeScale.value }],
-            backgroundColor: `rgba(239, 68, 68, ${1 - badgeBackgroundColor.value * 0.5})`, // Flash between red-500 and lighter red
+            backgroundColor: `rgba(239, 68, 68, ${1 - badgeBackgroundColor.value * 0.5})`,
         };
     });
 
     // Trigger flash animation when isFlashing changes
     useEffect(() => {
         if (isFlashing) {
-            // Scale animation for badge only
             badgeScale.value = withSequence(
                 withSpring(1.3, { damping: 8, stiffness: 200 }),
                 withSpring(1, { damping: 8, stiffness: 200 })
             );
 
-            // Background color pulse for badge only
             badgeBackgroundColor.value = withSequence(
                 withTiming(1, { duration: 150 }),
                 withTiming(0, { duration: 150 }),
@@ -88,7 +94,6 @@ export default function Header({
                 withTiming(0, { duration: 150 })
             );
 
-            // Refresh cart count after animation
             setTimeout(() => {
                 runOnJS(refreshCartCount)();
             }, 100);
@@ -103,20 +108,60 @@ export default function Header({
                         {title.toLowerCase()}
                     </Text>
                     <View className="flex-row items-center gap-5">
+                        {showNotificationButton && (
+                            <TouchableOpacity
+                                onPress={handleNotificationPress}
+                                activeOpacity={0.7}
+                                className="relative"
+                            >
+                                <Ionicons
+                                    name="notifications"
+                                    size={24}
+                                    color="#000000"
+                                />
+
+                                {/* Notification Badge */}
+                                {unreadCount > 0 && (
+                                    <View
+                                        style={{
+                                            position: 'absolute',
+                                            top: -8,
+                                            right: -8,
+                                            backgroundColor: '#ef4444', // red-500
+                                            borderRadius: 10,
+                                            minWidth: 20,
+                                            height: 20,
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                            borderWidth: 2,
+                                            borderColor: '#ffffff',
+                                        }}
+                                    >
+                                        <Text
+                                            className="text-white text-xs font-bold"
+                                            style={{
+                                                fontSize: unreadCount > 99 ? 8 : 10,
+                                                lineHeight: unreadCount > 99 ? 10 : 12
+                                            }}
+                                        >
+                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                        </Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        )}
                         {showCartButton && (
                             <TouchableOpacity
                                 onPress={handleCartPress}
                                 activeOpacity={0.7}
                                 className="relative"
                             >
-                                {/* Cart icon - NO animation */}
                                 <Ionicons
                                     name="cart"
                                     size={24}
                                     color="#000000"
                                 />
 
-                                {/* Cart Badge - WITH animation */}
                                 {cartItemCount > 0 && (
                                     <Animated.View
                                         style={[
@@ -160,7 +205,6 @@ export default function Header({
                                     color="#000000"
                                 />
 
-                                {/* Orders Badge for farmers - NO animation (static) */}
                                 {pendingOrdersCount > 0 && (
                                     <View
                                         style={{

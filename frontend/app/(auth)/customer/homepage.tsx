@@ -214,6 +214,7 @@ export default function CustomerHomePage() {
                 showCartButton={true}
                 showSettingsButton={true}
                 showOrdersButton={true}
+                showNotificationButton={true}
             />
 
             <ScrollView

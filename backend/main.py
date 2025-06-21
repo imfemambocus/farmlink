@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import os
 from core.database import Base, engine
-from routers import auth, product, order, browse, payment
+from routers import auth, product, order, browse, payment, notification
 from seed_data import seed_database
 from dotenv import load_dotenv
 
@@ -34,3 +34,4 @@ app.include_router(product.router, prefix="/products", tags=["Products"])
 app.include_router(order.router, prefix="/orders", tags=["Orders"])
 app.include_router(browse.router, prefix="/browse", tags=["Browse"])
 app.include_router(payment.router, prefix="/payment", tags=["Payment"])
+app.include_router(notification.router, prefix="/notification", tags=["Notification"])
