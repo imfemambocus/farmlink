@@ -657,6 +657,7 @@ def update_profile(profile_data: dict, current_user=Depends(get_current_user), d
 ###################################
 
 
+# routes/browse.py - Updated with ML Recommendations endpoint
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -680,6 +681,19 @@ def browse_farmers(
 
     service = BrowseService(db)
     return service.get_featured_farmers(district=district, limit=limit)
+
+
+@router.get("/products/recommendations")
+def get_personalized_recommendations(
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Get personalized product recommendations using ML"""
+    if current_user.role not in ['individual', 'business']:
+        raise HTTPException(status_code=403, detail="Only customers can get recommendations")
+
+    service = BrowseService(db)
+    return service.get_personalized_recommendations(current_user.id, current_user.role)
 
 
 @router.get("/products/latest")
@@ -2382,17 +2396,20 @@ def authenticate_user(db: Session, email: str, password: str):
 ###################################
 
 
+# services/browse_service.py - Updated with ML Recommendations
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, distinct, desc, and_
 from models.user import User, FarmerProfile
 from models.product import FarmerProduct, ProductUnitPrice, CategoryEnum, ItemEnum, get_item_category
 from typing import List, Optional, Dict
 from decimal import Decimal
+from services.recommendation_service import MLRecommendationService
 
 
 class BrowseService:
     def __init__(self, db: Session):
         self.db = db
+        self.recommendation_service = MLRecommendationService(db)
 
     def get_featured_farmers(self, district: Optional[str] = None, limit: int = 10) -> List[Dict]:
         """Get featured farmers with most products for homepage"""
@@ -2477,6 +2494,62 @@ class BrowseService:
             })
 
         return result
+
+    def get_personalized_recommendations(self, user_id: int, customer_type: str) -> Dict:
+        """
+        Get personalized product recommendations using ML
+
+        Args:
+            user_id: The customer's user ID
+            customer_type: 'individual' or 'business'
+
+        Returns:
+            Dict with recommendations and metadata
+        """
+        try:
+            recommendations = self.recommendation_service.get_recommendations_for_user(user_id, customer_type)
+
+            # Check if user has purchase history for messaging
+            from models.order import UnifiedOrder
+            user_orders = (
+                self.db.query(UnifiedOrder)
+                .filter(
+                    UnifiedOrder.customer_id == user_id,
+                    UnifiedOrder.status.in_(['delivered', 'out_for_delivery', 'processing'])
+                )
+                .count()
+            )
+
+            has_purchase_history = user_orders > 1
+
+            return {
+                'recommendations': recommendations,
+                'has_purchase_history': has_purchase_history,
+                'total_recommendations': len(recommendations),
+                'message': self._get_recommendation_message(has_purchase_history, customer_type)
+            }
+
+        except Exception as e:
+            print(f"Error getting personalized recommendations: {e}")
+            return {
+                'recommendations': [],
+                'has_purchase_history': False,
+                'total_recommendations': 0,
+                'message': self._get_recommendation_message(False, customer_type)
+            }
+
+    def _get_recommendation_message(self, has_purchase_history: bool, customer_type: str) -> str:
+        """Get appropriate message for recommendation section"""
+        if not has_purchase_history:
+            if customer_type == 'business':
+                return "Start ordering to see personalized business recommendations that match your purchasing patterns and help streamline your supply chain."
+            else:
+                return "Start exploring and ordering to see personalized recommendations that match your taste preferences and cooking habits."
+        else:
+            if customer_type == 'business':
+                return "Based on your ordering history and similar businesses, here are products that might interest you."
+            else:
+                return "Based on your purchase history and taste preferences, here are fresh products you might enjoy."
 
     def search_products(
             self,
@@ -4108,3 +4181,661 @@ app.include_router(order.router, prefix="/orders", tags=["Orders"])
 app.include_router(browse.router, prefix="/browse", tags=["Browse"])
 app.include_router(payment.router, prefix="/payment", tags=["Payment"])
 app.include_router(notification.router, prefix="/notification", tags=["Notification"])
+
+
+###################################
+
+
+# services/recommendation_service.py
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, desc, and_, distinct
+from models.user import User, FarmerProfile
+from models.product import FarmerProduct, ProductUnitPrice, CategoryEnum, ItemEnum, get_item_category
+from models.order import UnifiedOrder, UnifiedOrderItem
+from typing import List, Dict, Optional, Tuple
+from decimal import Decimal
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.decomposition import TruncatedSVD
+from collections import defaultdict, Counter
+import pandas as pd
+
+
+class MLRecommendationService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.n_recommendations = 6  # Number of products to recommend
+
+    def get_recommendations_for_user(self, user_id: int, customer_type: str) -> List[Dict]:
+        """
+        Get personalized recommendations using hybrid approach
+        """
+        try:
+            # Get user's purchase history
+            user_purchases = self._get_user_purchase_history(user_id)
+
+            if len(user_purchases) < 2:  # New user with minimal history
+                return self._get_new_user_recommendations(customer_type)
+
+            # Get recommendations using hybrid approach
+            collaborative_recs = self._collaborative_filtering(user_id, customer_type)
+            content_recs = self._content_based_filtering(user_id, customer_type)
+
+            # Combine recommendations (60% collaborative, 40% content-based)
+            hybrid_recs = self._combine_recommendations(
+                collaborative_recs, content_recs,
+                collaborative_weight=0.6, content_weight=0.4
+            )
+
+            # Convert to product details and return
+            return self._get_product_details(hybrid_recs, customer_type)
+
+        except Exception as e:
+            print(f"Error in recommendations: {e}")
+            # Fallback to popular products
+            return self._get_popular_products(customer_type)
+
+    def _get_user_purchase_history(self, user_id: int) -> List[Dict]:
+        """Get user's purchase history with product details"""
+        orders = (
+            self.db.query(UnifiedOrderItem)
+            .join(UnifiedOrder)
+            .filter(
+                UnifiedOrder.customer_id == user_id,
+                UnifiedOrder.status.in_(['delivered', 'out_for_delivery', 'processing'])
+            )
+            .all()
+        )
+
+        purchases = []
+        for item in orders:
+            purchases.append({
+                'product_id': item.farmer_product_id,
+                'farmer_id': item.farmer_id,
+                'item_name': item.item_name.lower(),
+                'quantity': item.quantity,
+                'total_price': float(item.total_price)
+            })
+
+        return purchases
+
+    def _collaborative_filtering(self, user_id: int, customer_type: str) -> List[Tuple[int, float]]:
+        """
+        Collaborative filtering: Find similar users and recommend their purchases
+        """
+        try:
+            # Get all users of the same type with their purchases
+            user_item_matrix = self._create_user_item_matrix(customer_type)
+
+            if user_id not in user_item_matrix.index:
+                return []
+
+            # Create user-item matrix for similarity calculation
+            matrix = user_item_matrix.fillna(0)
+
+            if len(matrix) < 2:  # Need at least 2 users for collaborative filtering
+                return []
+
+            # Calculate user similarity using cosine similarity
+            user_similarity = cosine_similarity(matrix)
+            user_idx = list(matrix.index).index(user_id)
+
+            # Find most similar users (excluding self)
+            similar_users_scores = list(enumerate(user_similarity[user_idx]))
+            similar_users_scores = [(i, score) for i, score in similar_users_scores if i != user_idx and score > 0.1]
+            similar_users_scores.sort(key=lambda x: x[1], reverse=True)
+
+            # Get recommendations from top 5 similar users
+            recommendations = defaultdict(float)
+            user_purchased_items = set(matrix.columns[matrix.iloc[user_idx] > 0])
+
+            for similar_user_idx, similarity_score in similar_users_scores[:5]:
+                similar_user_items = matrix.columns[matrix.iloc[similar_user_idx] > 0]
+
+                for item in similar_user_items:
+                    if item not in user_purchased_items:  # Don't recommend already purchased items
+                        recommendations[item] += similarity_score * matrix.iloc[
+                            similar_user_idx, matrix.columns.get_loc(item)]
+
+            # Sort by score and return top recommendations
+            sorted_recs = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
+            return [(int(product_id), score) for product_id, score in sorted_recs[:self.n_recommendations]]
+
+        except Exception as e:
+            print(f"Collaborative filtering error: {e}")
+            return []
+
+    def _content_based_filtering(self, user_id: int, customer_type: str) -> List[Tuple[int, float]]:
+        """
+        Content-based filtering: Recommend products similar to user's purchase patterns
+        """
+        try:
+            # Get user's purchase patterns
+            user_purchases = self._get_user_purchase_history(user_id)
+            if not user_purchases:
+                return []
+
+            # Analyze user's preferences
+            purchased_categories = []
+            purchased_farmers = []
+
+            for purchase in user_purchases:
+                # Get product details
+                product = self.db.query(FarmerProduct).get(purchase['product_id'])
+                if product:
+                    purchased_categories.append(get_item_category(product.item).value)
+                    purchased_farmers.append(purchase['farmer_id'])
+
+            # Count preferences
+            category_preferences = Counter(purchased_categories)
+            farmer_preferences = Counter(purchased_farmers)
+
+            # Get products from preferred categories and farmers
+            recommended_products = []
+
+            # Get products from top categories
+            for category, count in category_preferences.most_common(2):
+                category_enum = CategoryEnum(category)
+                category_items = [item for item in ItemEnum if get_item_category(item) == category_enum]
+
+                products = (
+                    self.db.query(FarmerProduct)
+                    .filter(
+                        FarmerProduct.item.in_(category_items),
+                        FarmerProduct.is_active == True,
+                        ~FarmerProduct.id.in_([p['product_id'] for p in user_purchases])
+                    )
+                    .limit(3)
+                    .all()
+                )
+
+                for product in products:
+                    score = count / len(user_purchases)  # Normalize by total purchases
+                    recommended_products.append((product.id, score))
+
+            # Get products from preferred farmers
+            for farmer_id, count in farmer_preferences.most_common(3):
+                products = (
+                    self.db.query(FarmerProduct)
+                    .filter(
+                        FarmerProduct.farmer_id == farmer_id,
+                        FarmerProduct.is_active == True,
+                        ~FarmerProduct.id.in_([p['product_id'] for p in user_purchases])
+                    )
+                    .limit(2)
+                    .all()
+                )
+
+                for product in products:
+                    score = count / len(user_purchases)
+                    recommended_products.append((product.id, score))
+
+            # Remove duplicates and sort by score
+            unique_recs = {}
+            for product_id, score in recommended_products:
+                if product_id not in unique_recs:
+                    unique_recs[product_id] = score
+                else:
+                    unique_recs[product_id] = max(unique_recs[product_id], score)
+
+            sorted_recs = sorted(unique_recs.items(), key=lambda x: x[1], reverse=True)
+            return sorted_recs[:self.n_recommendations]
+
+        except Exception as e:
+            print(f"Content-based filtering error: {e}")
+            return []
+
+    def _create_user_item_matrix(self, customer_type: str) -> pd.DataFrame:
+        """Create user-item interaction matrix for collaborative filtering"""
+        # Get all users of the same type
+        role_filter = ['individual'] if customer_type == 'individual' else ['business']
+
+        # Get purchase data for users of the same type
+        purchases = (
+            self.db.query(
+                UnifiedOrder.customer_id,
+                UnifiedOrderItem.farmer_product_id,
+                func.sum(UnifiedOrderItem.quantity).label('total_quantity')
+            )
+            .join(UnifiedOrderItem, UnifiedOrder.id == UnifiedOrderItem.order_id)
+            .join(User, UnifiedOrder.customer_id == User.id)
+            .filter(
+                User.role.in_(role_filter),
+                UnifiedOrder.status.in_(['delivered', 'out_for_delivery', 'processing'])
+            )
+            .group_by(UnifiedOrder.customer_id, UnifiedOrderItem.farmer_product_id)
+            .all()
+        )
+
+        # Convert to pandas DataFrame
+        data = []
+        for purchase in purchases:
+            data.append({
+                'user_id': purchase.customer_id,
+                'product_id': purchase.farmer_product_id,
+                'quantity': float(purchase.total_quantity)
+            })
+
+        if not data:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(data)
+        user_item_matrix = df.pivot(index='user_id', columns='product_id', values='quantity')
+
+        return user_item_matrix
+
+    def _combine_recommendations(
+            self,
+            collaborative: List[Tuple[int, float]],
+            content: List[Tuple[int, float]],
+            collaborative_weight: float = 0.6,
+            content_weight: float = 0.4
+    ) -> List[Tuple[int, float]]:
+        """Combine collaborative and content-based recommendations"""
+
+        combined_scores = defaultdict(float)
+
+        # Add collaborative filtering scores
+        for product_id, score in collaborative:
+            combined_scores[product_id] += score * collaborative_weight
+
+        # Add content-based scores
+        for product_id, score in content:
+            combined_scores[product_id] += score * content_weight
+
+        # Sort by combined score
+        sorted_combined = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
+        return sorted_combined[:self.n_recommendations]
+
+    def _get_product_details(self, recommended_products: List[Tuple[int, float]], customer_type: str) -> List[Dict]:
+        """Convert product IDs to detailed product information"""
+        if not recommended_products:
+            return []
+
+        product_ids = [product_id for product_id, _ in recommended_products]
+
+        products = (
+            self.db.query(FarmerProduct)
+            .options(
+                joinedload(FarmerProduct.unit_prices),
+                joinedload(FarmerProduct.farmer).joinedload(User.farmer_profile)
+            )
+            .filter(
+                FarmerProduct.id.in_(product_ids),
+                FarmerProduct.is_active == True
+            )
+            .all()
+        )
+
+        result = []
+        for product in products:
+            # Filter unit prices by customer type
+            suitable_prices = [
+                up for up in product.unit_prices
+                if up.customer_type.value == customer_type and up.quantity_available > 0
+            ]
+
+            if not suitable_prices:  # Skip if no suitable prices
+                continue
+
+            farmer_name = f"{product.farmer.farmer_profile.first_name} {product.farmer.farmer_profile.last_name}"
+            farmer_district = product.farmer.farmer_profile.district
+
+            # Get lowest price
+            lowest_price = min(up.price_per_unit for up in suitable_prices)
+
+            result.append({
+                'id': product.id,
+                'item': product.item.value,
+                'category': get_item_category(product.item).value,
+                'description': product.description,
+                'farmer_id': product.farmer_id,
+                'farmer_name': farmer_name,
+                'farmer_district': farmer_district,
+                'lowest_price': float(lowest_price),
+                'unit_prices': [
+                    {
+                        'id': up.id,
+                        'unit': up.unit.value,
+                        'customer_type': up.customer_type.value,
+                        'price_per_unit': float(up.price_per_unit),
+                        'quantity_available': up.quantity_available,
+                        'minimum_order': up.minimum_order
+                    }
+                    for up in suitable_prices
+                ],
+                'created_at': product.created_at.isoformat()
+            })
+
+        return result
+
+    def _get_new_user_recommendations(self, customer_type: str) -> List[Dict]:
+        """Get recommendations for users with no purchase history"""
+        # Return empty list - the frontend will show the instructional message
+        return []
+
+    def _get_popular_products(self, customer_type: str) -> List[Dict]:
+        """Fallback: Get popular products based on sales volume"""
+        try:
+            # Get products ordered most frequently by users of the same type
+            role_filter = ['individual'] if customer_type == 'individual' else ['business']
+
+            popular_products = (
+                self.db.query(
+                    UnifiedOrderItem.farmer_product_id,
+                    func.count(distinct(UnifiedOrder.customer_id)).label('unique_customers'),
+                    func.sum(UnifiedOrderItem.quantity).label('total_quantity')
+                )
+                .join(UnifiedOrder, UnifiedOrderItem.order_id == UnifiedOrder.id)
+                .join(User, UnifiedOrder.customer_id == User.id)
+                .filter(
+                    User.role.in_(role_filter),
+                    UnifiedOrder.status.in_(['delivered', 'out_for_delivery', 'processing'])
+                )
+                .group_by(UnifiedOrderItem.farmer_product_id)
+                .having(func.count(distinct(UnifiedOrder.customer_id)) >= 2)  # At least 2 different customers
+                .order_by(desc('unique_customers'), desc('total_quantity'))
+                .limit(self.n_recommendations)
+                .all()
+            )
+
+            if not popular_products:
+                return []
+
+            product_ids = [p.farmer_product_id for p in popular_products]
+            return self._get_product_details([(pid, 1.0) for pid in product_ids], customer_type)
+
+        except Exception as e:
+            print(f"Error getting popular products: {e}")
+            return []
+
+
+###################################
+
+
+# seed_data.py - UPDATED FOR ML TESTING
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from core.database import SessionLocal, engine
+from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
+from models.product import FarmerProduct, ProductUnitPrice, ItemEnum, UnitEnum, CustomerTypeEnum
+from core.security import get_password_hash
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+# Password: test (for all test users)
+DEFAULT_PASSWORD = "test"
+
+
+def reset_database(db: Session):
+    """Reset database and create all tables with updated schema"""
+    print("🗑️  Resetting database...")
+
+    try:
+        # Import Base to access metadata
+        from core.database import Base
+
+        # STEP 1: Get all existing tables from database
+        print("  - Scanning existing tables...")
+        result = db.execute(text("""
+                                 SELECT name
+                                 FROM sqlite_master
+                                 WHERE type = 'table'
+                                   AND name NOT LIKE 'sqlite_%'
+                                 ORDER BY name
+                                 """))
+        existing_tables = [row[0] for row in result]
+        print(f"    Found {len(existing_tables)} existing tables")
+
+        # STEP 2: Get all model tables from current models
+        model_tables = set(Base.metadata.tables.keys())
+        print(f"    Current models define {len(model_tables)} tables")
+
+        # STEP 3: Find orphaned tables (exist in DB but not in models)
+        orphaned_tables = set(existing_tables) - model_tables
+        if orphaned_tables:
+            print(f"  - Removing {len(orphaned_tables)} orphaned tables...")
+            for table in orphaned_tables:
+                try:
+                    db.execute(text(f"DROP TABLE IF EXISTS {table}"))
+                    print(f"    ✅ Removed orphaned table: {table}")
+                except Exception as e:
+                    print(f"    ⚠️  Could not remove {table}: {e}")
+
+        # STEP 4: Drop all remaining tables to ensure clean slate
+        print("  - Dropping all remaining tables...")
+        Base.metadata.drop_all(bind=engine)
+
+        # STEP 5: Create all tables from current models
+        print("  - Creating tables from current models...")
+        Base.metadata.create_all(bind=engine)
+
+        # STEP 6: Verify final table structure
+        print("  - Verifying final table structure...")
+        result = db.execute(text("""
+                                 SELECT name
+                                 FROM sqlite_master
+                                 WHERE type = 'table'
+                                   AND name NOT LIKE 'sqlite_%'
+                                 ORDER BY name
+                                 """))
+
+        final_tables = [row[0] for row in result]
+        print(f"    📋 Final database has {len(final_tables)} tables")
+
+        db.commit()
+        print("✅ Database cleanup and schema update completed!")
+
+    except Exception as e:
+        print(f"❌ Error during database reset: {e}")
+        db.rollback()
+        raise
+
+
+def create_test_users(db: Session):
+    """Create simple test users for ML testing"""
+
+    # Test Individual User
+    individual_user = User(
+        email="user@test.com",
+        hashed_password=get_password_hash(DEFAULT_PASSWORD),
+        role="individual"
+    )
+    db.add(individual_user)
+    db.flush()
+
+    individual_profile = IndividualProfile(
+        user_id=individual_user.id,
+        first_name="Test",
+        last_name="User",
+        date_of_birth="1990-01-01",
+        phone_number="+94701234567",
+        street="123 Test Street",
+        city_town="Colombo",
+        post_code="00100"
+    )
+    db.add(individual_profile)
+    print("Created individual user: user@test.com")
+
+    # Test Business User
+    business_user = User(
+        email="biz@test.com",
+        hashed_password=get_password_hash(DEFAULT_PASSWORD),
+        role="business"
+    )
+    db.add(business_user)
+    db.flush()
+
+    business_profile = BusinessProfile(
+        user_id=business_user.id,
+        business_name="Test Business",
+        contact_name="Biz User",
+        phone_number="+94702345678",
+        street="456 Business Road",
+        city_town="Kandy",
+        post_code="20000"
+    )
+    db.add(business_profile)
+    print("Created business user: biz@test.com")
+
+    # Test Farmer User (with ALL products)
+    farmer_user = User(
+        email="farm@test.com",
+        hashed_password=get_password_hash(DEFAULT_PASSWORD),
+        role="farmer"
+    )
+    db.add(farmer_user)
+    db.flush()
+
+    farmer_profile = FarmerProfile(
+        user_id=farmer_user.id,
+        first_name="Farm",
+        last_name="User",
+        phone_number="+94703456789",
+        district="Galle"
+    )
+    db.add(farmer_profile)
+    print("Created farmer user: farm@test.com")
+
+    return farmer_user.id
+
+
+def create_all_products(db: Session, farmer_id: int):
+    """Create ALL fruits and vegetables for the test farmer"""
+
+    # Define realistic pricing for all items
+    product_pricing = {
+        # FRUITS
+        ItemEnum.APPLE: {"individual": 450.0, "business": 400.0, "unit": UnitEnum.KG, "stock": 100},
+        ItemEnum.BANANA: {"individual": 180.0, "business": 160.0, "unit": UnitEnum.DOZEN, "stock": 80},
+        ItemEnum.ORANGE: {"individual": 350.0, "business": 320.0, "unit": UnitEnum.KG, "stock": 90},
+        ItemEnum.MANGO: {"individual": 500.0, "business": 450.0, "unit": UnitEnum.KG, "stock": 60},
+        ItemEnum.PINEAPPLE: {"individual": 250.0, "business": 220.0, "unit": UnitEnum.PIECE, "stock": 40},
+        ItemEnum.PAPAYA: {"individual": 300.0, "business": 270.0, "unit": UnitEnum.KG, "stock": 50},
+        ItemEnum.GUAVA: {"individual": 200.0, "business": 180.0, "unit": UnitEnum.KG, "stock": 70},
+        ItemEnum.LYCHEE: {"individual": 600.0, "business": 550.0, "unit": UnitEnum.KG, "stock": 30},
+        ItemEnum.COCONUT: {"individual": 80.0, "business": 70.0, "unit": UnitEnum.PIECE, "stock": 100},
+        ItemEnum.LEMON: {"individual": 400.0, "business": 360.0, "unit": UnitEnum.KG, "stock": 60},
+        ItemEnum.LIME: {"individual": 350.0, "business": 320.0, "unit": UnitEnum.KG, "stock": 80},
+        ItemEnum.WATERMELON: {"individual": 150.0, "business": 130.0, "unit": UnitEnum.KG, "stock": 40},
+        ItemEnum.MELON: {"individual": 250.0, "business": 220.0, "unit": UnitEnum.KG, "stock": 50},
+        ItemEnum.GRAPES: {"individual": 800.0, "business": 720.0, "unit": UnitEnum.KG, "stock": 25},
+        ItemEnum.STRAWBERRY: {"individual": 1200.0, "business": 1000.0, "unit": UnitEnum.KG, "stock": 15},
+
+        # VEGETABLES
+        ItemEnum.TOMATO: {"individual": 350.0, "business": 320.0, "unit": UnitEnum.KG, "stock": 120},
+        ItemEnum.POTATO: {"individual": 200.0, "business": 180.0, "unit": UnitEnum.KG, "stock": 200},
+        ItemEnum.ONION: {"individual": 300.0, "business": 270.0, "unit": UnitEnum.KG, "stock": 150},
+        ItemEnum.CARROT: {"individual": 280.0, "business": 250.0, "unit": UnitEnum.KG, "stock": 100},
+        ItemEnum.CABBAGE: {"individual": 150.0, "business": 130.0, "unit": UnitEnum.PIECE, "stock": 80},
+        ItemEnum.LETTUCE: {"individual": 200.0, "business": 180.0, "unit": UnitEnum.PIECE, "stock": 60},
+        ItemEnum.SPINACH: {"individual": 250.0, "business": 220.0, "unit": UnitEnum.BUNCH, "stock": 70},
+        ItemEnum.BROCCOLI: {"individual": 400.0, "business": 360.0, "unit": UnitEnum.KG, "stock": 40},
+        ItemEnum.CAULIFLOWER: {"individual": 350.0, "business": 320.0, "unit": UnitEnum.PIECE, "stock": 50},
+        ItemEnum.BELL_PEPPER: {"individual": 450.0, "business": 400.0, "unit": UnitEnum.KG, "stock": 60},
+        ItemEnum.CHILI: {"individual": 800.0, "business": 720.0, "unit": UnitEnum.KG, "stock": 30},
+        ItemEnum.CUCUMBER: {"individual": 180.0, "business": 160.0, "unit": UnitEnum.KG, "stock": 90},
+        ItemEnum.EGGPLANT: {"individual": 220.0, "business": 200.0, "unit": UnitEnum.KG, "stock": 70},
+        ItemEnum.OKRA: {"individual": 300.0, "business": 270.0, "unit": UnitEnum.KG, "stock": 50},
+        ItemEnum.GREEN_BEANS: {"individual": 250.0, "business": 220.0, "unit": UnitEnum.KG, "stock": 80},
+        ItemEnum.PUMPKIN: {"individual": 120.0, "business": 100.0, "unit": UnitEnum.KG, "stock": 60},
+        ItemEnum.BEETROOT: {"individual": 300.0, "business": 270.0, "unit": UnitEnum.KG, "stock": 50},
+        ItemEnum.RADISH: {"individual": 200.0, "business": 180.0, "unit": UnitEnum.KG, "stock": 70},
+        ItemEnum.GINGER: {"individual": 600.0, "business": 540.0, "unit": UnitEnum.KG, "stock": 40},
+        ItemEnum.GARLIC: {"individual": 800.0, "business": 720.0, "unit": UnitEnum.KG, "stock": 30},
+    }
+
+    print(f"Creating ALL {len(product_pricing)} products for test farmer...")
+
+    for item_enum, pricing in product_pricing.items():
+        # Create product
+        product = FarmerProduct(
+            farmer_id=farmer_id,
+            item=item_enum,
+            description=f"Fresh organic {item_enum.value.replace('_', ' ')}, pesticide-free",
+            is_active=True,
+            harvest_date=datetime.now() - timedelta(days=1),
+            expiry_date=datetime.now() + timedelta(days=10)
+        )
+        db.add(product)
+        db.flush()
+
+        # Individual pricing
+        individual_unit_price = ProductUnitPrice(
+            farmer_product_id=product.id,
+            unit=pricing["unit"],
+            customer_type=CustomerTypeEnum.INDIVIDUAL,
+            price_per_unit=pricing["individual"],
+            quantity_available=pricing["stock"],
+            minimum_order=1
+        )
+        db.add(individual_unit_price)
+
+        # Business pricing (bulk orders)
+        business_unit_price = ProductUnitPrice(
+            farmer_product_id=product.id,
+            unit=pricing["unit"],
+            customer_type=CustomerTypeEnum.BUSINESS,
+            price_per_unit=pricing["business"],
+            quantity_available=pricing["stock"] * 2,  # More stock for business
+            minimum_order=25 if pricing["unit"] != UnitEnum.PIECE else 10  # Bulk minimum
+        )
+        db.add(business_unit_price)
+
+        print(
+            f"  ✅ Created {item_enum.value} (Individual: Rs {pricing['individual']}, Business: Rs {pricing['business']})")
+
+
+def seed_database():
+    """Main seeding function for ML testing"""
+    print("=" * 60)
+    print("🧪 Starting FarmLink ML Testing Database Setup...")
+    print("=" * 60)
+
+    # Create database session
+    db = SessionLocal()
+    try:
+        # Reset database
+        reset_database(db)
+
+        print("\n👥 Creating test users...")
+        farmer_id = create_test_users(db)
+
+        print(f"\n🥕 Creating ALL products for test farmer (ID: {farmer_id})...")
+        create_all_products(db, farmer_id)
+
+        # NO carts, NO orders - clean slate for ML testing
+
+        db.commit()
+        print("\n" + "=" * 60)
+        print("✅ ML Testing Database Setup Completed!")
+        print("=" * 60)
+        print(f"🔑 Password for all users: {DEFAULT_PASSWORD}")
+        print("=" * 60)
+        print("🧪 Test accounts for ML:")
+        print("  👤 Individual: user@test.com")
+        print("  🏢 Business: biz@test.com")
+        print("  🚜 Farmer: farm@test.com")
+        print("=" * 60)
+        print("📋 Products available:")
+        print("  🍎 15 Fruits (apple, banana, orange, mango, etc.)")
+        print("  🥕 20 Vegetables (tomato, potato, onion, carrot, etc.)")
+        print("  💰 Individual & Business pricing for all items")
+        print("=" * 60)
+        print("🎯 Ready for ML Testing:")
+        print("  1. Login as user@test.com or biz@test.com")
+        print("  2. Order diverse products from farm@test.com")
+        print("  3. Test ML recommendations on homepage")
+        print("=" * 60)
+
+    except Exception as e:
+        print(f"\n❌ Error during seeding: {e}")
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    seed_database()

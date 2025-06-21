@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import os
 from core.database import Base, engine
-from routers import auth, product, order, browse, payment, notification
+from routes import auth, product, order, browse, payment, notification
 from seed_data import seed_database
 from dotenv import load_dotenv
 

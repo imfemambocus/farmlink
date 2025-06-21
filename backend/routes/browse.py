@@ -1,3 +1,4 @@
+# routes/browse.py - Updated with ML Recommendations endpoint
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -21,6 +22,19 @@ def browse_farmers(
 
     service = BrowseService(db)
     return service.get_featured_farmers(district=district, limit=limit)
+
+
+@router.get("/products/recommendations")
+def get_personalized_recommendations(
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Get personalized product recommendations using ML"""
+    if current_user.role not in ['individual', 'business']:
+        raise HTTPException(status_code=403, detail="Only customers can get recommendations")
+
+    service = BrowseService(db)
+    return service.get_personalized_recommendations(current_user.id, current_user.role)
 
 
 @router.get("/products/latest")

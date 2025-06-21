@@ -1,3 +1,4 @@
+// app/(auth)/customer/homepage.tsx - Updated with Suggested For You section
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -15,6 +16,7 @@ import Header from '@/components/ui/Header';
 import FarmerCard from '@/components/customer/FarmerCard';
 import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
+import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {UnitPrice} from "@/types";
@@ -39,6 +41,13 @@ interface Product {
     created_at: string;
 }
 
+interface RecommendationData {
+    recommendations: Product[];
+    has_purchase_history: boolean;
+    total_recommendations: number;
+    message: string;
+}
+
 interface AlertState {
     visible: boolean;
     type: 'success' | 'error' | 'warning' | 'info';
@@ -56,6 +65,12 @@ export default function CustomerHomePage() {
     const { user } = useContext(AuthContext);
     const [farmers, setFarmers] = useState<Farmer[]>([]);
     const [latestProducts, setLatestProducts] = useState<Product[]>([]);
+    const [recommendations, setRecommendations] = useState<RecommendationData>({
+        recommendations: [],
+        has_purchase_history: false,
+        total_recommendations: 0,
+        message: ''
+    });
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -113,12 +128,15 @@ export default function CustomerHomePage() {
                 return;
             }
 
-            // Fetch farmers and latest products in parallel
-            const [farmersResponse, productsResponse] = await Promise.all([
+            // Fetch farmers, latest products, and recommendations in parallel
+            const [farmersResponse, productsResponse, recommendationsResponse] = await Promise.all([
                 api.get('/browse/farmers?limit=10', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
                 api.get('/browse/products/latest?limit=20', {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                api.get('/browse/products/recommendations', {
                     headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
@@ -133,6 +151,7 @@ export default function CustomerHomePage() {
             });
 
             setLatestProducts(filteredProducts);
+            setRecommendations(recommendationsResponse.data);
 
         } catch (error: any) {
             console.error('Error fetching home data:', error);
@@ -192,6 +211,12 @@ export default function CustomerHomePage() {
         );
     };
 
+    const renderRecommendationItem = ({ item }: { item: Product }) => (
+        <View style={{ width: screenWidth * 0.45, marginRight: 12 }}>
+            <ProductCard product={item} />
+        </View>
+    );
+
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
@@ -241,6 +266,71 @@ export default function CustomerHomePage() {
                     </Text>
                 </View>
 
+                {/* Suggested For You Section */}
+                <View className="mb-8">
+                    <View className="flex-row justify-between items-center px-5 mb-4">
+                        <View className="flex-row items-center">
+                            <Ionicons name="sparkles" size={20} color="#4CAF50" />
+                            <Text className="text-lg font-medium text-black ml-2">
+                                suggested for you
+                            </Text>
+                        </View>
+                        {recommendations.has_purchase_history && recommendations.recommendations.length > 0 && (
+                            <TouchableOpacity
+                                onPress={handleViewAllProducts}
+                                activeOpacity={0.7}
+                            >
+                                <Text className="text-sm text-action-green font-medium">
+                                    explore more
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {recommendations.recommendations.length === 0 ? (
+                        <View className="bg-surface rounded-xl p-6 mx-5 border border-gray-100">
+                            <View className="items-center">
+                                <View className="w-16 h-16 bg-green-50 rounded-full items-center justify-center mb-4">
+                                    <Ionicons name="bulb" size={32} color="#4CAF50" />
+                                </View>
+                                <Text className="text-base font-medium text-black mb-2 text-center">
+                                    your personalized picks await
+                                </Text>
+                                <Text className="text-sm text-gray-600 text-center leading-5">
+                                    {recommendations.message}
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={handleViewAllProducts}
+                                    className="bg-action-green px-6 py-3 rounded-xl mt-4"
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className="text-white font-medium">
+                                        start exploring
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : (
+                        <View>
+                            <Text className="text-sm text-gray-600 mb-4 px-5">
+                                {recommendations.message}
+                            </Text>
+                            <FlatList
+                                data={recommendations.recommendations}
+                                renderItem={({ item }) => (
+                                    <View style={{ width: screenWidth * 0.45, marginRight: 12 }}>
+                                        <ProductCard product={item} />
+                                    </View>
+                                )}
+                                keyExtractor={(item) => item.id.toString()}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ paddingHorizontal: 20 }}
+                            />
+                        </View>
+                    )}
+                </View>
+
                 {/* Featured Farmers Section */}
                 <View className="mb-8">
                     <View className="flex-row justify-between items-center px-5 mb-4">
@@ -280,7 +370,7 @@ export default function CustomerHomePage() {
                     )}
                 </View>
 
-                {/* Latest Products Section */}
+                {/* Fresh Arrivals Section */}
                 <View className="px-5">
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-lg font-medium text-black">
@@ -316,7 +406,7 @@ export default function CustomerHomePage() {
                             data={latestProducts}
                             renderItem={renderProductItem}
                             numColumns={getNumColumns()}
-                            key={getNumColumns()}
+                            key={`latest-${getNumColumns()}`}
                             scrollEnabled={false}
                             contentContainerStyle={{ paddingHorizontal: 0 }}
                             showsVerticalScrollIndicator={false}

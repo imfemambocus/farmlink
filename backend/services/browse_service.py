@@ -1,14 +1,17 @@
+# services/browse_service.py - Updated with ML Recommendations
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, distinct, desc, and_
 from models.user import User, FarmerProfile
 from models.product import FarmerProduct, ProductUnitPrice, CategoryEnum, ItemEnum, get_item_category
 from typing import List, Optional, Dict
 from decimal import Decimal
+from services.recommendation_service import MLRecommendationService
 
 
 class BrowseService:
     def __init__(self, db: Session):
         self.db = db
+        self.recommendation_service = MLRecommendationService(db)
 
     def get_featured_farmers(self, district: Optional[str] = None, limit: int = 10) -> List[Dict]:
         """Get featured farmers with most products for homepage"""
@@ -93,6 +96,62 @@ class BrowseService:
             })
 
         return result
+
+    def get_personalized_recommendations(self, user_id: int, customer_type: str) -> Dict:
+        """
+        Get personalized product recommendations using ML
+
+        Args:
+            user_id: The customer's user ID
+            customer_type: 'individual' or 'business'
+
+        Returns:
+            Dict with recommendations and metadata
+        """
+        try:
+            recommendations = self.recommendation_service.get_recommendations_for_user(user_id, customer_type)
+
+            # Check if user has purchase history for messaging
+            from models.order import UnifiedOrder
+            user_orders = (
+                self.db.query(UnifiedOrder)
+                .filter(
+                    UnifiedOrder.customer_id == user_id,
+                    UnifiedOrder.status.in_(['delivered', 'out_for_delivery', 'processing'])
+                )
+                .count()
+            )
+
+            has_purchase_history = user_orders > 1
+
+            return {
+                'recommendations': recommendations,
+                'has_purchase_history': has_purchase_history,
+                'total_recommendations': len(recommendations),
+                'message': self._get_recommendation_message(has_purchase_history, customer_type)
+            }
+
+        except Exception as e:
+            print(f"Error getting personalized recommendations: {e}")
+            return {
+                'recommendations': [],
+                'has_purchase_history': False,
+                'total_recommendations': 0,
+                'message': self._get_recommendation_message(False, customer_type)
+            }
+
+    def _get_recommendation_message(self, has_purchase_history: bool, customer_type: str) -> str:
+        """Get appropriate message for recommendation section"""
+        if not has_purchase_history:
+            if customer_type == 'business':
+                return "Start ordering to see personalized business recommendations that match your purchasing patterns and help streamline your supply chain."
+            else:
+                return "Start exploring and ordering to see personalized recommendations that match your taste preferences and cooking habits."
+        else:
+            if customer_type == 'business':
+                return "Based on your ordering history and similar businesses, here are products that might interest you."
+            else:
+                return "Based on your purchase history and taste preferences, here are fresh products you might enjoy."
 
     def search_products(
             self,
