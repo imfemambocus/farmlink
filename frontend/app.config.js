@@ -12,7 +12,8 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.imfestudio.farmlink",
       infoPlist: {
-        UIBackgroundModes: ["remote-notification"]
+        UIBackgroundModes: ["remote-notification"],
+        ITSAppUsesNonExemptEncryption: false
       }
     },
     android: {
