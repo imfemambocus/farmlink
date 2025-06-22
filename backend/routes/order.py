@@ -373,3 +373,31 @@ def get_farmer_earnings(
 
     service = StripePaymentService(db)
     return service.get_farmer_earnings_summary(current_user.id)
+
+
+@router.get("/farmer/sales/{period}")
+def get_farmer_sales_for_period(
+        period: str,
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Get farmer sales count for specific time period"""
+    if current_user.role != 'farmer':
+        raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
+
+    service = OrderService(db)
+    return service.get_farmer_sales_for_period(current_user.id, period)
+
+
+@router.get("/farmer/revenue/{period}")
+def get_farmer_revenue_for_period(
+        period: str,
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Get farmer revenue for specific time period"""
+    if current_user.role != 'farmer':
+        raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
+
+    service = OrderService(db)
+    return service.get_farmer_revenue_for_period(current_user.id, period)
