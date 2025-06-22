@@ -74,11 +74,11 @@ export default {
     },
     extra: {
       eas: {
-        projectId: process.env.EXPO_PROJECT_ID || "a41102c3-6cc4-4134-a832-4a6db668c1b2" // Add your actual Expo project ID here
+        projectId: process.env.EXPO_PROJECT_ID || "a41102c3-6cc4-4134-a832-4a6db668c1b2"
       },
       STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || "pk_test_51RbVKCR2koWNU5mYXZLTBS8F2QFV6BNavZXTeL8vi2W84bBMncWqogZCYDdOKZxsLF3sqkOqytjofCnFzk3DTCB100zbpCFyuk",
       MERCHANT_IDENTIFIER: process.env.MERCHANT_IDENTIFIER || "",
-      API_BASE_URL: process.env.API_BASE_URL || "http://localhost:8000",
+      API_BASE_URL: process.env.API_BASE_URL || "https://farmlink-bmiy.onrender.com",
     },
     owner: "imfestudio",
   },
