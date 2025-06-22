@@ -85,7 +85,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     const registerForPushNotifications = async () => {
         try {
             if (!Device.isDevice) {
-                console.log('Push notifications only work on physical devices');
                 return;
             }
 

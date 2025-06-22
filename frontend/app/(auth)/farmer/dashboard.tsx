@@ -1,4 +1,4 @@
-// app/(auth)/farmer/homepage.tsx - SQLite-Optimized Farmer Dashboard
+// app/(auth)/farmer/homepage.tsx - Complete Fixed Version
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     FlatList,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -143,6 +144,16 @@ export default function FarmerDashboard() {
 
     const hideAlert = () => {
         setAlert(prev => ({ ...prev, visible: false }));
+    };
+
+    // Touch handler to close dropdowns when tapping outside
+    const handleScreenTouch = () => {
+        if (showSalesTimePeriodPicker) {
+            setShowSalesTimePeriodPicker(false);
+        }
+        if (showRevenueTimePeriodPicker) {
+            setShowRevenueTimePeriodPicker(false);
+        }
     };
 
     useEffect(() => {
@@ -289,13 +300,11 @@ export default function FarmerDashboard() {
     const handleSalesTimePeriodChange = (newPeriod: TimePeriod) => {
         setSalesTimePeriod(newPeriod);
         setShowSalesTimePeriodPicker(false);
-        // fetchSalesData will be called automatically via useEffect
     };
 
     const handleRevenueTimePeriodChange = (newPeriod: TimePeriod) => {
         setRevenueTimePeriod(newPeriod);
         setShowRevenueTimePeriodPicker(false);
-        // fetchRevenueData will be called automatically via useEffect
     };
 
     const handleAddProduct = () => {
@@ -407,52 +416,6 @@ export default function FarmerDashboard() {
         </TouchableOpacity>
     );
 
-    const SalesTimePeriodPicker = () => (
-        <View className="absolute top-9 right-1 bg-white rounded-xl border border-gray-200 p-2 z-10 min-w-[120px]">
-            <ScrollView className="max-h-48">
-                {timePeriodOptions.map((option) => (
-                    <TouchableOpacity
-                        key={option.key}
-                        onPress={() => handleSalesTimePeriodChange(option.key)}
-                        className={`py-2 px-3 rounded-lg ${
-                            salesTimePeriod === option.key ? 'bg-background' : ''
-                        }`}
-                        activeOpacity={0.7}
-                    >
-                        <Text className={`text-sm ${
-                            salesTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
-                        }`}>
-                            {option.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-    );
-
-    const RevenueTimePeriodPicker = () => (
-        <View className="absolute top-12 right-0 bg-white rounded-xl border border-gray-200 p-2 z-10 min-w-[120px]">
-            <ScrollView className="max-h-48">
-                {timePeriodOptions.map((option) => (
-                    <TouchableOpacity
-                        key={option.key}
-                        onPress={() => handleRevenueTimePeriodChange(option.key)}
-                        className={`py-2 px-3 rounded-lg ${
-                            revenueTimePeriod === option.key ? 'bg-background' : ''
-                        }`}
-                        activeOpacity={0.7}
-                    >
-                        <Text className={`text-sm ${
-                            revenueTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
-                        }`}>
-                            {option.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-    );
-
     // Calculate number of columns based on screen width
     const getNumColumns = () => {
         if (screenWidth < 390) return 1;
@@ -520,161 +483,304 @@ export default function FarmerDashboard() {
     const filteredProducts = getFilteredProducts();
 
     return (
-        <View className="flex-1 bg-surface">
-            <Header
-                title="dashboard"
-                showSettingsButton={true}
-                showOrdersButton={true}
-                showNotificationButton={true}
-            />
+        <TouchableWithoutFeedback onPress={handleScreenTouch}>
+            <View className="flex-1 bg-surface">
+                <Header
+                    title="dashboard"
+                    showSettingsButton={true}
+                    showOrdersButton={true}
+                    showNotificationButton={true}
+                />
 
-            <ScrollView
-                className="flex-1"
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={handleRefresh}
-                        colors={['#4CAF50']}
-                    />
-                }
-                contentContainerStyle={{ paddingBottom: 100 }}
-            >
-                {/* Welcome Section */}
-                <View className="px-5 pt-6 pb-4">
-                    <Text className="text-xl font-semibold text-black mb-2">
-                        welcome back, {user?.farmer_profile?.first_name.toLowerCase()}!
-                    </Text>
-                    <Text className="text-base text-gray-600">
-                        here&#39;s your farm&#39;s performance overview
-                    </Text>
-                </View>
-
-                {/* Statistics Cards */}
-                <View className="px-5 mb-6">
-                    <View className="flex-row mb-3">
-                        <StatCard
-                            title="total products"
-                            value={stats.totalProducts}
-                            icon="leaf-outline"
-                            color="#4CAF50"
+                <ScrollView
+                    className="flex-1"
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            colors={['#4CAF50']}
                         />
-                        <StatCard
-                            title="active listings"
-                            value={stats.activeProducts}
-                            icon="checkmark-circle-outline"
-                            color="#2196F3"
-                        />
-                    </View>
-                    <View className="flex-row">
-                        {/* Sales Card with Loading State */}
-                        <View className="flex-1 relative">
-                            <StatCard
-                                title="total sales"
-                                value={stats.totalSales}
-                                icon="bag-handle-outline"
-                                color="#FF9800"
-                                subtitle={getSalesTimePeriodLabel()}
-                                loading={loadingSales}
-                            />
-                            <TouchableOpacity
-                                onPress={() => setShowSalesTimePeriodPicker(!showSalesTimePeriodPicker)}
-                                className="absolute top-2 right-2 p-1"
-                                activeOpacity={0.7}
-                                disabled={loadingSales}
-                            >
-                                <Ionicons name="chevron-down" size={16} color="#666666" />
-                            </TouchableOpacity>
-                            {showSalesTimePeriodPicker && <SalesTimePeriodPicker />}
-                        </View>
-
-                        {/* Revenue Card with Loading State */}
-                        <View className="flex-1 relative">
-                            <StatCard
-                                title="revenue"
-                                value={`rs ${stats.netRevenue.toFixed(0)}`}
-                                icon="trending-up-outline"
-                                color="#9C27B0"
-                                subtitle={loadingRevenue ? "loading..." : `${getRevenueTimePeriodLabel()} (${stats.grossRevenue.toFixed(0)})`}
-                                loading={loadingRevenue}
-                            />
-                            <TouchableOpacity
-                                onPress={() => setShowRevenueTimePeriodPicker(!showRevenueTimePeriodPicker)}
-                                className="absolute top-2 right-2 p-1"
-                                activeOpacity={0.7}
-                                disabled={loadingRevenue}
-                            >
-                                <Ionicons name="chevron-down" size={16} color="#666666" />
-                            </TouchableOpacity>
-                            {showRevenueTimePeriodPicker && <RevenueTimePeriodPicker />}
-                        </View>
-                    </View>
-                </View>
-
-                {/* Products Section */}
-                <View className="px-5">
-                    <View className="flex-row justify-between items-center mb-4">
-                        <Text className="text-lg font-medium text-black">
-                            my products
+                    }
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                >
+                    {/* Welcome Section */}
+                    <View className="px-5 pt-6 pb-4">
+                        <Text className="text-xl font-semibold text-black mb-2">
+                            welcome back, {user?.farmer_profile?.first_name.toLowerCase()}!
                         </Text>
-                        <Text className="text-sm text-gray-500">
-                            {filteredProducts.length} {activeTab === 'all' ? 'total' : activeTab}
+                        <Text className="text-base text-gray-600">
+                            here&#39;s your farm&#39;s performance overview
                         </Text>
                     </View>
 
-                    {/* Tab Navigation */}
-                    <View className="flex-row mb-6 rounded-lg flex gap-2">
-                        <TabButton
-                            tab="all"
-                            title="all"
-                            isActive={activeTab === 'all'}
-                            onPress={() => setActiveTab('all')}
-                        />
-                        <TabButton
-                            tab="fruits"
-                            title="fruits"
-                            isActive={activeTab === 'fruits'}
-                            onPress={() => setActiveTab('fruits')}
-                        />
-                        <TabButton
-                            tab="vegetables"
-                            title="vegetables"
-                            isActive={activeTab === 'vegetables'}
-                            onPress={() => setActiveTab('vegetables')}
-                        />
+                    {/* Statistics Cards - FIXED VERSION */}
+                    <View className="px-5 mb-6">
+                        <View className="flex-row mb-3">
+                            <StatCard
+                                title="total products"
+                                value={stats.totalProducts}
+                                icon="leaf-outline"
+                                color="#4CAF50"
+                            />
+                            <StatCard
+                                title="active listings"
+                                value={stats.activeProducts}
+                                icon="checkmark-circle-outline"
+                                color="#2196F3"
+                            />
+                        </View>
+
+                        {/* Bottom Row with Fixed Dropdowns */}
+                        <View className="flex-row gap-2">
+                            {/* Sales Card with Fixed Dropdown */}
+                            <View className="flex-1 relative overflow-hidden">
+                                <View className="bg-white rounded-xl p-4 border border-gray-200 relative overflow-visible" style={{ height: 120 }}>
+                                    {/* Background Icon */}
+                                    <View
+                                        className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
+                                        style={{
+                                            width: 80,
+                                            height: 80,
+                                            backgroundColor: '#FF980015'
+                                        }}
+                                    >
+                                        <Ionicons name="bag-handle-outline" size={40} color="#FF980060" />
+                                    </View>
+
+                                    {/* Content */}
+                                    <View className="flex-1 justify-between relative z-10">
+                                        {/* Header with Dropdown Button */}
+                                        <View className="flex-row items-center justify-between mb-2">
+                                            <Text className="text-sm font-medium text-gray-700">total sales</Text>
+                                            <TouchableOpacity
+                                                onPress={() => setShowSalesTimePeriodPicker(!showSalesTimePeriodPicker)}
+                                                className="p-1"
+                                                activeOpacity={0.7}
+                                                disabled={loadingSales}
+                                            >
+                                                <Ionicons
+                                                    name={showSalesTimePeriodPicker ? "chevron-up" : "chevron-down"}
+                                                    size={16}
+                                                    color="#666666"
+                                                />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {/* Main Value */}
+                                        <Text className="text-2xl font-bold text-black" style={{ marginTop: 8 }}>
+                                            {loadingSales ? "..." : stats.totalSales}
+                                        </Text>
+
+                                        {/* Subtitle with period */}
+                                        <Text className="text-xs text-gray-500" style={{ marginTop: 4 }}>
+                                            {getSalesTimePeriodLabel()}
+                                        </Text>
+
+                                        {/* Loading Indicator */}
+                                        {loadingSales && (
+                                            <View className="absolute top-2 right-8">
+                                                <ActivityIndicator size={12} color="#FF9800" />
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+
+                                {/* Dropdown Menu - Fixed Positioning */}
+                                {showSalesTimePeriodPicker && (
+                                    <View
+                                        className="absolute bg-white rounded-xl border border-gray-200 shadow-lg z-50"
+                                        style={{
+                                            top: 125, // Position below the card
+                                            right: 0,
+                                            minWidth: 140,
+                                            maxHeight: 200,
+                                            elevation: 10 // Android shadow
+                                        }}
+                                    >
+                                        <ScrollView className="max-h-48 p-2">
+                                            {timePeriodOptions.map((option) => (
+                                                <TouchableOpacity
+                                                    key={option.key}
+                                                    onPress={() => handleSalesTimePeriodChange(option.key)}
+                                                    className={`py-2 px-3 rounded-lg ${
+                                                        salesTimePeriod === option.key ? 'bg-gray-100' : ''
+                                                    }`}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text className={`text-sm ${
+                                                        salesTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
+                                                    }`}>
+                                                        {option.label}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Revenue Card with Fixed Dropdown */}
+                            <View className="flex-1 relative overflow-hidden">
+                                <View className="bg-white rounded-xl p-4 border border-gray-200 relative overflow-visible" style={{ height: 120 }}>
+                                    {/* Background Icon */}
+                                    <View
+                                        className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
+                                        style={{
+                                            width: 80,
+                                            height: 80,
+                                            backgroundColor: '#9C27B015'
+                                        }}
+                                    >
+                                        <Ionicons name="trending-up-outline" size={40} color="#9C27B060" />
+                                    </View>
+
+                                    {/* Content */}
+                                    <View className="flex-1 justify-between relative z-10">
+                                        {/* Header with Dropdown Button */}
+                                        <View className="flex-row items-center justify-between mb-2">
+                                            <Text className="text-sm font-medium text-gray-700">revenue</Text>
+                                            <TouchableOpacity
+                                                onPress={() => setShowRevenueTimePeriodPicker(!showRevenueTimePeriodPicker)}
+                                                className="p-1"
+                                                activeOpacity={0.7}
+                                                disabled={loadingRevenue}
+                                            >
+                                                <Ionicons
+                                                    name={showRevenueTimePeriodPicker ? "chevron-up" : "chevron-down"}
+                                                    size={16}
+                                                    color="#666666"
+                                                />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {/* Main Value */}
+                                        <Text className="text-2xl font-bold text-black" style={{ marginTop: 8 }}>
+                                            {loadingRevenue ? "..." : `rs ${stats.netRevenue.toFixed(0)}`}
+                                        </Text>
+
+                                        {/* Subtitle with period and gross revenue */}
+                                        <View style={{ marginTop: 4 }}>
+                                            <Text className="text-xs text-gray-500">
+                                                {getRevenueTimePeriodLabel()}
+                                            </Text>
+                                            {!loadingRevenue && (
+                                                <Text className="text-xs text-gray-400">
+                                                    gross: rs {stats.grossRevenue.toFixed(0)}
+                                                </Text>
+                                            )}
+                                        </View>
+
+                                        {/* Loading Indicator */}
+                                        {loadingRevenue && (
+                                            <View className="absolute top-2 right-8">
+                                                <ActivityIndicator size={12} color="#9C27B0" />
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+
+                                {/* Dropdown Menu - Fixed Positioning */}
+                                {showRevenueTimePeriodPicker && (
+                                    <View
+                                        className="absolute bg-white rounded-xl border border-gray-200 shadow-lg z-50"
+                                        style={{
+                                            top: 125, // Position below the card
+                                            right: 0,
+                                            minWidth: 140,
+                                            maxHeight: 200,
+                                            elevation: 10 // Android shadow
+                                        }}
+                                    >
+                                        <ScrollView className="max-h-48 p-2">
+                                            {timePeriodOptions.map((option) => (
+                                                <TouchableOpacity
+                                                    key={option.key}
+                                                    onPress={() => handleRevenueTimePeriodChange(option.key)}
+                                                    className={`py-2 px-3 rounded-lg ${
+                                                        revenueTimePeriod === option.key ? 'bg-gray-100' : ''
+                                                    }`}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text className={`text-sm ${
+                                                        revenueTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
+                                                    }`}>
+                                                        {option.label}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
                     </View>
-                </View>
 
-                {filteredProducts.length === 0 ? (
-                    <EmptyProductsComponent category={activeTab} />
-                ) : (
-                    <FlatList
-                        data={filteredProducts}
-                        renderItem={renderProductItem}
-                        numColumns={getNumColumns()}
-                        key={`${getNumColumns()}-${activeTab}`}
-                        scrollEnabled={false}
-                        contentContainerStyle={{ paddingHorizontal: 18 }}
-                        showsVerticalScrollIndicator={false}
-                    />
-                )}
-            </ScrollView>
+                    {/* Products Section */}
+                    <View className="px-5">
+                        <View className="flex-row justify-between items-center mb-4">
+                            <Text className="text-lg font-medium text-black">
+                                my products
+                            </Text>
+                            <Text className="text-sm text-gray-500">
+                                {filteredProducts.length} {activeTab === 'all' ? 'total' : activeTab}
+                            </Text>
+                        </View>
 
-            {/* Floating Action Button */}
-            <FloatingActionButton
-                onPress={handleAddProduct}
-                icon="add"
-            />
+                        {/* Tab Navigation */}
+                        <View className="flex-row mb-6 rounded-lg flex gap-2">
+                            <TabButton
+                                tab="all"
+                                title="all"
+                                isActive={activeTab === 'all'}
+                                onPress={() => setActiveTab('all')}
+                            />
+                            <TabButton
+                                tab="fruits"
+                                title="fruits"
+                                isActive={activeTab === 'fruits'}
+                                onPress={() => setActiveTab('fruits')}
+                            />
+                            <TabButton
+                                tab="vegetables"
+                                title="vegetables"
+                                isActive={activeTab === 'vegetables'}
+                                onPress={() => setActiveTab('vegetables')}
+                            />
+                        </View>
+                    </View>
 
-            {/* Custom Alert */}
-            <CustomAlert
-                visible={alert.visible}
-                type={alert.type}
-                title={alert.title}
-                message={alert.message}
-                buttons={alert.buttons}
-                onClose={hideAlert}
-            />
-        </View>
+                    {filteredProducts.length === 0 ? (
+                        <EmptyProductsComponent category={activeTab} />
+                    ) : (
+                        <FlatList
+                            data={filteredProducts}
+                            renderItem={renderProductItem}
+                            numColumns={getNumColumns()}
+                            key={`${getNumColumns()}-${activeTab}`}
+                            scrollEnabled={false}
+                            contentContainerStyle={{ paddingHorizontal: 18 }}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    )}
+                </ScrollView>
+
+                {/* Floating Action Button */}
+                <FloatingActionButton
+                    onPress={handleAddProduct}
+                    icon="add"
+                />
+
+                {/* Custom Alert */}
+                <CustomAlert
+                    visible={alert.visible}
+                    type={alert.type}
+                    title={alert.title}
+                    message={alert.message}
+                    buttons={alert.buttons}
+                    onClose={hideAlert}
+                />
+            </View>
+        </TouchableWithoutFeedback>
     );
 }

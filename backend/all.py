@@ -1393,6 +1393,35 @@ def get_farmer_earnings(
     return service.get_farmer_earnings_summary(current_user.id)
 
 
+@router.get("/farmer/sales/{period}")
+def get_farmer_sales_for_period(
+        period: str,
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Get farmer sales count for specific time period"""
+    if current_user.role != 'farmer':
+        raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
+
+    service = OrderService(db)
+    return service.get_farmer_sales_for_period(current_user.id, period)
+
+
+@router.get("/farmer/revenue/{period}")
+def get_farmer_revenue_for_period(
+        period: str,
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Get farmer revenue for specific time period"""
+    if current_user.role != 'farmer':
+        raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
+
+    service = OrderService(db)
+    return service.get_farmer_revenue_for_period(current_user.id, period)
+
+
+
 ###################################
 
 
@@ -3174,15 +3203,14 @@ class PushNotificationService:
 
 # services/order_service.py - UNIFIED SYSTEM ONLY
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc
-from models.order import Cart, CartItem, UnifiedOrder, UnifiedOrderItem, UnifiedPayment, OrderStatusEnum, \
-    PaymentStatusEnum, FarmerPayment
+from sqlalchemy import desc, text
+from models.order import Cart, CartItem, UnifiedOrder, UnifiedOrderItem, UnifiedPayment, OrderStatusEnum, FarmerPayment
 from models.product import FarmerProduct, ProductUnitPrice
 from models.user import User
 from schemas.order import CartItemCreate, CartItemUpdate
 from typing import List, Optional, Dict, Tuple
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 from services.notification_service import PushNotificationService
 
 
@@ -3523,55 +3551,211 @@ class OrderService:
         return order
 
     def get_farmer_order_summary(self, farmer_id: int) -> Dict:
-        """Get order summary for farmer dashboard"""
-        from sqlalchemy import func
+        """Get order summary for farmer dashboard - SQLite optimized with zero handling"""
 
-        # Get farmer payment records (this is how we track farmer-specific revenue)
-        farmer_payments = (
-            self.db.query(
-                UnifiedOrder.status,
-                func.count(UnifiedOrder.id).label('count'),
-                func.sum(FarmerPayment.gross_amount).label('gross_amount'),
-                func.sum(FarmerPayment.net_amount).label('net_amount')
-            )
-            .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
-            .filter(FarmerPayment.farmer_id == farmer_id)
-            .group_by(UnifiedOrder.status)
-            .all()
-        )
-
+        # Initialize with zeros
         result = {
             'total_orders': 0,
             'confirmed_orders': 0,
             'processing_orders': 0,
             'out_for_delivery_orders': 0,
             'delivered_orders': 0,
-            'total_gross_revenue': 0,
-            'total_net_revenue': 0,
-            'pending_revenue': 0
+            'cancelled_orders': 0,
+            'total_gross_revenue': 0.0,
+            'total_net_revenue': 0.0,
+            'pending_revenue': 0.0
         }
 
-        for status, count, gross_amount, net_amount in farmer_payments:
-            result['total_orders'] += count
-            gross_float = float(gross_amount or 0)
-            net_float = float(net_amount or 0)
+        try:
+            # Get farmer payment records with simple SQLite query
+            farmer_payments = (
+                self.db.query(FarmerPayment, UnifiedOrder.status)
+                .join(UnifiedOrder, FarmerPayment.order_id == UnifiedOrder.id)
+                .filter(FarmerPayment.farmer_id == farmer_id)
+                .all()
+            )
 
-            result['total_gross_revenue'] += gross_float
-            result['total_net_revenue'] += net_float
+            # Process results in Python (SQLite-friendly)
+            for payment, status in farmer_payments:
+                result['total_orders'] += 1
 
-            if status == OrderStatusEnum.CONFIRMED:
-                result['confirmed_orders'] = count
-                result['pending_revenue'] += net_float
-            elif status == OrderStatusEnum.PROCESSING:
-                result['processing_orders'] = count
-                result['pending_revenue'] += net_float
-            elif status == OrderStatusEnum.OUT_FOR_DELIVERY:
-                result['out_for_delivery_orders'] = count
-                result['pending_revenue'] += net_float
-            elif status == OrderStatusEnum.DELIVERED:
-                result['delivered_orders'] = count
+                gross_amount = float(payment.gross_amount or 0)
+                net_amount = float(payment.net_amount or 0)
+
+                result['total_gross_revenue'] += gross_amount
+                result['total_net_revenue'] += net_amount
+
+                # Count by status
+                if status == OrderStatusEnum.CONFIRMED:
+                    result['confirmed_orders'] += 1
+                    result['pending_revenue'] += net_amount
+                elif status == OrderStatusEnum.PROCESSING:
+                    result['processing_orders'] += 1
+                    result['pending_revenue'] += net_amount
+                elif status == OrderStatusEnum.OUT_FOR_DELIVERY:
+                    result['out_for_delivery_orders'] += 1
+                    result['pending_revenue'] += net_amount
+                elif status == OrderStatusEnum.DELIVERED:
+                    result['delivered_orders'] += 1
+                elif status == OrderStatusEnum.CANCELLED:
+                    result['cancelled_orders'] += 1
+
+        except Exception as e:
+            print(f"Error in get_farmer_order_summary: {e}")
+            # Return zeros on error
 
         return result
+
+    def get_farmer_sales_for_period(self, farmer_id: int, period: str) -> Dict:
+        """Get farmer sales count for specific time period - SQLite optimized"""
+
+        try:
+            # Get current date for filtering
+            now = datetime.now()
+
+            # SQLite-friendly date filtering using string comparison
+            if period == 'this_week':
+                start_date = (now - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
+                date_filter = UnifiedOrder.created_at >= start_date
+            elif period == 'this_month':
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
+                date_filter = UnifiedOrder.created_at >= start_date
+            elif period == 'this_year':
+                start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0).strftime(
+                    '%Y-%m-%d %H:%M:%S')
+                date_filter = UnifiedOrder.created_at >= start_date
+            elif period == 'all_time':
+                date_filter = text('1=1')  # SQLite-friendly always true
+            elif period in ['january', 'february', 'march', 'april', 'may', 'june',
+                            'july', 'august', 'september', 'october', 'november', 'december']:
+                # Specific month using SQLite strftime
+                month_mapping = {
+                    'january': '01', 'february': '02', 'march': '03', 'april': '04',
+                    'may': '05', 'june': '06', 'july': '07', 'august': '08',
+                    'september': '09', 'october': '10', 'november': '11', 'december': '12'
+                }
+                target_month = month_mapping[period]
+                current_year = str(now.year)
+
+                # Use SQLite strftime function
+                date_filter = text(
+                    f"strftime('%Y', unified_orders.created_at) = '{current_year}' AND strftime('%m', unified_orders.created_at) = '{target_month}'")
+            else:
+                # Default to this month
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
+                date_filter = UnifiedOrder.created_at >= start_date
+
+            # Simple SQLite-friendly query
+            if period == 'all_time':
+                sales_count = (
+                    self.db.query(UnifiedOrder.id)
+                    .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
+                    .filter(FarmerPayment.farmer_id == farmer_id)
+                    .count()
+                )
+            elif period in ['january', 'february', 'march', 'april', 'may', 'june',
+                            'july', 'august', 'september', 'october', 'november', 'december']:
+                # For month filtering, get all orders and filter in Python (SQLite-friendly)
+                orders = (
+                    self.db.query(UnifiedOrder.created_at)
+                    .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
+                    .filter(FarmerPayment.farmer_id == farmer_id)
+                    .all()
+                )
+
+                month_mapping = {
+                    'january': 1, 'february': 2, 'march': 3, 'april': 4,
+                    'may': 5, 'june': 6, 'july': 7, 'august': 8,
+                    'september': 9, 'october': 10, 'november': 11, 'december': 12
+                }
+                target_month = month_mapping[period]
+                current_year = now.year
+
+                sales_count = 0
+                for order in orders:
+                    order_date = order.created_at
+                    if order_date.year == current_year and order_date.month == target_month:
+                        sales_count += 1
+            else:
+                # For other periods, use simple date comparison
+                sales_count = (
+                    self.db.query(UnifiedOrder.id)
+                    .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
+                    .filter(
+                        FarmerPayment.farmer_id == farmer_id,
+                        date_filter
+                    )
+                    .count()
+                )
+
+            return {'total_sales': sales_count or 0}
+
+        except Exception as e:
+            print(f"Error getting farmer sales for period {period}: {e}")
+            return {'total_sales': 0}
+
+    def get_farmer_revenue_for_period(self, farmer_id: int, period: str) -> Dict:
+        """Get farmer revenue for specific time period - SQLite optimized"""
+
+        try:
+            # Get current date for filtering
+            now = datetime.now()
+
+            # Get all farmer payments first (SQLite-friendly approach)
+            all_payments = (
+                self.db.query(FarmerPayment, UnifiedOrder.created_at)
+                .join(UnifiedOrder, FarmerPayment.order_id == UnifiedOrder.id)
+                .filter(FarmerPayment.farmer_id == farmer_id)
+                .all()
+            )
+
+            # Filter in Python (more reliable for SQLite)
+            filtered_payments = []
+
+            if period == 'this_week':
+                start_date = now - timedelta(days=7)
+                filtered_payments = [p for p, created_at in all_payments if created_at >= start_date]
+            elif period == 'this_month':
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                filtered_payments = [p for p, created_at in all_payments if created_at >= start_date]
+            elif period == 'this_year':
+                current_year = now.year
+                filtered_payments = [p for p, created_at in all_payments if created_at.year == current_year]
+            elif period == 'all_time':
+                filtered_payments = [p for p, created_at in all_payments]
+            elif period in ['january', 'february', 'march', 'april', 'may', 'june',
+                            'july', 'august', 'september', 'october', 'november', 'december']:
+                month_mapping = {
+                    'january': 1, 'february': 2, 'march': 3, 'april': 4,
+                    'may': 5, 'june': 6, 'july': 7, 'august': 8,
+                    'september': 9, 'october': 10, 'november': 11, 'december': 12
+                }
+                target_month = month_mapping[period]
+                current_year = now.year
+                filtered_payments = [
+                    p for p, created_at in all_payments
+                    if created_at.year == current_year and created_at.month == target_month
+                ]
+            else:
+                # Default to this month
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                filtered_payments = [p for p, created_at in all_payments if created_at >= start_date]
+
+            # Calculate totals in Python
+            gross_revenue = sum(float(p.gross_amount or 0) for p in filtered_payments)
+            net_revenue = sum(float(p.net_amount or 0) for p in filtered_payments)
+
+            return {
+                'grossRevenue': gross_revenue,
+                'netRevenue': net_revenue
+            }
+
+        except Exception as e:
+            print(f"Error getting farmer revenue for period {period}: {e}")
+            return {
+                'grossRevenue': 0.0,
+                'netRevenue': 0.0
+            }
 
 
 ###################################

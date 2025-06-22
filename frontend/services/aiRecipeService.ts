@@ -48,8 +48,6 @@ class RuleBasedAIService {
         this.recipeRules = MAURITIAN_RECIPES;
         this.ingredientCategories = INGREDIENT_CATEGORIES;
         this.cuisineAffinities = CUISINE_AFFINITIES;
-
-        console.log(`🍽️ Loaded ${this.recipeRules.length} Mauritian recipes into knowledge base`);
     }
 
     /**

@@ -362,7 +362,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     const registerForPushNotifications = async () => {
         try {
             if (!Device.isDevice) {
-                console.log('Push notifications only work on physical devices');
                 return;
             }
 
@@ -1198,6 +1197,80 @@ export default function RootLayout() {
 //////////////////////////////////////
 
 
+import { View, Text, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
+interface StatCardProps {
+    title: string;
+    value: string | number;
+    icon: string;
+    color?: string;
+    subtitle?: string;
+    loading?: boolean;
+}
+
+export default function StatCard({
+                                     title,
+                                     value,
+                                     icon,
+                                     color = '#4CAF50',
+                                     subtitle,
+                                     loading = false
+                                 }: StatCardProps) {
+    return (
+        <View
+            className="bg-white rounded-xl p-4 border border-gray-200 flex-1 mx-1 relative overflow-hidden"
+            style={{ height: 120 }}
+        >
+            {/* Background Icon - Top Right */}
+            <View
+                className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
+                style={{
+                    width: 80,
+                    height: 80,
+                    backgroundColor: `${color}15`
+                }}
+            >
+                <Ionicons
+                    name={icon as any}
+                    size={40}
+                    color={`${color}60`}
+                />
+            </View>
+
+            {/* Content - Left Side */}
+            <View className="flex-1 justify-between">
+                {/* Header with Loading */}
+                <View className="flex-row items-center justify-between">
+                    <Text className="text-sm font-medium text-gray-700">
+                        {title}
+                    </Text>
+                    {loading && (
+                        <ActivityIndicator size={12} color={color} />
+                    )}
+                </View>
+
+                {/* Main Value */}
+                <Text className="text-2xl font-bold text-black" style={{ marginTop: 8 }}>
+                    {loading ? "..." : value}
+                </Text>
+
+                {/* Subtitle */}
+                {subtitle && (
+                    <Text className="text-xs text-gray-500" numberOfLines={1} style={{ marginTop: 4 }}>
+                        {subtitle}
+                    </Text>
+                )}
+            </View>
+        </View>
+    );
+}
+
+
+//////////////////////////////////////
+
+
+// app/(auth)/farmer/homepage.tsx - Complete Fixed Version
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -1206,8 +1279,9 @@ import {
     RefreshControl,
     ActivityIndicator,
     FlatList,
-    Dimensions,
-    TouchableOpacity
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
@@ -1224,11 +1298,16 @@ import { UnitPrice } from "@/types";
 interface Product {
     id: number;
     item: string;
+    category?: string;
     description?: string;
-    is_active: boolean;
+    farmer_id?: number;
+    farmer_name?: string;
+    farmer_district?: string;
+    lowest_price?: number;
     unit_prices: UnitPrice[];
     created_at: string;
     updated_at: string;
+    is_active: boolean;
 }
 
 interface DashboardStats {
@@ -1237,41 +1316,6 @@ interface DashboardStats {
     totalSales: number;
     grossRevenue: number;
     netRevenue: number;
-}
-
-interface OrderSummary {
-    total_orders: number;
-    confirmed_orders: number;
-    processing_orders: number;
-    out_for_delivery_orders: number;
-    delivered_orders: number;
-    total_gross_revenue: number;
-    total_net_revenue: number;
-    pending_revenue: number;
-}
-
-interface EarningsSummary {
-    total_gross_earnings: number;
-    total_net_earnings: number;
-    total_orders: number;
-    total_platform_fees: number;
-    paid_amount: number;
-    pending_amount: number;
-    recent_payments: Array<{
-        created_at: string;
-        gross_amount: number;
-        net_amount: number;
-        order_number: string;
-        platform_fee: number;
-        status: string;
-    }>;
-    period_summary?: {
-        [key: string]: {
-            gross_earnings: number;
-            net_earnings: number;
-            orders_count: number;
-        }
-    }
 }
 
 interface AlertState {
@@ -1308,6 +1352,8 @@ export default function FarmerDashboard() {
     const [revenueTimePeriod, setRevenueTimePeriod] = useState<TimePeriod>('this_month');
     const [showSalesTimePeriodPicker, setShowSalesTimePeriodPicker] = useState(false);
     const [showRevenueTimePeriodPicker, setShowRevenueTimePeriodPicker] = useState(false);
+    const [loadingSales, setLoadingSales] = useState(false);
+    const [loadingRevenue, setLoadingRevenue] = useState(false);
     const [alert, setAlert] = useState<AlertState>({
         visible: false,
         type: 'info',
@@ -1372,6 +1418,16 @@ export default function FarmerDashboard() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
+    // Touch handler to close dropdowns when tapping outside
+    const handleScreenTouch = () => {
+        if (showSalesTimePeriodPicker) {
+            setShowSalesTimePeriodPicker(false);
+        }
+        if (showRevenueTimePeriodPicker) {
+            setShowRevenueTimePeriodPicker(false);
+        }
+    };
+
     useEffect(() => {
         if (user?.role !== 'farmer') {
             router.replace('/(auth)');
@@ -1385,102 +1441,21 @@ export default function FarmerDashboard() {
         });
 
         return () => subscription?.remove();
-    }, [user, salesTimePeriod, revenueTimePeriod]);
+    }, [user]);
 
-    const getWeekNumber = (date: Date): number => {
-        const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-        const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
-        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-    };
-
-    const getPeriodDataFromOrders = (orders: any[], timePeriod: TimePeriod) => {
-        if (!orders || orders.length === 0) {
-            return { gross_earnings: 0, net_earnings: 0, orders_count: 0 };
+    // Separate effect for sales period changes
+    useEffect(() => {
+        if (user?.role === 'farmer') {
+            fetchSalesData();
         }
+    }, [salesTimePeriod, user]);
 
-        const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth() + 1;
-        const currentWeek = getWeekNumber(new Date());
-
-        let filteredOrders = orders;
-
-        switch (timePeriod) {
-            case 'this_month':
-                filteredOrders = orders.filter(order => {
-                    const orderDate = new Date(order.created_at);
-                    return orderDate.getFullYear() === currentYear &&
-                        orderDate.getMonth() + 1 === currentMonth;
-                });
-                break;
-            case 'this_week':
-                const oneWeekAgo = new Date();
-                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                filteredOrders = orders.filter(order => {
-                    const orderDate = new Date(order.created_at);
-                    return orderDate >= oneWeekAgo;
-                });
-                break;
-            case 'this_year':
-                filteredOrders = orders.filter(order => {
-                    const orderDate = new Date(order.created_at);
-                    return orderDate.getFullYear() === currentYear;
-                });
-                break;
-            case 'all_time':
-                // Keep all orders
-                break;
-            default:
-                // Handle specific months (january, february, etc.)
-                const monthIndex = timePeriodOptions.findIndex(opt => opt.key === timePeriod);
-                if (monthIndex >= 4) { // First 4 are non-month options
-                    const targetMonth = monthIndex - 3; // Convert to 1-based month
-                    filteredOrders = orders.filter(order => {
-                        const orderDate = new Date(order.created_at);
-                        return orderDate.getFullYear() === currentYear &&
-                            orderDate.getMonth() + 1 === targetMonth;
-                    });
-                }
-                break;
+    // Separate effect for revenue period changes
+    useEffect(() => {
+        if (user?.role === 'farmer') {
+            fetchRevenueData();
         }
-
-        const totalGross = filteredOrders.reduce((sum, order) => sum + Number(order.gross_amount || 0), 0);
-        const totalNet = filteredOrders.reduce((sum, order) => sum + Number(order.net_amount || 0), 0);
-
-        return {
-            gross_earnings: totalGross,
-            net_earnings: totalNet,
-            orders_count: filteredOrders.length
-        };
-    };
-
-    const getSalesTimePeriodLabel = (): string => {
-        const option = timePeriodOptions.find(opt => opt.key === salesTimePeriod);
-        return option ? option.label : 'this month';
-    };
-
-    const getRevenueTimePeriodLabel = (): string => {
-        const option = timePeriodOptions.find(opt => opt.key === revenueTimePeriod);
-        return option ? option.label : 'this month';
-    };
-
-    // Calculate number of columns based on screen width
-    const getNumColumns = () => {
-        if (screenWidth < 390) return 1; // Very small screens (phones in portrait)
-        if (screenWidth < 768) return 2; // Normal phones and small tablets
-        return 3; // Tablets and larger screens
-    };
-
-    // Filter products based on active tab
-    const getFilteredProducts = () => {
-        if (activeTab === 'all') return products;
-        if (activeTab === 'fruits') {
-            return products.filter(product => fruitItems.has(product.item));
-        }
-        if (activeTab === 'vegetables') {
-            return products.filter(product => vegetableItems.has(product.item));
-        }
-        return products;
-    };
+    }, [revenueTimePeriod, user]);
 
     const fetchDashboardData = async () => {
         try {
@@ -1501,96 +1476,25 @@ export default function FarmerDashboard() {
             const totalProducts = (productsResponse.data || []).length;
             const activeProducts = (productsResponse.data || []).filter((p: Product) => p.is_active).length;
 
-            // Initialize separate stats for sales and revenue
-            let salesGrossRevenue = 0;
-            let salesNetRevenue = 0;
-            let salesCount = 0;
-
-            let revenueGrossRevenue = 0;
-            let revenueNetRevenue = 0;
-            let revenueCount = 0;
-
-            try {
-                // Try to fetch order summary
-                const orderSummaryResponse = await api.get('/orders/farmer/orders/summary', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
-                if (orderSummaryResponse.data) {
-                    const orderSummary: OrderSummary = orderSummaryResponse.data;
-
-                    // Use order summary data as fallback for both sales and revenue
-                    salesCount = orderSummary.total_orders || 0;
-                    revenueGrossRevenue = orderSummary.total_gross_revenue || 0;
-                    revenueNetRevenue = orderSummary.total_net_revenue || 0;
-                }
-            } catch (orderError) {
-                console.error('Order summary not available:', orderError);
-                // Continue with default values
-            }
-
-            try {
-                // Try to fetch earnings data for more detailed breakdown
-                const earningsResponse = await api.get('/orders/farmer/earnings', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
-                if (earningsResponse.data) {
-                    const earnings: EarningsSummary = earningsResponse.data;
-
-                    // Calculate sales data based on sales time period
-                    if (salesTimePeriod === 'all_time') {
-                        salesCount = earnings.total_orders || 0;
-                    } else {
-                        // Use recent_payments to filter by time period
-                        const salesPeriodData = getPeriodDataFromOrders(earnings.recent_payments || [], salesTimePeriod);
-                        salesCount = salesPeriodData.orders_count;
-                    }
-
-                    // Calculate revenue data based on revenue time period
-                    if (revenueTimePeriod === 'all_time') {
-                        revenueGrossRevenue = earnings.total_gross_earnings || 0;
-                        revenueNetRevenue = earnings.total_net_earnings || 0;
-                    } else {
-                        // Use recent_payments to filter by time period
-                        const revenuePeriodData = getPeriodDataFromOrders(earnings.recent_payments || [], revenueTimePeriod);
-                        revenueGrossRevenue = revenuePeriodData.gross_earnings;
-                        revenueNetRevenue = revenuePeriodData.net_earnings;
-                    }
-                }
-            } catch (earningsError) {
-                console.error('Earnings data not available:', earningsError);
-                // Continue with order summary data or defaults
-            }
-
-            setStats({
+            // Update product stats
+            setStats(prev => ({
+                ...prev,
                 totalProducts,
-                activeProducts,
-                totalSales: salesCount,
-                grossRevenue: Number(revenueGrossRevenue) || 0,
-                netRevenue: Number(revenueNetRevenue) || 0
-            });
+                activeProducts
+            }));
+
+            // Fetch sales and revenue data
+            await Promise.all([
+                fetchSalesData(),
+                fetchRevenueData()
+            ]);
 
         } catch (error: any) {
             console.error('Error fetching dashboard data:', error);
-            console.error('Error details:', error.response?.data);
-
-            // Set basic stats from products if available, show error for others
-            const totalProducts = products.length;
-            const activeProducts = products.filter((p: Product) => p.is_active).length;
-
-            setStats({
-                totalProducts,
-                activeProducts,
-                totalSales: 0,
-                grossRevenue: 0,
-                netRevenue: 0
-            });
-
             showAlert(
-                'warning',
-                'partial data loaded',
-                'some dashboard data could not be loaded. products are shown but sales/revenue data may be unavailable.',
+                'error',
+                'error',
+                'failed to load dashboard data',
                 [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
             );
         } finally {
@@ -1599,9 +1503,80 @@ export default function FarmerDashboard() {
         }
     };
 
+    const fetchSalesData = async () => {
+        try {
+            setLoadingSales(true);
+            const token = await AsyncStorage.getItem('token');
+            if (!token) return;
+
+            const salesResponse = await api.get(`/orders/farmer/sales/${salesTimePeriod}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const salesCount = salesResponse.data?.total_sales || 0;
+
+            setStats(prev => ({
+                ...prev,
+                totalSales: salesCount
+            }));
+
+        } catch (salesError: any) {
+            console.error('Error fetching sales data:', salesError);
+            // Don't show alert for sales errors, just set to 0
+            setStats(prev => ({
+                ...prev,
+                totalSales: 0
+            }));
+        } finally {
+            setLoadingSales(false);
+        }
+    };
+
+    const fetchRevenueData = async () => {
+        try {
+            setLoadingRevenue(true);
+            const token = await AsyncStorage.getItem('token');
+            if (!token) return;
+
+            const revenueResponse = await api.get(`/orders/farmer/revenue/${revenueTimePeriod}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const grossRevenue = revenueResponse.data?.grossRevenue || 0;
+            const netRevenue = revenueResponse.data?.netRevenue || 0;
+
+            setStats(prev => ({
+                ...prev,
+                grossRevenue: Number(grossRevenue),
+                netRevenue: Number(netRevenue)
+            }));
+
+        } catch (revenueError: any) {
+            console.error('Error fetching revenue data:', revenueError);
+            // Don't show alert for revenue errors, just set to 0
+            setStats(prev => ({
+                ...prev,
+                grossRevenue: 0,
+                netRevenue: 0
+            }));
+        } finally {
+            setLoadingRevenue(false);
+        }
+    };
+
     const handleRefresh = () => {
         setRefreshing(true);
         fetchDashboardData();
+    };
+
+    const handleSalesTimePeriodChange = (newPeriod: TimePeriod) => {
+        setSalesTimePeriod(newPeriod);
+        setShowSalesTimePeriodPicker(false);
+    };
+
+    const handleRevenueTimePeriodChange = (newPeriod: TimePeriod) => {
+        setRevenueTimePeriod(newPeriod);
+        setShowRevenueTimePeriodPicker(false);
     };
 
     const handleAddProduct = () => {
@@ -1609,7 +1584,6 @@ export default function FarmerDashboard() {
     };
 
     const handleEditProduct = (product: Product) => {
-        // Navigate to edit screen with product data
         router.push(`/farmer/edit-product/${product.id}`);
     };
 
@@ -1714,57 +1688,24 @@ export default function FarmerDashboard() {
         </TouchableOpacity>
     );
 
-    const SalesTimePeriodPicker = () => (
-        <View className="absolute top-12 right-0 bg-white rounded-xl border border-gray-200 p-2 z-10 min-w-[120px]">
-            <ScrollView className="max-h-48">
-                {timePeriodOptions.map((option) => (
-                    <TouchableOpacity
-                        key={option.key}
-                        onPress={() => {
-                            setSalesTimePeriod(option.key);
-                            setShowSalesTimePeriodPicker(false);
-                        }}
-                        className={`py-2 px-3 rounded-lg ${
-                            salesTimePeriod === option.key ? 'bg-background' : ''
-                        }`}
-                        activeOpacity={0.7}
-                    >
-                        <Text className={`text-sm ${
-                            salesTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
-                        }`}>
-                            {option.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-    );
+    // Calculate number of columns based on screen width
+    const getNumColumns = () => {
+        if (screenWidth < 390) return 1;
+        if (screenWidth < 768) return 2;
+        return 3;
+    };
 
-    const RevenueTimePeriodPicker = () => (
-        <View className="absolute top-12 right-0 bg-white rounded-xl border border-gray-200 p-2 z-10 min-w-[120px]">
-            <ScrollView className="max-h-48">
-                {timePeriodOptions.map((option) => (
-                    <TouchableOpacity
-                        key={option.key}
-                        onPress={() => {
-                            setRevenueTimePeriod(option.key);
-                            setShowRevenueTimePeriodPicker(false);
-                        }}
-                        className={`py-2 px-3 rounded-lg ${
-                            revenueTimePeriod === option.key ? 'bg-background' : ''
-                        }`}
-                        activeOpacity={0.7}
-                    >
-                        <Text className={`text-sm ${
-                            revenueTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
-                        }`}>
-                            {option.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-    );
+    // Filter products based on active tab
+    const getFilteredProducts = () => {
+        if (activeTab === 'all') return products;
+        if (activeTab === 'fruits') {
+            return products.filter(product => fruitItems.has(product.item));
+        }
+        if (activeTab === 'vegetables') {
+            return products.filter(product => vegetableItems.has(product.item));
+        }
+        return products;
+    };
 
     const renderProductItem = ({ item, index }: { item: Product; index: number }) => {
         const numColumns = getNumColumns();
@@ -1789,6 +1730,16 @@ export default function FarmerDashboard() {
         );
     };
 
+    const getSalesTimePeriodLabel = (): string => {
+        const option = timePeriodOptions.find(opt => opt.key === salesTimePeriod);
+        return option ? option.label : 'this month';
+    };
+
+    const getRevenueTimePeriodLabel = (): string => {
+        const option = timePeriodOptions.find(opt => opt.key === revenueTimePeriod);
+        return option ? option.label : 'this month';
+    };
+
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
@@ -1804,155 +1755,305 @@ export default function FarmerDashboard() {
     const filteredProducts = getFilteredProducts();
 
     return (
-        <View className="flex-1 bg-surface">
-            <Header
-                title="dashboard"
-                showSettingsButton={true}
-                showOrdersButton={true}
-                showNotificationButton={true}
-            />
+        <TouchableWithoutFeedback onPress={handleScreenTouch}>
+            <View className="flex-1 bg-surface">
+                <Header
+                    title="dashboard"
+                    showSettingsButton={true}
+                    showOrdersButton={true}
+                    showNotificationButton={true}
+                />
 
-            <ScrollView
-                className="flex-1"
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={handleRefresh}
-                        colors={['#4CAF50']}
-                    />
-                }
-                contentContainerStyle={{ paddingBottom: 100 }}
-            >
-                {/* Welcome Section */}
-                <View className="px-5 pt-6 pb-4">
-                    <Text className="text-xl font-medium text-black mb-2">
-                        welcome back, {user?.farmer_profile?.first_name.toLowerCase()}!
-                    </Text>
-                    <Text className="text-base text-gray-600">
-                        here&#39;s your farm&#39;s performance overview
-                    </Text>
-                </View>
-
-                {/* Statistics Cards */}
-                <View className="px-5 mb-6">
-                    <View className="flex-row mb-3">
-                        <StatCard
-                            title="total products"
-                            value={stats.totalProducts}
-                            icon="leaf-outline"
-                            color="#4CAF50"
+                <ScrollView
+                    className="flex-1"
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            colors={['#4CAF50']}
                         />
-                        <StatCard
-                            title="active listings"
-                            value={stats.activeProducts}
-                            icon="checkmark-circle-outline"
-                            color="#2196F3"
-                        />
-                    </View>
-                    <View className="flex-row">
-                        <View className="flex-1 mx-1 relative">
-                            <StatCard
-                                title="total sales"
-                                value={stats.totalSales}
-                                icon="bag-handle-outline"
-                                color="#FF9800"
-                                subtitle={getSalesTimePeriodLabel()}
-                            />
-                            <TouchableOpacity
-                                onPress={() => setShowSalesTimePeriodPicker(!showSalesTimePeriodPicker)}
-                                className="absolute top-2 right-2 p-1"
-                                activeOpacity={0.7}
-                            >
-                                <Ionicons name="chevron-down" size={16} color="#666666" />
-                            </TouchableOpacity>
-                            {showSalesTimePeriodPicker && <SalesTimePeriodPicker />}
-                        </View>
-                        <View className="flex-1 mx-1 relative">
-                            <StatCard
-                                title="revenue"
-                                value={`rs ${stats.netRevenue.toFixed(0)}`}
-                                icon="trending-up-outline"
-                                color="#9C27B0"
-                                subtitle={`gross: rs ${stats.grossRevenue.toFixed(0)} • ${getRevenueTimePeriodLabel()}`}
-                            />
-                            <TouchableOpacity
-                                onPress={() => setShowRevenueTimePeriodPicker(!showRevenueTimePeriodPicker)}
-                                className="absolute top-2 right-2 p-1"
-                                activeOpacity={0.7}
-                            >
-                                <Ionicons name="chevron-down" size={16} color="#666666" />
-                            </TouchableOpacity>
-                            {showRevenueTimePeriodPicker && <RevenueTimePeriodPicker />}
-                        </View>
-                    </View>
-                </View>
-
-                {/* Products Section */}
-                <View className="px-5">
-                    <View className="flex-row justify-between items-center mb-4">
-                        <Text className="text-xl font-medium text-black">
-                            my products
+                    }
+                    contentContainerStyle={{ paddingBottom: 100 }}
+                >
+                    {/* Welcome Section */}
+                    <View className="px-5 pt-6 pb-4">
+                        <Text className="text-xl font-semibold text-black mb-2">
+                            welcome back, {user?.farmer_profile?.first_name.toLowerCase()}!
                         </Text>
-                        <Text className="text-sm text-gray-500">
-                            {filteredProducts.length} {activeTab === 'all' ? 'total' : activeTab}
+                        <Text className="text-base text-gray-600">
+                            here&#39;s your farm&#39;s performance overview
                         </Text>
                     </View>
 
-                    {/* Tab Navigation */}
-                    <View className="flex-row mb-6 rounded-lg flex gap-2">
-                        <TabButton
-                            tab="all"
-                            title="all"
-                            isActive={activeTab === 'all'}
-                            onPress={() => setActiveTab('all')}
-                        />
-                        <TabButton
-                            tab="fruits"
-                            title="fruits"
-                            isActive={activeTab === 'fruits'}
-                            onPress={() => setActiveTab('fruits')}
-                        />
-                        <TabButton
-                            tab="vegetables"
-                            title="vegetables"
-                            isActive={activeTab === 'vegetables'}
-                            onPress={() => setActiveTab('vegetables')}
-                        />
+                    {/* Statistics Cards - FIXED VERSION */}
+                    <View className="px-5 mb-6">
+                        <View className="flex-row mb-3">
+                            <StatCard
+                                title="total products"
+                                value={stats.totalProducts}
+                                icon="leaf-outline"
+                                color="#4CAF50"
+                            />
+                            <StatCard
+                                title="active listings"
+                                value={stats.activeProducts}
+                                icon="checkmark-circle-outline"
+                                color="#2196F3"
+                            />
+                        </View>
+
+                        {/* Bottom Row with Fixed Dropdowns */}
+                        <View className="flex-row gap-2">
+                            {/* Sales Card with Fixed Dropdown */}
+                            <View className="flex-1 relative overflow-hidden">
+                                <View className="bg-white rounded-xl p-4 border border-gray-200 relative overflow-visible" style={{ height: 120 }}>
+                                    {/* Background Icon */}
+                                    <View
+                                        className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
+                                        style={{
+                                            width: 80,
+                                            height: 80,
+                                            backgroundColor: '#FF980015'
+                                        }}
+                                    >
+                                        <Ionicons name="bag-handle-outline" size={40} color="#FF980060" />
+                                    </View>
+
+                                    {/* Content */}
+                                    <View className="flex-1 justify-between relative z-10">
+                                        {/* Header with Dropdown Button */}
+                                        <View className="flex-row items-center justify-between mb-2">
+                                            <Text className="text-sm font-medium text-gray-700">total sales</Text>
+                                            <TouchableOpacity
+                                                onPress={() => setShowSalesTimePeriodPicker(!showSalesTimePeriodPicker)}
+                                                className="p-1"
+                                                activeOpacity={0.7}
+                                                disabled={loadingSales}
+                                            >
+                                                <Ionicons
+                                                    name={showSalesTimePeriodPicker ? "chevron-up" : "chevron-down"}
+                                                    size={16}
+                                                    color="#666666"
+                                                />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {/* Main Value */}
+                                        <Text className="text-2xl font-bold text-black" style={{ marginTop: 8 }}>
+                                            {loadingSales ? "..." : stats.totalSales}
+                                        </Text>
+
+                                        {/* Subtitle with period */}
+                                        <Text className="text-xs text-gray-500" style={{ marginTop: 4 }}>
+                                            {getSalesTimePeriodLabel()}
+                                        </Text>
+
+                                        {/* Loading Indicator */}
+                                        {loadingSales && (
+                                            <View className="absolute top-2 right-8">
+                                                <ActivityIndicator size={12} color="#FF9800" />
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+
+                                {/* Dropdown Menu - Fixed Positioning */}
+                                {showSalesTimePeriodPicker && (
+                                    <View
+                                        className="absolute bg-white rounded-xl border border-gray-200 shadow-lg z-50"
+                                        style={{
+                                            top: 125, // Position below the card
+                                            right: 0,
+                                            minWidth: 140,
+                                            maxHeight: 200,
+                                            elevation: 10 // Android shadow
+                                        }}
+                                    >
+                                        <ScrollView className="max-h-48 p-2">
+                                            {timePeriodOptions.map((option) => (
+                                                <TouchableOpacity
+                                                    key={option.key}
+                                                    onPress={() => handleSalesTimePeriodChange(option.key)}
+                                                    className={`py-2 px-3 rounded-lg ${
+                                                        salesTimePeriod === option.key ? 'bg-gray-100' : ''
+                                                    }`}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text className={`text-sm ${
+                                                        salesTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
+                                                    }`}>
+                                                        {option.label}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Revenue Card with Fixed Dropdown */}
+                            <View className="flex-1 relative overflow-hidden">
+                                <View className="bg-white rounded-xl p-4 border border-gray-200 relative overflow-visible" style={{ height: 120 }}>
+                                    {/* Background Icon */}
+                                    <View
+                                        className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
+                                        style={{
+                                            width: 80,
+                                            height: 80,
+                                            backgroundColor: '#9C27B015'
+                                        }}
+                                    >
+                                        <Ionicons name="trending-up-outline" size={40} color="#9C27B060" />
+                                    </View>
+
+                                    {/* Content */}
+                                    <View className="flex-1 justify-between relative z-10">
+                                        {/* Header with Dropdown Button */}
+                                        <View className="flex-row items-center justify-between mb-2">
+                                            <Text className="text-sm font-medium text-gray-700">revenue</Text>
+                                            <TouchableOpacity
+                                                onPress={() => setShowRevenueTimePeriodPicker(!showRevenueTimePeriodPicker)}
+                                                className="p-1"
+                                                activeOpacity={0.7}
+                                                disabled={loadingRevenue}
+                                            >
+                                                <Ionicons
+                                                    name={showRevenueTimePeriodPicker ? "chevron-up" : "chevron-down"}
+                                                    size={16}
+                                                    color="#666666"
+                                                />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {/* Main Value */}
+                                        <Text className="text-2xl font-bold text-black" style={{ marginTop: 8 }}>
+                                            {loadingRevenue ? "..." : `rs ${stats.netRevenue.toFixed(0)}`}
+                                        </Text>
+
+                                        {/* Subtitle with period and gross revenue */}
+                                        <View style={{ marginTop: 4 }}>
+                                            <Text className="text-xs text-gray-500">
+                                                {getRevenueTimePeriodLabel()}
+                                            </Text>
+                                            {!loadingRevenue && (
+                                                <Text className="text-xs text-gray-400">
+                                                    gross: rs {stats.grossRevenue.toFixed(0)}
+                                                </Text>
+                                            )}
+                                        </View>
+
+                                        {/* Loading Indicator */}
+                                        {loadingRevenue && (
+                                            <View className="absolute top-2 right-8">
+                                                <ActivityIndicator size={12} color="#9C27B0" />
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+
+                                {/* Dropdown Menu - Fixed Positioning */}
+                                {showRevenueTimePeriodPicker && (
+                                    <View
+                                        className="absolute bg-white rounded-xl border border-gray-200 shadow-lg z-50"
+                                        style={{
+                                            top: 125, // Position below the card
+                                            right: 0,
+                                            minWidth: 140,
+                                            maxHeight: 200,
+                                            elevation: 10 // Android shadow
+                                        }}
+                                    >
+                                        <ScrollView className="max-h-48 p-2">
+                                            {timePeriodOptions.map((option) => (
+                                                <TouchableOpacity
+                                                    key={option.key}
+                                                    onPress={() => handleRevenueTimePeriodChange(option.key)}
+                                                    className={`py-2 px-3 rounded-lg ${
+                                                        revenueTimePeriod === option.key ? 'bg-gray-100' : ''
+                                                    }`}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <Text className={`text-sm ${
+                                                        revenueTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
+                                                    }`}>
+                                                        {option.label}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
                     </View>
-                </View>
 
-                {filteredProducts.length === 0 ? (
-                    <EmptyProductsComponent category={activeTab} />
-                ) : (
-                    <FlatList
-                        data={filteredProducts}
-                        renderItem={renderProductItem}
-                        numColumns={getNumColumns()}
-                        key={`${getNumColumns()}-${activeTab}`} // Force re-render when columns or tab changes
-                        scrollEnabled={false} // Disable FlatList scroll since we're in ScrollView
-                        contentContainerStyle={{ paddingHorizontal: 18 }}
-                        showsVerticalScrollIndicator={false}
-                    />
-                )}
-            </ScrollView>
+                    {/* Products Section */}
+                    <View className="px-5">
+                        <View className="flex-row justify-between items-center mb-4">
+                            <Text className="text-lg font-medium text-black">
+                                my products
+                            </Text>
+                            <Text className="text-sm text-gray-500">
+                                {filteredProducts.length} {activeTab === 'all' ? 'total' : activeTab}
+                            </Text>
+                        </View>
 
-            {/* Floating Action Button */}
-            <FloatingActionButton
-                onPress={handleAddProduct}
-                icon="add"
-            />
+                        {/* Tab Navigation */}
+                        <View className="flex-row mb-6 rounded-lg flex gap-2">
+                            <TabButton
+                                tab="all"
+                                title="all"
+                                isActive={activeTab === 'all'}
+                                onPress={() => setActiveTab('all')}
+                            />
+                            <TabButton
+                                tab="fruits"
+                                title="fruits"
+                                isActive={activeTab === 'fruits'}
+                                onPress={() => setActiveTab('fruits')}
+                            />
+                            <TabButton
+                                tab="vegetables"
+                                title="vegetables"
+                                isActive={activeTab === 'vegetables'}
+                                onPress={() => setActiveTab('vegetables')}
+                            />
+                        </View>
+                    </View>
 
-            {/* Custom Alert */}
-            <CustomAlert
-                visible={alert.visible}
-                type={alert.type}
-                title={alert.title}
-                message={alert.message}
-                buttons={alert.buttons}
-                onClose={hideAlert}
-            />
-        </View>
+                    {filteredProducts.length === 0 ? (
+                        <EmptyProductsComponent category={activeTab} />
+                    ) : (
+                        <FlatList
+                            data={filteredProducts}
+                            renderItem={renderProductItem}
+                            numColumns={getNumColumns()}
+                            key={`${getNumColumns()}-${activeTab}`}
+                            scrollEnabled={false}
+                            contentContainerStyle={{ paddingHorizontal: 18 }}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    )}
+                </ScrollView>
+
+                {/* Floating Action Button */}
+                <FloatingActionButton
+                    onPress={handleAddProduct}
+                    icon="add"
+                />
+
+                {/* Custom Alert */}
+                <CustomAlert
+                    visible={alert.visible}
+                    type={alert.type}
+                    title={alert.title}
+                    message={alert.message}
+                    buttons={alert.buttons}
+                    onClose={hideAlert}
+                />
+            </View>
+        </TouchableWithoutFeedback>
     );
 }
 
@@ -4402,8 +4503,6 @@ class RuleBasedAIService {
         this.recipeRules = MAURITIAN_RECIPES;
         this.ingredientCategories = INGREDIENT_CATEGORIES;
         this.cuisineAffinities = CUISINE_AFFINITIES;
-
-        console.log(`🍽️ Loaded ${this.recipeRules.length} Mauritian recipes into knowledge base`);
     }
 
     /**
