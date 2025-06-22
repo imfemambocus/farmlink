@@ -534,18 +534,20 @@ export default function FarmerDashboard() {
                         {/* Bottom Row with Fixed Dropdowns */}
                         <View className="flex-row gap-2">
                             {/* Sales Card with Fixed Dropdown */}
-                            <View className="flex-1 relative overflow-hidden">
-                                <View className="bg-white rounded-xl p-4 border border-gray-200 relative overflow-visible" style={{ height: 120 }}>
+                            <View className="flex-1 relative">
+                                <View className="bg-white rounded-xl p-4 border border-gray-200 relative" style={{ height: 120, overflow: 'hidden' }}>
                                     {/* Background Icon */}
                                     <View
-                                        className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
+                                        className="absolute rounded-full items-center justify-center"
                                         style={{
-                                            width: 80,
-                                            height: 80,
-                                            backgroundColor: '#FF980015'
+                                            width: 60,
+                                            height: 60,
+                                            backgroundColor: '#FF980015',
+                                            bottom: -10,
+                                            right: -10
                                         }}
                                     >
-                                        <Ionicons name="bag-handle-outline" size={40} color="#FF980060" />
+                                        <Ionicons name="bag-handle-outline" size={30} color="#FF980060" />
                                     </View>
 
                                     {/* Content */}
@@ -589,28 +591,43 @@ export default function FarmerDashboard() {
                                 {/* Dropdown Menu - Fixed Positioning */}
                                 {showSalesTimePeriodPicker && (
                                     <View
-                                        className="absolute bg-white rounded-xl border border-gray-200 shadow-lg z-50"
                                         style={{
-                                            top: 125, // Position below the card
+                                            position: 'absolute',
+                                            top: 40,
                                             right: 0,
                                             minWidth: 140,
                                             maxHeight: 200,
-                                            elevation: 10 // Android shadow
+                                            backgroundColor: 'white',
+                                            borderRadius: 12,
+                                            borderWidth: 1,
+                                            borderColor: '#e5e7eb',
+                                            shadowColor: '#000',
+                                            shadowOffset: { width: 0, height: 2 },
+                                            shadowOpacity: 0.25,
+                                            shadowRadius: 3.84,
+                                            elevation: 10,
+                                            zIndex: 1000,
+                                            padding: 8
                                         }}
                                     >
-                                        <ScrollView className="max-h-48 p-2">
+                                        <ScrollView style={{ maxHeight: 192 }}>
                                             {timePeriodOptions.map((option) => (
                                                 <TouchableOpacity
                                                     key={option.key}
                                                     onPress={() => handleSalesTimePeriodChange(option.key)}
-                                                    className={`py-2 px-3 rounded-lg ${
-                                                        salesTimePeriod === option.key ? 'bg-gray-100' : ''
-                                                    }`}
+                                                    style={{
+                                                        paddingVertical: 8,
+                                                        paddingHorizontal: 12,
+                                                        borderRadius: 8,
+                                                        backgroundColor: salesTimePeriod === option.key ? '#f3f4f6' : 'transparent'
+                                                    }}
                                                     activeOpacity={0.7}
                                                 >
-                                                    <Text className={`text-sm ${
-                                                        salesTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
-                                                    }`}>
+                                                    <Text style={{
+                                                        fontSize: 14,
+                                                        color: salesTimePeriod === option.key ? '#000' : '#666',
+                                                        fontWeight: salesTimePeriod === option.key ? '500' : '400'
+                                                    }}>
                                                         {option.label}
                                                     </Text>
                                                 </TouchableOpacity>
@@ -621,18 +638,20 @@ export default function FarmerDashboard() {
                             </View>
 
                             {/* Revenue Card with Fixed Dropdown */}
-                            <View className="flex-1 relative overflow-hidden">
-                                <View className="bg-white rounded-xl p-4 border border-gray-200 relative overflow-visible" style={{ height: 120 }}>
+                            <View className="flex-1 relative">
+                                <View className="bg-white rounded-xl p-4 border border-gray-200 relative" style={{ height: 120, overflow: 'hidden' }}>
                                     {/* Background Icon */}
                                     <View
-                                        className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
+                                        className="absolute rounded-full items-center justify-center"
                                         style={{
-                                            width: 80,
-                                            height: 80,
-                                            backgroundColor: '#9C27B015'
+                                            width: 60,
+                                            height: 60,
+                                            backgroundColor: '#9C27B015',
+                                            bottom: -10,
+                                            right: -10
                                         }}
                                     >
-                                        <Ionicons name="trending-up-outline" size={40} color="#9C27B060" />
+                                        <Ionicons name="trending-up-outline" size={30} color="#9C27B060" />
                                     </View>
 
                                     {/* Content */}
@@ -683,28 +702,43 @@ export default function FarmerDashboard() {
                                 {/* Dropdown Menu - Fixed Positioning */}
                                 {showRevenueTimePeriodPicker && (
                                     <View
-                                        className="absolute bg-white rounded-xl border border-gray-200 shadow-lg z-50"
                                         style={{
-                                            top: 125, // Position below the card
+                                            position: 'absolute',
+                                            top: 40,
                                             right: 0,
                                             minWidth: 140,
                                             maxHeight: 200,
-                                            elevation: 10 // Android shadow
+                                            backgroundColor: 'white',
+                                            borderRadius: 12,
+                                            borderWidth: 1,
+                                            borderColor: '#e5e7eb',
+                                            shadowColor: '#000',
+                                            shadowOffset: { width: 0, height: 2 },
+                                            shadowOpacity: 0.25,
+                                            shadowRadius: 3.84,
+                                            elevation: 10,
+                                            zIndex: 1000,
+                                            padding: 8
                                         }}
                                     >
-                                        <ScrollView className="max-h-48 p-2">
+                                        <ScrollView style={{ maxHeight: 192 }}>
                                             {timePeriodOptions.map((option) => (
                                                 <TouchableOpacity
                                                     key={option.key}
                                                     onPress={() => handleRevenueTimePeriodChange(option.key)}
-                                                    className={`py-2 px-3 rounded-lg ${
-                                                        revenueTimePeriod === option.key ? 'bg-gray-100' : ''
-                                                    }`}
+                                                    style={{
+                                                        paddingVertical: 8,
+                                                        paddingHorizontal: 12,
+                                                        borderRadius: 8,
+                                                        backgroundColor: revenueTimePeriod === option.key ? '#f3f4f6' : 'transparent'
+                                                    }}
                                                     activeOpacity={0.7}
                                                 >
-                                                    <Text className={`text-sm ${
-                                                        revenueTimePeriod === option.key ? 'text-black font-medium' : 'text-gray-600'
-                                                    }`}>
+                                                    <Text style={{
+                                                        fontSize: 14,
+                                                        color: revenueTimePeriod === option.key ? '#000' : '#666',
+                                                        fontWeight: revenueTimePeriod === option.key ? '500' : '400'
+                                                    }}>
                                                         {option.label}
                                                     </Text>
                                                 </TouchableOpacity>

@@ -11,13 +11,13 @@ interface StatCardProps {
 }
 
 export default function StatCard({
-                                     title,
-                                     value,
-                                     icon,
-                                     color = '#4CAF50',
-                                     subtitle,
-                                     loading = false
-                                 }: StatCardProps) {
+     title,
+     value,
+     icon,
+     color = '#4CAF50',
+     subtitle,
+     loading = false
+ }: StatCardProps) {
     return (
         <View
             className="bg-white rounded-xl p-4 border border-gray-200 flex-1 mx-1 relative overflow-hidden"
@@ -27,14 +27,14 @@ export default function StatCard({
             <View
                 className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
                 style={{
-                    width: 80,
-                    height: 80,
+                    width: 60,
+                    height: 60,
                     backgroundColor: `${color}15`
                 }}
             >
                 <Ionicons
                     name={icon as any}
-                    size={40}
+                    size={30}
                     color={`${color}60`}
                 />
             </View>
