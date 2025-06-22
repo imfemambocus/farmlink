@@ -42,7 +42,7 @@ class StripePaymentService:
             # Create payment intent with Stripe
             payment_intent = stripe.PaymentIntent.create(
                 amount=amount_cents,
-                currency='lkr',  # Sri Lankan Rupees
+                currency='mur',  # Mauritian Rupees
                 automatic_payment_methods={
                     'enabled': True,
                 },

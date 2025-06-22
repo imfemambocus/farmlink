@@ -152,7 +152,7 @@ class UnifiedPayment(Base):
     status = Column(Enum(PaymentStatusEnum), default=PaymentStatusEnum.PENDING)
 
     amount = Column(Numeric(10, 2), nullable=False)
-    currency = Column(String, default="LKR")
+    currency = Column(String, default="MUR")
 
     # Stripe payment information
     stripe_payment_intent_id = Column(String, unique=True)

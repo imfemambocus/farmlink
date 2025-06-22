@@ -133,7 +133,7 @@ export default function CustomerHomePage() {
                 api.get('/browse/farmers?limit=10', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
-                api.get('/browse/products/latest?limit=20', {
+                api.get('/browse/products/latest?limit=10', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
                 api.get('/browse/products/recommendations', {

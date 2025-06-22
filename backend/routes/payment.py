@@ -14,7 +14,7 @@ router = APIRouter()
 # Request/Response Models
 class PaymentIntentRequest(BaseModel):
     amount: int  # Amount in cents
-    currency: str = "lkr"
+    currency: str = "mur"
     cart_id: int
     delivery_info: dict
 

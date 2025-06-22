@@ -332,7 +332,7 @@ class UnifiedPayment(Base):
     status = Column(Enum(PaymentStatusEnum), default=PaymentStatusEnum.PENDING)
 
     amount = Column(Numeric(10, 2), nullable=False)
-    currency = Column(String, default="LKR")
+    currency = Column(String, default="MUR")
 
     # Stripe payment information
     stripe_payment_intent_id = Column(String, unique=True)
@@ -1441,7 +1441,7 @@ router = APIRouter()
 # Request/Response Models
 class PaymentIntentRequest(BaseModel):
     amount: int  # Amount in cents
-    currency: str = "lkr"
+    currency: str = "mur"
     cart_id: int
     delivery_info: dict
 
@@ -3998,7 +3998,7 @@ class StripePaymentService:
             # Create payment intent with Stripe
             payment_intent = stripe.PaymentIntent.create(
                 amount=amount_cents,
-                currency='lkr',  # Sri Lankan Rupees
+                currency='mur',  # Sri Lankan Rupees
                 automatic_payment_methods={
                     'enabled': True,
                 },
