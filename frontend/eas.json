@@ -8,8 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "resourceClass": "m-medium",
-        "bundleIdentifier": "com.imfestudio.farmlink.dev"
+        "resourceClass": "m-medium"
       },
       "android": {
         "buildType": "apk",
@@ -19,11 +18,7 @@
     "preview": {
       "distribution": "internal",
       "ios": {
-        "resourceClass": "m-medium",
-        "bundleIdentifier": "com.imfestudio.farmlink",
-        "config": {
-          "usesNonExemptEncryption": false
-        }
+        "resourceClass": "m-medium"
       },
       "android": {
         "buildType": "apk",
@@ -32,14 +27,10 @@
     },
     "production": {
       "ios": {
-        "resourceClass": "m-medium",
-        "bundleIdentifier": "com.imfestudio.farmlink",
-        "config": {
-          "usesNonExemptEncryption": false
-        }
+        "resourceClass": "m-medium"
       },
       "android": {
-        "buildType": "aab"
+        "buildType": "app-bundle"
       }
     }
   },
