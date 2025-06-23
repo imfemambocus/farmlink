@@ -255,6 +255,8 @@ export default function FarmerDetailScreen() {
                     title="farmer details"
                     showBackButton={true}
                     showCartButton={true}
+                    showHomeButton={true}
+                    showNotificationButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -271,6 +273,8 @@ export default function FarmerDetailScreen() {
                     title="farmer details"
                     showBackButton={true}
                     showCartButton={true}
+                    showHomeButton={true}
+                    showNotificationButton={true}
                 />
                 <View className="flex-1 justify-center items-center px-6">
                     <Text className="text-4xl mb-4">😞</Text>
@@ -294,6 +298,8 @@ export default function FarmerDetailScreen() {
                 showBackButton={true}
                 showCartButton={true}
                 showOrdersButton={true}
+                showHomeButton={true}
+                showNotificationButton={true}
             />
 
             <ScrollView

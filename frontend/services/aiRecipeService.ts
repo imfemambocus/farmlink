@@ -1,4 +1,4 @@
-// services/ruleBasedAIService.ts - Updated to use external recipe database
+// services/ruleBasedAIService.ts - Optimized with caching and reduced API calls
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/api';
 import {
@@ -31,27 +31,37 @@ interface Recipe {
     confidence_score: number;
 }
 
+interface CachedProductSearch {
+    products: any[];
+    timestamp: number;
+    customerType: string;
+}
+
 class RuleBasedAIService {
     private recipeRules: RecipeRule[] = [];
     private ingredientCategories: Map<string, string[]> = new Map();
     private cuisineAffinities: Map<string, string[]> = new Map();
 
+    // CACHING: Reduce redundant API calls
+    private productSearchCache: Map<string, CachedProductSearch> = new Map();
+    private lastCartHash: string = '';
+    private lastRecipesResult: Recipe[] = [];
+    private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+    private readonly CART_DEBOUNCE_TIME = 2000; // 2 seconds
+    private cartUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+
     constructor() {
         this.initializeKnowledgeBase();
     }
 
-    /**
-     * Initialize knowledge base from external recipe database
-     */
     private initializeKnowledgeBase() {
-        // Load recipes from external file
         this.recipeRules = MAURITIAN_RECIPES;
         this.ingredientCategories = INGREDIENT_CATEGORIES;
         this.cuisineAffinities = CUISINE_AFFINITIES;
     }
 
     /**
-     * MAIN AI FUNCTION: Generate personalized recipe suggestions
+     * OPTIMIZED: Generate recipes with caching and debouncing
      */
     async generatePersonalizedRecipes(
         cartItems: CartItem[],
@@ -62,23 +72,343 @@ class RuleBasedAIService {
             skillLevel?: 'beginner' | 'intermediate' | 'advanced';
         }
     ): Promise<Recipe[]> {
-        console.log('🤖 AI: Starting rule-based recipe generation...');
+        console.log('🤖 AI: Starting optimized recipe generation...');
 
-        const cartAnalysis = this.analyzeCartContents(cartItems);
-        const candidateRecipes = this.applyRecipeRules(cartItems, cartAnalysis);
-        const scoredRecipes = this.scoreAndRankRecipes(candidateRecipes, cartItems, customerType, userPreferences);
-        const topRecipes = scoredRecipes.slice(0, 3);
-        const processedRecipes = await Promise.all(
-            topRecipes.map(recipe => this.processRecipeForMissingIngredients(recipe, cartItems, customerType))
+        // OPTIMIZATION 1: Create cart hash to detect changes
+        const cartHash = this.createCartHash(cartItems, customerType);
+
+        // OPTIMIZATION 2: Return cached result if cart hasn't changed
+        if (cartHash === this.lastCartHash && this.lastRecipesResult.length > 0) {
+            console.log('🎯 AI: Returning cached recipes (cart unchanged)');
+            return this.lastRecipesResult;
+        }
+
+        // OPTIMIZATION 3: Debounce rapid cart changes
+        if (this.cartUpdateTimer) {
+            clearTimeout(this.cartUpdateTimer);
+        }
+
+        return new Promise((resolve) => {
+            this.cartUpdateTimer = setTimeout(async () => {
+                try {
+                    const cartAnalysis = this.analyzeCartContents(cartItems);
+                    const candidateRecipes = this.applyRecipeRules(cartItems, cartAnalysis);
+                    const scoredRecipes = this.scoreAndRankRecipes(candidateRecipes, cartItems, customerType, userPreferences);
+                    const topRecipes = scoredRecipes.slice(0, 3);
+
+                    // OPTIMIZATION 4: Batch process missing ingredients
+                    const processedRecipes = await this.batchProcessMissingIngredients(topRecipes, cartItems, customerType);
+
+                    // Cache results
+                    this.lastCartHash = cartHash;
+                    this.lastRecipesResult = processedRecipes;
+
+                    console.log('🤖 AI: Generated', processedRecipes.length, 'optimized recipes');
+                    resolve(processedRecipes);
+                } catch (error) {
+                    console.error('🤖 AI: Error generating recipes:', error);
+                    resolve(this.lastRecipesResult || []);
+                }
+            }, this.CART_DEBOUNCE_TIME);
+        });
+    }
+
+    /**
+     * OPTIMIZATION: Create hash of cart contents to detect changes
+     */
+    private createCartHash(cartItems: CartItem[], customerType: string): string {
+        const cartString = cartItems
+            .map(item => `${item.product_name}:${item.quantity}:${item.unit_name}`)
+            .sort()
+            .join('|') + `|${customerType}`;
+
+        // Simple hash function
+        let hash = 0;
+        for (let i = 0; i < cartString.length; i++) {
+            const char = cartString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return hash.toString();
+    }
+
+    /**
+     * OPTIMIZATION: Batch process missing ingredients to reduce API calls
+     */
+    private async batchProcessMissingIngredients(
+        recipes: Recipe[],
+        cartItems: CartItem[],
+        customerType: 'individual' | 'business'
+    ): Promise<Recipe[]> {
+        const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
+
+        // STEP 1: Collect ALL unique missing ingredients across all recipes
+        const allMissingIngredients = new Set<string>();
+        const recipeIngredientMap = new Map<string, { recipe: Recipe, ingredients: RecipeIngredient[] }>();
+
+        recipes.forEach(recipe => {
+            const missingIngredients: RecipeIngredient[] = [];
+
+            recipe.ingredients.forEach(ingredient => {
+                const ingredientName = ingredient.name.toLowerCase();
+                const isInCart = cartItemNames.some(cartItem =>
+                    cartItem.includes(ingredientName) || ingredientName.includes(cartItem)
+                );
+
+                if (!isInCart) {
+                    missingIngredients.push(ingredient);
+                    allMissingIngredients.add(ingredientName);
+                }
+            });
+
+            recipeIngredientMap.set(recipe.id, { recipe, ingredients: missingIngredients });
+        });
+
+        // STEP 2: Batch search for all missing ingredients (ONE API call per unique ingredient)
+        const ingredientAvailabilityMap = await this.batchCheckIngredientsAvailability(
+            Array.from(allMissingIngredients),
+            customerType
         );
 
-        console.log('🤖 AI: Generated', processedRecipes.length, 'personalized recipes');
+        // STEP 3: Process each recipe using the batched results
+        const processedRecipes: Recipe[] = [];
+
+        for (const [recipeId, { recipe, ingredients: missingIngredients }] of recipeIngredientMap) {
+            const availableMissingIngredients = missingIngredients.filter(ingredient =>
+                ingredientAvailabilityMap.has(ingredient.name.toLowerCase())
+            );
+
+            const estimatedCost = this.estimateCostFromAvailabilityMap(
+                availableMissingIngredients,
+                ingredientAvailabilityMap
+            );
+
+            processedRecipes.push({
+                ...recipe,
+                missing_ingredients: missingIngredients,
+                available_missing_ingredients: availableMissingIngredients,
+                estimated_total_cost: estimatedCost
+            });
+        }
+
         return processedRecipes;
     }
 
     /**
-     * Analyze cart contents using classification algorithms
+     * OPTIMIZATION: Batch check ingredient availability with caching
      */
+    private async batchCheckIngredientsAvailability(
+        ingredientNames: string[],
+        customerType: 'individual' | 'business'
+    ): Promise<Map<string, { products: any[], lowestPrice: number }>> {
+        const availabilityMap = new Map<string, { products: any[], lowestPrice: number }>();
+        const uncachedIngredients: string[] = [];
+
+        // STEP 1: Check cache first
+        ingredientNames.forEach(ingredientName => {
+            const cacheKey = `${ingredientName}:${customerType}`;
+            const cached = this.productSearchCache.get(cacheKey);
+
+            if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+                // Use cached data
+                const suitableProducts = cached.products.filter(product =>
+                    product.unit_prices.some((up: any) =>
+                        up.customer_type === customerType && up.quantity_available > 0
+                    )
+                );
+
+                if (suitableProducts.length > 0) {
+                    const lowestPrice = this.findLowestPrice(suitableProducts, customerType);
+                    availabilityMap.set(ingredientName, { products: suitableProducts, lowestPrice });
+                }
+            } else {
+                uncachedIngredients.push(ingredientName);
+            }
+        });
+
+        // STEP 2: Batch search for uncached ingredients
+        if (uncachedIngredients.length > 0) {
+            console.log(`🔍 Batch searching for ${uncachedIngredients.length} ingredients`);
+
+            try {
+                const token = await AsyncStorage.getItem('token');
+                if (!token) return availabilityMap;
+
+                // OPTIMIZATION: Search for multiple ingredients in fewer API calls
+                const searchPromises = uncachedIngredients.map(async (ingredientName) => {
+                    try {
+                        const searchResponse = await api.get(`/browse/products/search`, {
+                            params: { search: ingredientName, limit: 10 },
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+
+                        const products = searchResponse.data.items || [];
+
+                        // Cache the result
+                        const cacheKey = `${ingredientName}:${customerType}`;
+                        this.productSearchCache.set(cacheKey, {
+                            products,
+                            timestamp: Date.now(),
+                            customerType
+                        });
+
+                        // Check if available for this customer type
+                        const suitableProducts = products.filter((product: any) =>
+                            product.unit_prices.some((up: any) =>
+                                up.customer_type === customerType && up.quantity_available > 0
+                            )
+                        );
+
+                        if (suitableProducts.length > 0) {
+                            const lowestPrice = this.findLowestPrice(suitableProducts, customerType);
+                            return { ingredientName, products: suitableProducts, lowestPrice };
+                        }
+
+                        return null;
+                    } catch (error) {
+                        console.error(`❌ Error searching for ${ingredientName}:`, error);
+                        return null;
+                    }
+                });
+
+                // Wait for all searches to complete
+                const results = await Promise.all(searchPromises);
+
+                results.forEach(result => {
+                    if (result) {
+                        availabilityMap.set(result.ingredientName, {
+                            products: result.products,
+                            lowestPrice: result.lowestPrice
+                        });
+                    }
+                });
+
+            } catch (error) {
+                console.error('❌ Error in batch ingredient search:', error);
+            }
+        }
+
+        console.log(`📋 Found ${availabilityMap.size} available ingredients out of ${ingredientNames.length}`);
+        return availabilityMap;
+    }
+
+    /**
+     * OPTIMIZATION: Find lowest price from cached data
+     */
+    private findLowestPrice(products: any[], customerType: string): number {
+        let lowestPrice = Infinity;
+
+        products.forEach((product: any) => {
+            product.unit_prices.forEach((up: any) => {
+                if (up.customer_type === customerType && up.quantity_available > 0) {
+                    lowestPrice = Math.min(lowestPrice, up.price_per_unit);
+                }
+            });
+        });
+
+        return lowestPrice === Infinity ? 0 : lowestPrice;
+    }
+
+    /**
+     * OPTIMIZATION: Estimate cost from availability map (no additional API calls)
+     */
+    private estimateCostFromAvailabilityMap(
+        ingredients: RecipeIngredient[],
+        availabilityMap: Map<string, { products: any[], lowestPrice: number }>
+    ): number {
+        let totalCost = 0;
+
+        ingredients.forEach(ingredient => {
+            const availability = availabilityMap.get(ingredient.name.toLowerCase());
+            if (availability) {
+                totalCost += availability.lowestPrice;
+            }
+        });
+
+        return totalCost;
+    }
+
+    /**
+     * OPTIMIZATION: Improved product matching with caching
+     */
+    async findBestProductMatch(ingredientName: string, customerType: 'individual' | 'business'): Promise<any> {
+        try {
+            console.log(`🔍 Finding best match for: ${ingredientName} (${customerType})`);
+
+            // Check cache first
+            const cacheKey = `${ingredientName}:${customerType}`;
+            const cached = this.productSearchCache.get(cacheKey);
+            let products: any[] = [];
+
+            if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+                console.log(`📋 Using cached data for ${ingredientName}`);
+                products = cached.products;
+            } else {
+                // Fetch from API
+                const token = await AsyncStorage.getItem('token');
+                const searchResponse = await api.get(`/browse/products/search`, {
+                    params: { search: ingredientName, limit: 20 },
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                products = searchResponse.data.items || [];
+
+                // Cache the result
+                this.productSearchCache.set(cacheKey, {
+                    products,
+                    timestamp: Date.now(),
+                    customerType
+                });
+            }
+
+            console.log(`📦 Found ${products.length} products for ${ingredientName}`);
+
+            let bestMatch = null;
+            let lowestPrice = Infinity;
+
+            for (const product of products) {
+                const suitablePrices = product.unit_prices.filter(
+                    (up: any) => up.customer_type === customerType && up.quantity_available > 0
+                );
+
+                for (const unitPrice of suitablePrices) {
+                    if (unitPrice.price_per_unit < lowestPrice) {
+                        lowestPrice = unitPrice.price_per_unit;
+                        bestMatch = {
+                            farmer_product_id: product.id,
+                            unit_price_id: unitPrice.id,
+                            product_name: product.item,
+                            farmer_name: product.farmer_name,
+                            price_per_unit: unitPrice.price_per_unit,
+                            minimum_order: unitPrice.minimum_order,
+                            unit: unitPrice.unit
+                        };
+                    }
+                }
+            }
+
+            if (bestMatch) {
+                console.log(`🎯 Best match for ${ingredientName}:`, bestMatch.product_name);
+            }
+
+            return bestMatch;
+        } catch (error) {
+            console.error(`❌ Error finding product match for ${ingredientName}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * OPTIMIZATION: Clear cache when needed
+     */
+    clearCache() {
+        this.productSearchCache.clear();
+        this.lastCartHash = '';
+        this.lastRecipesResult = [];
+        console.log('🧹 AI: Cache cleared');
+    }
+
+    // Keep all the other existing methods unchanged...
     private analyzeCartContents(cartItems: CartItem[]) {
         const analysis = {
             vegetableCount: 0,
@@ -111,34 +441,22 @@ class RuleBasedAIService {
         return analysis;
     }
 
-    /**
-     * Apply recipe matching rules
-     */
     private applyRecipeRules(cartItems: CartItem[], cartAnalysis: any): Recipe[] {
         const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
         const matchingRecipes: Recipe[] = [];
 
-        console.log('🔍 Cart items:', cartItemNames);
-
         for (const rule of this.recipeRules) {
             const matchScore = this.calculateRuleMatchScore(rule, cartItemNames);
-
-            console.log(`🔍 Recipe: ${rule.name}, Match score: ${matchScore}`);
 
             if (matchScore > 0.1) {
                 const recipe = this.createRecipeFromRule(rule, cartItems, matchScore);
                 matchingRecipes.push(recipe);
-                console.log(`✅ Added recipe: ${rule.name}`);
             }
         }
 
-        console.log(`📝 Total matching recipes: ${matchingRecipes.length}`);
         return matchingRecipes;
     }
 
-    /**
-     * Score and rank recipes using ML-inspired algorithms
-     */
     private scoreAndRankRecipes(
         recipes: Recipe[],
         cartItems: CartItem[],
@@ -153,9 +471,6 @@ class RuleBasedAIService {
             .sort((a, b) => b.confidence_score - a.confidence_score);
     }
 
-    /**
-     * Calculate ML-style confidence score (0-1)
-     */
     private calculateConfidenceScore(
         recipe: Recipe,
         cartItems: CartItem[],
@@ -165,7 +480,6 @@ class RuleBasedAIService {
         let score = 0;
         const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
 
-        // Ingredient overlap score (0.4 weight)
         const ingredientOverlap = recipe.ingredients.filter(ingredient =>
             cartItemNames.some(cartItem =>
                 cartItem.includes(ingredient.name) || ingredient.name.includes(cartItem)
@@ -173,19 +487,16 @@ class RuleBasedAIService {
         ).length;
         score += (ingredientOverlap / recipe.ingredients.length) * 0.4;
 
-        // Customer type relevance (0.2 weight)
         if (customerType === 'business' && recipe.difficulty !== 'hard') {
             score += 0.2;
         } else if (customerType === 'individual' && recipe.difficulty === 'easy') {
             score += 0.2;
         }
 
-        // Cuisine preference (0.2 weight)
         if (userPreferences?.preferredCuisine?.includes(recipe.cuisine_type)) {
             score += 0.2;
         }
 
-        // Completeness bonus (0.2 weight)
         const missingCount = recipe.ingredients.filter(ing =>
             !cartItemNames.some(cartItem =>
                 cartItem.includes(ing.name) || ing.name.includes(cartItem)
@@ -196,9 +507,6 @@ class RuleBasedAIService {
         return Math.min(score, 1.0);
     }
 
-    /**
-     * Calculate rule match score using set similarity
-     */
     private calculateRuleMatchScore(rule: RecipeRule, cartItemNames: string[]): number {
         const triggerMatches = rule.triggerIngredients.filter((trigger: string) =>
             cartItemNames.some(cartItem => {
@@ -215,9 +523,6 @@ class RuleBasedAIService {
         return score > 0 ? Math.max(score, 0.5) : 0;
     }
 
-    /**
-     * Helper methods for ingredient classification
-     */
     private isVegetable(itemName: string): boolean {
         const vegetables = this.ingredientCategories.get('vegetables') || [];
         return vegetables.some(veg => itemName.includes(veg) || veg.includes(itemName));
@@ -238,9 +543,6 @@ class RuleBasedAIService {
         return hints;
     }
 
-    /**
-     * Create recipe from rule
-     */
     private createRecipeFromRule(rule: RecipeRule, cartItems: CartItem[], matchScore: number): Recipe {
         return {
             id: `rule_${rule.name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
@@ -259,214 +561,6 @@ class RuleBasedAIService {
         };
     }
 
-    /**
-     * Process recipe to find missing ingredients and check their availability
-     */
-    private async processRecipeForMissingIngredients(
-        recipe: Recipe,
-        cartItems: CartItem[],
-        customerType: 'individual' | 'business'
-    ): Promise<Recipe> {
-        const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
-        const missingIngredients: RecipeIngredient[] = [];
-
-        // Find ALL missing ingredients
-        for (const ingredient of recipe.ingredients) {
-            const ingredientName = ingredient.name.toLowerCase();
-            const isInCart = cartItemNames.some(cartItem =>
-                cartItem.includes(ingredientName) || ingredientName.includes(cartItem)
-            );
-
-            if (!isInCart) {
-                missingIngredients.push(ingredient);
-            }
-        }
-
-        // Check availability of missing ingredients
-        const availableMissingIngredients = await this.checkIngredientsAvailability(
-            missingIngredients,
-            customerType
-        );
-
-        const estimatedCost = await this.estimateMissingIngredientsCost(availableMissingIngredients, customerType);
-
-        return {
-            ...recipe,
-            missing_ingredients: missingIngredients,
-            available_missing_ingredients: availableMissingIngredients,
-            estimated_total_cost: estimatedCost
-        };
-    }
-
-    /**
-     * Check which missing ingredients are actually available from farmers
-     */
-    private async checkIngredientsAvailability(
-        missingIngredients: RecipeIngredient[],
-        customerType: 'individual' | 'business'
-    ): Promise<RecipeIngredient[]> {
-        const availableIngredients: RecipeIngredient[] = [];
-
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) return availableIngredients;
-
-            for (const ingredient of missingIngredients) {
-                try {
-                    console.log(`🔍 Checking availability for: ${ingredient.name}`);
-
-                    const searchResponse = await api.get(`/browse/products/search`, {
-                        params: { search: ingredient.name, limit: 10 },
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-
-                    const products = searchResponse.data.items || [];
-                    console.log(`📦 Found ${products.length} products for ${ingredient.name}`);
-
-                    // Check if any farmer has this ingredient available for this customer type
-                    let hasAvailableProduct = false;
-                    let productDetails = [];
-
-                    for (const product of products) {
-                        const availableUnitPrices = product.unit_prices.filter((up: any) =>
-                            up.customer_type === customerType && up.quantity_available > 0
-                        );
-
-                        if (availableUnitPrices.length > 0) {
-                            hasAvailableProduct = true;
-                            productDetails.push({
-                                name: product.item,
-                                farmer: product.farmer_name,
-                                prices: availableUnitPrices.length
-                            });
-                        }
-                    }
-
-                    console.log(`✅ ${ingredient.name} available: ${hasAvailableProduct}`, productDetails);
-
-                    if (hasAvailableProduct) {
-                        availableIngredients.push(ingredient);
-                    }
-                } catch (error) {
-                    console.error(`❌ Error checking availability for ${ingredient.name}:`, error);
-                    // Continue to next ingredient if one fails
-                }
-            }
-        } catch (error) {
-            console.error('❌ Error checking ingredients availability:', error);
-        }
-
-        console.log(`📋 Available ingredients summary:`, availableIngredients.map(ing => ing.name));
-        return availableIngredients;
-    }
-
-    /**
-     * Estimate missing ingredients cost
-     */
-    private async estimateMissingIngredientsCost(
-        missingIngredients: RecipeIngredient[],
-        customerType: 'individual' | 'business'
-    ): Promise<number> {
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) return 0;
-
-            let totalCost = 0;
-
-            for (const ingredient of missingIngredients) {
-                const searchResponse = await api.get(`/browse/products/search`, {
-                    params: { search: ingredient.name, limit: 10 },
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
-                const products = searchResponse.data.items || [];
-
-                const prices = products
-                    .flatMap((product: any) =>
-                        product.unit_prices
-                            .filter((up: any) => up.customer_type === customerType)
-                            .map((up: any) => up.price_per_unit)
-                    )
-                    .sort((a: number, b: number) => a - b);
-
-                if (prices.length > 0) {
-                    const lowestPrices = prices.slice(0, 3);
-                    const medianPrice = lowestPrices[Math.floor(lowestPrices.length / 2)];
-                    // Estimate cost for 1 unit
-                    totalCost += medianPrice * 1;
-                }
-            }
-
-            return totalCost;
-        } catch (error) {
-            console.error('Error estimating costs:', error);
-            return 0;
-        }
-    }
-
-    /**
-     * Find best product match for an ingredient
-     */
-    async findBestProductMatch(ingredientName: string, customerType: 'individual' | 'business'): Promise<any> {
-        try {
-            console.log(`🔍 Finding best match for: ${ingredientName} (${customerType})`);
-
-            const token = await AsyncStorage.getItem('token');
-            const searchResponse = await api.get(`/browse/products/search`, {
-                params: { search: ingredientName, limit: 20 },
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            const products = searchResponse.data.items || [];
-            console.log(`📦 Found ${products.length} products for ${ingredientName}`);
-
-            let bestMatch = null;
-            let lowestPrice = Infinity;
-
-            for (const product of products) {
-                console.log(`🏪 Checking product: ${product.item} from ${product.farmer_name}`);
-
-                const suitablePrices = product.unit_prices.filter(
-                    (up: any) => up.customer_type === customerType && up.quantity_available > 0
-                );
-
-                console.log(`💰 Found ${suitablePrices.length} suitable prices for ${product.item}`);
-
-                for (const unitPrice of suitablePrices) {
-                    console.log(`   Price: rs ${unitPrice.price_per_unit}, Available: ${unitPrice.quantity_available}, Min order: ${unitPrice.minimum_order}`);
-
-                    if (unitPrice.price_per_unit < lowestPrice) {
-                        lowestPrice = unitPrice.price_per_unit;
-                        bestMatch = {
-                            farmer_product_id: product.id,
-                            unit_price_id: unitPrice.id,
-                            product_name: product.item,
-                            farmer_name: product.farmer_name,
-                            price_per_unit: unitPrice.price_per_unit,
-                            minimum_order: unitPrice.minimum_order,
-                            unit: unitPrice.unit
-                        };
-                        console.log(`✅ New best match: ${product.item} from ${product.farmer_name} at rs ${unitPrice.price_per_unit}`);
-                    }
-                }
-            }
-
-            if (bestMatch) {
-                console.log(`🎯 Final best match for ${ingredientName}:`, bestMatch);
-            } else {
-                console.log(`❌ No suitable match found for ${ingredientName}`);
-            }
-
-            return bestMatch;
-        } catch (error) {
-            console.error(`❌ Error finding product match for ${ingredientName}:`, error);
-            return null;
-        }
-    }
-
-    /**
-     * Add missing ingredients to cart
-     */
     async addMissingIngredientsToCart(
         missingIngredients: RecipeIngredient[],
         customerType: 'individual' | 'business'
@@ -482,25 +576,18 @@ class RuleBasedAIService {
 
             for (const ingredient of missingIngredients) {
                 try {
-                    console.log(`🔄 Processing ingredient: ${ingredient.name}`);
-
                     const bestMatch = await this.findBestProductMatch(ingredient.name, customerType);
 
                     if (bestMatch) {
-                        // Always add just 1 unit or minimum order, whichever is higher
                         const finalQuantity = Math.max(1, bestMatch.minimum_order);
 
-                        console.log(`📝 Adding to cart: ${finalQuantity} ${bestMatch.unit} of ${bestMatch.product_name}`);
-
-                        const cartResponse = await api.post('/orders/cart/items', {
+                        await api.post('/orders/cart/items', {
                             farmer_product_id: bestMatch.farmer_product_id,
                             unit_price_id: bestMatch.unit_price_id,
                             quantity: finalQuantity
                         }, {
                             headers: { Authorization: `Bearer ${token}` }
                         });
-
-                        console.log(`✅ Successfully added ${ingredient.name} to cart`);
 
                         addedItems.push({
                             name: ingredient.name,
@@ -511,19 +598,11 @@ class RuleBasedAIService {
                             unit: bestMatch.unit
                         });
                     } else {
-                        console.log(`❌ No match found for ${ingredient.name}`);
                         errors.push(`Could not find ${ingredient.name} from any farmer`);
                     }
                 } catch (itemError: any) {
-                    console.error(`❌ Failed to add ${ingredient.name}:`, itemError);
-                    console.error('Error details:', itemError.response?.data);
                     errors.push(`Failed to add ${ingredient.name}: ${itemError.response?.data?.detail || itemError.message}`);
                 }
-            }
-
-            console.log(`📊 Cart addition summary: ${addedItems.length} added, ${errors.length} errors`);
-            if (errors.length > 0) {
-                console.log(`❌ Errors:`, errors);
             }
 
             return { success: addedItems.length > 0, addedItems, errors };

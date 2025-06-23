@@ -262,6 +262,8 @@ export default function FarmersScreen() {
                     title="farmers"
                     showBackButton={true}
                     showCartButton={true}
+                    showOrdersButton={true}
+                    showHomeButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -278,6 +280,7 @@ export default function FarmersScreen() {
                 showBackButton={true}
                 showCartButton={true}
                 showOrdersButton={true}
+                showHomeButton={true}
             />
 
             <ScrollView

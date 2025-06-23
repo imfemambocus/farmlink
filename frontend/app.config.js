@@ -13,7 +13,9 @@ export default {
       bundleIdentifier: "com.imfestudio.farmlink",
       infoPlist: {
         UIBackgroundModes: ["remote-notification"],
-        ITSAppUsesNonExemptEncryption: false
+        ITSAppUsesNonExemptEncryption: false,
+        NSMicrophoneUsageDescription: "FarmLink needs microphone access for voice commands to search products and add items to cart",
+        NSSpeechRecognitionUsageDescription: "FarmLink uses speech recognition to process your voice commands for easier shopping"
       }
     },
     android: {
@@ -27,7 +29,8 @@ export default {
         "VIBRATE",
         "WAKE_LOCK",
         "INTERNET",
-        "SYSTEM_ALERT_WINDOW"
+        "SYSTEM_ALERT_WINDOW",
+        "RECORD_AUDIO"
       ],
       usesCleartextTraffic: true,
       edgeToEdgeEnabled: true,
@@ -62,6 +65,13 @@ export default {
           color: "#4CAF50",
           // sounds: ["./assets/notification.wav"],
           mode: "development" // or "production"
+        }
+      ],
+      [
+        "@react-native-voice/voice",
+        {
+          microphonePermission: "CUSTOM: FarmLink needs microphone access for voice commands to search products and add items to cart.",
+          speechRecognitionPermission: "CUSTOM: FarmLink uses speech recognition to process your voice commands for easier shopping."
         }
       ]
     ],

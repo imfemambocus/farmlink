@@ -1,4 +1,4 @@
-// app/(auth)/customer/homepage.tsx - Updated with Suggested For You section
+// Updated app/(auth)/customer/homepage.tsx with Voice FloatingActionButton
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -16,6 +16,7 @@ import Header from '@/components/ui/Header';
 import FarmerCard from '@/components/customer/FarmerCard';
 import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
+import FloatingActionButton from '@/components/ui/FloatingActionButton'; // Updated with voice
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -105,6 +106,17 @@ export default function CustomerHomePage() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
+    // Voice input handlers
+    const handleVoiceResult = (data: any) => {
+        if (data?.products) {
+            // Navigate to products page with search results
+            router.push({
+                pathname: '/(auth)/customer/products',
+                params: { searchTerm: data.searchTerm || '' }
+            });
+        }
+    };
+
     useEffect(() => {
         if (user?.role !== 'individual' && user?.role !== 'business') {
             router.replace('/(auth)');
@@ -133,7 +145,7 @@ export default function CustomerHomePage() {
                 api.get('/browse/farmers?limit=10', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
-                api.get('/browse/products/latest?limit=10', {
+                api.get('/browse/products/latest?limit=20', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
                 api.get('/browse/products/recommendations', {
@@ -414,6 +426,12 @@ export default function CustomerHomePage() {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Voice Command Floating Action Button */}
+            <FloatingActionButton
+                showVoice={true}
+                onResult={handleVoiceResult}
+            />
 
             {/* Custom Alert */}
             <CustomAlert

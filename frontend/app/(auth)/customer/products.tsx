@@ -10,11 +10,12 @@ import {
     TouchableOpacity,
     Dimensions
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import Header from '@/components/ui/Header';
 import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
+import FloatingActionButton from '@/components/ui/FloatingActionButton'; // Updated with voice
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -65,6 +66,7 @@ const categories = [
 
 export default function ProductsScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams();
     const { user } = useContext(AuthContext);
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
@@ -115,6 +117,21 @@ export default function ProductsScreen() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
+    // Voice input handlers
+    const handleVoiceResult = (data: any) => {
+        if (data?.searchTerm) {
+            setSearchText(data.searchTerm);
+        }
+        if (data?.products) {
+            showAlert(
+                'success',
+                'Voice Search',
+                `Found ${data.products.length} products matching your search.`,
+                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
+            );
+        }
+    };
+
     // Debounce search function
     const debounceSearch = useCallback(
         (() => {
@@ -135,6 +152,11 @@ export default function ProductsScreen() {
             return;
         }
 
+        // Set initial search term from voice command or navigation params
+        if (params.searchTerm) {
+            setSearchText(params.searchTerm as string);
+        }
+
         // Load initial data
         fetchAllDistricts();
         fetchProducts(true);
@@ -145,7 +167,7 @@ export default function ProductsScreen() {
         });
 
         return () => subscription?.remove();
-    }, [user]);
+    }, [user, params.searchTerm]);
 
     // Trigger search when activeFilters change
     useEffect(() => {
@@ -159,7 +181,7 @@ export default function ProductsScreen() {
         debounceSearch(searchText);
     }, [searchText, debounceSearch]);
 
-    // NEW: Fetch all districts separately to keep them persistent
+    // Fetch all districts separately to keep them persistent
     const fetchAllDistricts = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
@@ -265,7 +287,6 @@ export default function ProductsScreen() {
 
     const handleRefresh = () => {
         setRefreshing(true);
-        // FIXED: Also refresh districts on pull-to-refresh
         fetchAllDistricts();
         fetchProducts(true);
     };
@@ -417,6 +438,9 @@ export default function ProductsScreen() {
                     title="products"
                     showBackButton={true}
                     showCartButton={true}
+                    showOrdersButton={true}
+                    showHomeButton={true}
+                    showNotificationButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -433,6 +457,8 @@ export default function ProductsScreen() {
                 showBackButton={true}
                 showCartButton={true}
                 showOrdersButton={true}
+                showHomeButton={true}
+                showNotificationButton={true}
             />
 
             <ScrollView
@@ -472,6 +498,19 @@ export default function ProductsScreen() {
                         </View>
                     </View>
 
+                    {/* Voice Command Hint */}
+                    <View className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <View className="flex-row items-center">
+                            <Ionicons name="mic" size={16} color="#2563eb" />
+                            <Text className="text-blue-700 text-sm font-medium ml-2">
+                                did you know?
+                            </Text>
+                        </View>
+                        <Text className="text-blue-600 text-xs mt-1">
+                            You can use the Voice Command button as an alternative to browse, add to cart or order items.
+                        </Text>
+                    </View>
+
                     {/* Results Summary */}
                     <Text className="text-sm text-gray-600">
                         {pagination.total} product{pagination.total !== 1 ? 's' : ''} found
@@ -507,6 +546,12 @@ export default function ProductsScreen() {
                     )}
                 </View>
             </ScrollView>
+
+            {/* Voice Command Floating Action Button */}
+            <FloatingActionButton
+                showVoice={true}
+                onResult={handleVoiceResult}
+            />
 
             {/* Custom Alert */}
             <CustomAlert

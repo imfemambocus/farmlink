@@ -1,12 +1,12 @@
-// Updated Header component with notification badge
-import { useContext, useEffect, use } from 'react';
+// Updated Header component with notification badge + Voice Input REMOVED
+import { useContext, useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useFarmerOrders } from '@/context/FarmerOrdersContext';
-import { useNotifications } from '@/context/NotificationContext'; // Add this import
+import { useNotifications } from '@/context/NotificationContext';
 import { useCallback } from 'react';
 import Animated, {
     useSharedValue,
@@ -36,7 +36,7 @@ export default function Header({
    showLogoutButton = false,
    showOrdersButton = false,
    showNotificationButton = false,
-    showHomeButton = false,
+   showHomeButton = false,
 }: HeaderProps) {
     const { logout, user } = useContext(AuthContext);
     const { cartItemCount, isFlashing, refreshCartCount } = useCart();

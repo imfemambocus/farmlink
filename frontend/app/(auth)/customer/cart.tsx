@@ -440,6 +440,7 @@ export default function CartScreen() {
                 showBackButton={true}
                 showHomeButton={true}
                 showOrdersButton={true}
+                showNotificationButton={true}
             />
 
             {isEmpty ? (

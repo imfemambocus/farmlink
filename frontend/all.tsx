@@ -2748,6 +2748,7 @@ export default function FarmerOrdersScreen() {
 //////////////////////////////////////
 
 
+// Updated app/(auth)/customer/homepage.tsx with Voice FloatingActionButton
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -2765,6 +2766,8 @@ import Header from '@/components/ui/Header';
 import FarmerCard from '@/components/customer/FarmerCard';
 import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
+import FloatingActionButton from '@/components/ui/FloatingActionButton'; // Updated with voice
+import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {UnitPrice} from "@/types";
@@ -2789,6 +2792,13 @@ interface Product {
     created_at: string;
 }
 
+interface RecommendationData {
+    recommendations: Product[];
+    has_purchase_history: boolean;
+    total_recommendations: number;
+    message: string;
+}
+
 interface AlertState {
     visible: boolean;
     type: 'success' | 'error' | 'warning' | 'info';
@@ -2806,6 +2816,12 @@ export default function CustomerHomePage() {
     const { user } = useContext(AuthContext);
     const [farmers, setFarmers] = useState<Farmer[]>([]);
     const [latestProducts, setLatestProducts] = useState<Product[]>([]);
+    const [recommendations, setRecommendations] = useState<RecommendationData>({
+        recommendations: [],
+        has_purchase_history: false,
+        total_recommendations: 0,
+        message: ''
+    });
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -2840,6 +2856,17 @@ export default function CustomerHomePage() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
+    // Voice input handlers
+    const handleVoiceResult = (data: any) => {
+        if (data?.products) {
+            // Navigate to products page with search results
+            router.push({
+                pathname: '/(auth)/customer/products',
+                params: { searchTerm: data.searchTerm || '' }
+            });
+        }
+    };
+
     useEffect(() => {
         if (user?.role !== 'individual' && user?.role !== 'business') {
             router.replace('/(auth)');
@@ -2863,12 +2890,15 @@ export default function CustomerHomePage() {
                 return;
             }
 
-            // Fetch farmers and latest products in parallel
-            const [farmersResponse, productsResponse] = await Promise.all([
+            // Fetch farmers, latest products, and recommendations in parallel
+            const [farmersResponse, productsResponse, recommendationsResponse] = await Promise.all([
                 api.get('/browse/farmers?limit=10', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
                 api.get('/browse/products/latest?limit=20', {
+                    headers: { Authorization: `Bearer ${token}` }
+                }),
+                api.get('/browse/products/recommendations', {
                     headers: { Authorization: `Bearer ${token}` }
                 })
             ]);
@@ -2883,6 +2913,7 @@ export default function CustomerHomePage() {
             });
 
             setLatestProducts(filteredProducts);
+            setRecommendations(recommendationsResponse.data);
 
         } catch (error: any) {
             console.error('Error fetching home data:', error);
@@ -2901,435 +2932,269 @@ export default function CustomerHomePage() {
     const handleRefresh = () => {
         setRefreshing(true);
         fetchHomeData();
-    };// app/(auth)/customer/homepage.tsx - Updated with Suggested For You section
-    import { useEffect, useState, useContext } from 'react';
-    import {
-        View,
-        Text,
-        ScrollView,
-        RefreshControl,
-        ActivityIndicator,
-        FlatList,
-        TouchableOpacity,
-        Dimensions
-    } from 'react-native';
-    import { useRouter } from 'expo-router';
-    import { AuthContext } from '@/context/AuthContext';
-    import Header from '@/components/ui/Header';
-    import FarmerCard from '@/components/customer/FarmerCard';
-    import ProductCard from '@/components/customer/ProductCard';
-    import CustomAlert from '@/components/ui/CustomAlert';
-    import { Ionicons } from '@expo/vector-icons';
-    import api from '@/services/api';
-    import AsyncStorage from '@react-native-async-storage/async-storage';
-    import {UnitPrice} from "@/types";
+    };
 
-    interface Farmer {
-        id: number;
-        name: string;
-        district: string;
-        product_count: number;
-    }
+    const handleFarmerPress = (farmer: Farmer) => {
+        router.push(`/customer/farmers/${farmer.id}`);
+    };
 
-    interface Product {
-        id: number;
-        item: string;
-        category: string;
-        description?: string;
-        farmer_id: number;
-        farmer_name: string;
-        farmer_district: string;
-        lowest_price: number;
-        unit_prices: UnitPrice[];
-        created_at: string;
-    }
+    const handleViewAllProducts = () => {
+        router.push('/customer/products');
+    };
 
-    interface RecommendationData {
-        recommendations: Product[];
-        has_purchase_history: boolean;
-        total_recommendations: number;
-        message: string;
-    }
+    const getNumColumns = () => {
+        if (screenWidth < 390) return 1;
+        if (screenWidth < 768) return 2;
+        return 3;
+    };
 
-    interface AlertState {
-        visible: boolean;
-        type: 'success' | 'error' | 'warning' | 'info';
-        title: string;
-        message: string;
-        buttons: Array<{
-            text: string;
-            onPress: () => void;
-            style?: 'default' | 'cancel' | 'destructive';
-        }>;
-    }
+    const renderFarmerItem = ({ item }: { item: Farmer }) => (
+        <FarmerCard
+            farmer={item}
+            onPress={() => handleFarmerPress(item)}
+        />
+    );
 
-    export default function CustomerHomePage() {
-        const router = useRouter();
-        const { user } = useContext(AuthContext);
-        const [farmers, setFarmers] = useState<Farmer[]>([]);
-        const [latestProducts, setLatestProducts] = useState<Product[]>([]);
-        const [recommendations, setRecommendations] = useState<RecommendationData>({
-            recommendations: [],
-            has_purchase_history: false,
-            total_recommendations: 0,
-            message: ''
-        });
-        const [loading, setLoading] = useState(true);
-        const [refreshing, setRefreshing] = useState(false);
-        const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
-        const [alert, setAlert] = useState<AlertState>({
-            visible: false,
-            type: 'info',
-            title: '',
-            message: '',
-            buttons: []
-        });
+    const renderProductItem = ({ item, index }: { item: Product; index: number }) => {
+        const numColumns = getNumColumns();
+        const isLastRow = Math.floor(index / numColumns) === Math.floor((latestProducts.length - 1) / numColumns);
 
-        const showAlert = (
-            type: 'success' | 'error' | 'warning' | 'info',
-            title: string,
-            message: string,
-            buttons: Array<{
-                text: string;
-                onPress: () => void;
-                style?: 'default' | 'cancel' | 'destructive';
-            }>
-        ) => {
-            setAlert({
-                visible: true,
-                type,
-                title,
-                message,
-                buttons
-            });
-        };
-
-        const hideAlert = () => {
-            setAlert(prev => ({ ...prev, visible: false }));
-        };
-
-        useEffect(() => {
-            if (user?.role !== 'individual' && user?.role !== 'business') {
-                router.replace('/(auth)');
-                return;
-            }
-            fetchHomeData();
-
-            // Listen for screen dimension changes
-            const subscription = Dimensions.addEventListener('change', ({ window }) => {
-                setScreenWidth(window.width);
-            });
-
-            return () => subscription?.remove();
-        }, [user]);
-
-        const fetchHomeData = async () => {
-            try {
-                const token = await AsyncStorage.getItem('token');
-                if (!token) {
-                    router.replace('/login');
-                    return;
-                }
-
-                // Fetch farmers, latest products, and recommendations in parallel
-                const [farmersResponse, productsResponse, recommendationsResponse] = await Promise.all([
-                    api.get('/browse/farmers?limit=10', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    }),
-                    api.get('/browse/products/latest?limit=20', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    }),
-                    api.get('/browse/products/recommendations', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    })
-                ]);
-
-                setFarmers(farmersResponse.data);
-
-                // Filter products that have pricing for the current user type
-                const userRole = user?.role || 'individual';
-                const filteredProducts = productsResponse.data.filter((product: Product) => {
-                    const customerType = userRole as 'individual' | 'business';
-                    return product.unit_prices.some(up => up.customer_type === customerType);
-                });
-
-                setLatestProducts(filteredProducts);
-                setRecommendations(recommendationsResponse.data);
-
-            } catch (error: any) {
-                console.error('Error fetching home data:', error);
-                showAlert(
-                    'error',
-                    'error',
-                    'failed to load homepage data',
-                    [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
-                );
-            } finally {
-                setLoading(false);
-                setRefreshing(false);
-            }
-        };
-
-        const handleRefresh = () => {
-            setRefreshing(true);
-            fetchHomeData();
-        };
-
-        const handleFarmerPress = (farmer: Farmer) => {
-            router.push(`/customer/farmers/${farmer.id}`);
-        };
-
-        const handleViewAllProducts = () => {
-            router.push('/customer/products');
-        };
-
-        const getNumColumns = () => {
-            if (screenWidth < 390) return 1;
-            if (screenWidth < 768) return 2;
-            return 3;
-        };
-
-        const renderFarmerItem = ({ item }: { item: Farmer }) => (
-            <FarmerCard
-                farmer={item}
-                onPress={() => handleFarmerPress(item)}
-            />
-        );
-
-        const renderProductItem = ({ item, index }: { item: Product; index: number }) => {
-            const numColumns = getNumColumns();
-            const isLastRow = Math.floor(index / numColumns) === Math.floor((latestProducts.length - 1) / numColumns);
-
-            return (
-                <View
-                    style={{
-                        flex: 1,
-                        marginBottom: isLastRow ? 0 : 12,
-                        marginHorizontal: 4,
-                        maxWidth: `${100 / numColumns - 2}%`
-                    }}
-                >
-                    <ProductCard product={item} />
-                </View>
-            );
-        };
-
-        const renderRecommendationItem = ({ item }: { item: Product }) => (
-            <View style={{ width: screenWidth * 0.45, marginRight: 12 }}>
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    marginBottom: isLastRow ? 0 : 12,
+                    marginHorizontal: 4,
+                    maxWidth: `${100 / numColumns - 2}%`
+                }}
+            >
                 <ProductCard product={item} />
             </View>
         );
+    };
 
-        if (loading) {
-            return (
-                <View className="flex-1 bg-surface">
-                    <Header
-                        title="farmlink"
-                        showCartButton={true}
-                    />
-                    <View className="flex-1 justify-center items-center">
-                        <ActivityIndicator size="large" color="#4CAF50" />
-                        <Text className="text-gray-600 mt-4">loading homepage...</Text>
-                    </View>
-                </View>
-            );
-        }
+    const renderRecommendationItem = ({ item }: { item: Product }) => (
+        <View style={{ width: screenWidth * 0.45, marginRight: 12 }}>
+            <ProductCard product={item} />
+        </View>
+    );
 
+    if (loading) {
         return (
             <View className="flex-1 bg-surface">
                 <Header
                     title="farmlink"
                     showCartButton={true}
-                    showSettingsButton={true}
-                    showOrdersButton={true}
-                    showNotificationButton={true}
                 />
+                <View className="flex-1 justify-center items-center">
+                    <ActivityIndicator size="large" color="#4CAF50" />
+                    <Text className="text-gray-600 mt-4">loading homepage...</Text>
+                </View>
+            </View>
+        );
+    }
 
-                <ScrollView
-                    className="flex-1"
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            colors={['#4CAF50']}
-                        />
-                    }
-                    contentContainerStyle={{ paddingBottom: 100 }}
-                >
-                    {/* Welcome Section */}
-                    <View className="px-5 pt-6 pb-4">
-                        <Text className="text-xl font-semibold text-black mb-2">
-                            welcome back, {user?.individual_profile?.first_name?.toLowerCase() ||
-                            user?.business_profile?.contact_name?.toLowerCase() || 'there'}!
-                        </Text>
-                        <Text className="text-base text-gray-600">
-                            discover fresh produce from local farmers
-                            {user?.role === 'business' && ' with bulk pricing'}
-                        </Text>
-                    </View>
+    return (
+        <View className="flex-1 bg-surface">
+            <Header
+                title="farmlink"
+                showCartButton={true}
+                showSettingsButton={true}
+                showOrdersButton={true}
+                showNotificationButton={true}
+            />
 
-                    {/* Suggested For You Section */}
-                    <View className="mb-8">
-                        <View className="flex-row justify-between items-center px-5 mb-4">
-                            <View className="flex-row items-center">
-                                <Ionicons name="sparkles" size={20} color="#4CAF50" />
-                                <Text className="text-lg font-medium text-black ml-2">
-                                    suggested for you
-                                </Text>
-                            </View>
-                            {recommendations.has_purchase_history && recommendations.recommendations.length > 0 && (
-                                <TouchableOpacity
-                                    onPress={handleViewAllProducts}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text className="text-sm text-action-green font-medium">
-                                        explore more
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                        </View>
+            <ScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        colors={['#4CAF50']}
+                    />
+                }
+                contentContainerStyle={{ paddingBottom: 100 }}
+            >
+                {/* Welcome Section */}
+                <View className="px-5 pt-6 pb-4">
+                    <Text className="text-xl font-semibold text-black mb-2">
+                        welcome back, {user?.individual_profile?.first_name?.toLowerCase() ||
+                        user?.business_profile?.contact_name?.toLowerCase() || 'there'}!
+                    </Text>
+                    <Text className="text-base text-gray-600">
+                        discover fresh produce from local farmers
+                        {user?.role === 'business' && ' with bulk pricing'}
+                    </Text>
+                </View>
 
-                        {recommendations.recommendations.length === 0 ? (
-                            <View className="bg-surface rounded-xl p-6 mx-5 border border-gray-100">
-                                <View className="items-center">
-                                    <View className="w-16 h-16 bg-green-50 rounded-full items-center justify-center mb-4">
-                                        <Ionicons name="bulb" size={32} color="#4CAF50" />
-                                    </View>
-                                    <Text className="text-base font-medium text-black mb-2 text-center">
-                                        your personalized picks await
-                                    </Text>
-                                    <Text className="text-sm text-gray-600 text-center leading-5">
-                                        {recommendations.message}
-                                    </Text>
-                                    <TouchableOpacity
-                                        onPress={handleViewAllProducts}
-                                        className="bg-action-green px-6 py-3 rounded-xl mt-4"
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text className="text-white font-medium">
-                                            start exploring
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ) : (
-                            <View>
-                                <Text className="text-sm text-gray-600 mb-4 px-5">
-                                    {recommendations.message}
-                                </Text>
-                                <FlatList
-                                    data={recommendations.recommendations}
-                                    renderItem={({ item }) => (
-                                        <View style={{ width: screenWidth * 0.45, marginRight: 12 }}>
-                                            <ProductCard product={item} />
-                                        </View>
-                                    )}
-                                    keyExtractor={(item) => item.id.toString()}
-                                    horizontal
-                                    showsHorizontalScrollIndicator={false}
-                                    contentContainerStyle={{ paddingHorizontal: 20 }}
-                                />
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Featured Farmers Section */}
-                    <View className="mb-8">
-                        <View className="flex-row justify-between items-center px-5 mb-4">
-                            <Text className="text-lg font-medium text-black">
-                                featured farmers
+                {/* Suggested For You Section */}
+                <View className="mb-8">
+                    <View className="flex-row justify-between items-center px-5 mb-4">
+                        <View className="flex-row items-center">
+                            <Ionicons name="sparkles" size={20} color="#4CAF50" />
+                            <Text className="text-lg font-medium text-black ml-2">
+                                suggested for you
                             </Text>
-                            <TouchableOpacity
-                                onPress={() => router.push('/customer/farmers')}
-                                activeOpacity={0.7}
-                            >
-                                <Text className="text-sm text-action-green font-medium">
-                                    view all
-                                </Text>
-                            </TouchableOpacity>
                         </View>
-
-                        {farmers.length === 0 ? (
-                            <View className="bg-surface rounded-xl p-8 items-center mx-6">
-                                <Text className="text-4xl mb-4">👨‍🌾</Text>
-                                <Text className="text-lg font-medium text-black mb-2">
-                                    no farmers available
-                                </Text>
-                                <Text className="text-gray-600 text-center">
-                                    check back later for featured farmers in your area
-                                </Text>
-                            </View>
-                        ) : (
-                            <FlatList
-                                data={farmers}
-                                renderItem={renderFarmerItem}
-                                keyExtractor={(item) => item.id.toString()}
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={{ paddingHorizontal: 20 }}
-                                ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-                            />
-                        )}
-                    </View>
-
-                    {/* Fresh Arrivals Section */}
-                    <View className="px-5">
-                        <View className="flex-row justify-between items-center mb-4">
-                            <Text className="text-lg font-medium text-black">
-                                fresh arrivals
-                            </Text>
+                        {recommendations.has_purchase_history && recommendations.recommendations.length > 0 && (
                             <TouchableOpacity
                                 onPress={handleViewAllProducts}
                                 activeOpacity={0.7}
                             >
                                 <Text className="text-sm text-action-green font-medium">
-                                    view all
+                                    explore more
                                 </Text>
                             </TouchableOpacity>
-                        </View>
-
-                        {latestProducts.length === 0 ? (
-                            <View className="bg-surface rounded-xl p-8 items-center">
-                                <Text className="text-lg font-medium text-black mb-2">
-                                    {user?.role === 'business'
-                                        ? 'no bulk products available'
-                                        : 'no products available'
-                                    }
-                                </Text>
-                                <Text className="text-gray-600 text-center">
-                                    {user?.role === 'business'
-                                        ? 'farmers are working to add bulk pricing options soon'
-                                        : 'farmers are working hard to bring fresh produce soon'
-                                    }
-                                </Text>
-                            </View>
-                        ) : (
-                            <FlatList
-                                data={latestProducts}
-                                renderItem={renderProductItem}
-                                numColumns={getNumColumns()}
-                                key={`latest-${getNumColumns()}`}
-                                scrollEnabled={false}
-                                contentContainerStyle={{ paddingHorizontal: 0 }}
-                                showsVerticalScrollIndicator={false}
-                            />
                         )}
                     </View>
-                </ScrollView>
 
-                {/* Custom Alert */}
-                <CustomAlert
-                    visible={alert.visible}
-                    type={alert.type}
-                    title={alert.title}
-                    message={alert.message}
-                    buttons={alert.buttons}
-                    onClose={hideAlert}
-                />
-            </View>
-        );
-    }
+                    {recommendations.recommendations.length === 0 ? (
+                        <View className="bg-surface rounded-xl p-6 mx-5 border border-gray-100">
+                            <View className="items-center">
+                                <View className="w-16 h-16 bg-green-50 rounded-full items-center justify-center mb-4">
+                                    <Ionicons name="bulb" size={32} color="#4CAF50" />
+                                </View>
+                                <Text className="text-base font-medium text-black mb-2 text-center">
+                                    your personalized picks await
+                                </Text>
+                                <Text className="text-sm text-gray-600 text-center leading-5">
+                                    {recommendations.message}
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={handleViewAllProducts}
+                                    className="bg-action-green px-6 py-3 rounded-xl mt-4"
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className="text-white font-medium">
+                                        start exploring
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ) : (
+                        <View>
+                            <Text className="text-sm text-gray-600 mb-4 px-5">
+                                {recommendations.message}
+                            </Text>
+                            <FlatList
+                                data={recommendations.recommendations}
+                                renderItem={({ item }) => (
+                                    <View style={{ width: screenWidth * 0.45, marginRight: 12 }}>
+                                        <ProductCard product={item} />
+                                    </View>
+                                )}
+                                keyExtractor={(item) => item.id.toString()}
+                                horizontal
+                                showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ paddingHorizontal: 20 }}
+                            />
+                        </View>
+                    )}
+                </View>
+
+                {/* Featured Farmers Section */}
+                <View className="mb-8">
+                    <View className="flex-row justify-between items-center px-5 mb-4">
+                        <Text className="text-lg font-medium text-black">
+                            featured farmers
+                        </Text>
+                        <TouchableOpacity
+                            onPress={() => router.push('/customer/farmers')}
+                            activeOpacity={0.7}
+                        >
+                            <Text className="text-sm text-action-green font-medium">
+                                view all
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {farmers.length === 0 ? (
+                        <View className="bg-surface rounded-xl p-8 items-center mx-6">
+                            <Text className="text-4xl mb-4">👨‍🌾</Text>
+                            <Text className="text-lg font-medium text-black mb-2">
+                                no farmers available
+                            </Text>
+                            <Text className="text-gray-600 text-center">
+                                check back later for featured farmers in your area
+                            </Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={farmers}
+                            renderItem={renderFarmerItem}
+                            keyExtractor={(item) => item.id.toString()}
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={{ paddingHorizontal: 20 }}
+                            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                        />
+                    )}
+                </View>
+
+                {/* Fresh Arrivals Section */}
+                <View className="px-5">
+                    <View className="flex-row justify-between items-center mb-4">
+                        <Text className="text-lg font-medium text-black">
+                            fresh arrivals
+                        </Text>
+                        <TouchableOpacity
+                            onPress={handleViewAllProducts}
+                            activeOpacity={0.7}
+                        >
+                            <Text className="text-sm text-action-green font-medium">
+                                view all
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {latestProducts.length === 0 ? (
+                        <View className="bg-surface rounded-xl p-8 items-center">
+                            <Text className="text-lg font-medium text-black mb-2">
+                                {user?.role === 'business'
+                                    ? 'no bulk products available'
+                                    : 'no products available'
+                                }
+                            </Text>
+                            <Text className="text-gray-600 text-center">
+                                {user?.role === 'business'
+                                    ? 'farmers are working to add bulk pricing options soon'
+                                    : 'farmers are working hard to bring fresh produce soon'
+                                }
+                            </Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={latestProducts}
+                            renderItem={renderProductItem}
+                            numColumns={getNumColumns()}
+                            key={`latest-${getNumColumns()}`}
+                            scrollEnabled={false}
+                            contentContainerStyle={{ paddingHorizontal: 0 }}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    )}
+                </View>
+            </ScrollView>
+
+            {/* Voice Command Floating Action Button */}
+            <FloatingActionButton
+                showVoice={true}
+                onResult={handleVoiceResult}
+            />
+
+            {/* Custom Alert */}
+            <CustomAlert
+                visible={alert.visible}
+                type={alert.type}
+                title={alert.title}
+                message={alert.message}
+                buttons={alert.buttons}
+                onClose={hideAlert}
+            />
+        </View>
+    );
+}
 
 
 //////////////////////////////////////
@@ -4487,7 +4352,7 @@ export default function CartScreen() {
 //////////////////////////////////////
 
 
-// services/ruleBasedAIService.ts - Updated to use external recipe database
+// services/ruleBasedAIService.ts - Optimized with caching and reduced API calls
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/api';
 import {
@@ -4520,27 +4385,37 @@ interface Recipe {
     confidence_score: number;
 }
 
+interface CachedProductSearch {
+    products: any[];
+    timestamp: number;
+    customerType: string;
+}
+
 class RuleBasedAIService {
     private recipeRules: RecipeRule[] = [];
     private ingredientCategories: Map<string, string[]> = new Map();
     private cuisineAffinities: Map<string, string[]> = new Map();
 
+    // CACHING: Reduce redundant API calls
+    private productSearchCache: Map<string, CachedProductSearch> = new Map();
+    private lastCartHash: string = '';
+    private lastRecipesResult: Recipe[] = [];
+    private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+    private readonly CART_DEBOUNCE_TIME = 2000; // 2 seconds
+    private cartUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+
     constructor() {
         this.initializeKnowledgeBase();
     }
 
-    /**
-     * Initialize knowledge base from external recipe database
-     */
     private initializeKnowledgeBase() {
-        // Load recipes from external file
         this.recipeRules = MAURITIAN_RECIPES;
         this.ingredientCategories = INGREDIENT_CATEGORIES;
         this.cuisineAffinities = CUISINE_AFFINITIES;
     }
 
     /**
-     * MAIN AI FUNCTION: Generate personalized recipe suggestions
+     * OPTIMIZED: Generate recipes with caching and debouncing
      */
     async generatePersonalizedRecipes(
         cartItems: CartItem[],
@@ -4551,23 +4426,343 @@ class RuleBasedAIService {
             skillLevel?: 'beginner' | 'intermediate' | 'advanced';
         }
     ): Promise<Recipe[]> {
-        console.log('🤖 AI: Starting rule-based recipe generation...');
+        console.log('🤖 AI: Starting optimized recipe generation...');
 
-        const cartAnalysis = this.analyzeCartContents(cartItems);
-        const candidateRecipes = this.applyRecipeRules(cartItems, cartAnalysis);
-        const scoredRecipes = this.scoreAndRankRecipes(candidateRecipes, cartItems, customerType, userPreferences);
-        const topRecipes = scoredRecipes.slice(0, 3);
-        const processedRecipes = await Promise.all(
-            topRecipes.map(recipe => this.processRecipeForMissingIngredients(recipe, cartItems, customerType))
+        // OPTIMIZATION 1: Create cart hash to detect changes
+        const cartHash = this.createCartHash(cartItems, customerType);
+
+        // OPTIMIZATION 2: Return cached result if cart hasn't changed
+        if (cartHash === this.lastCartHash && this.lastRecipesResult.length > 0) {
+            console.log('🎯 AI: Returning cached recipes (cart unchanged)');
+            return this.lastRecipesResult;
+        }
+
+        // OPTIMIZATION 3: Debounce rapid cart changes
+        if (this.cartUpdateTimer) {
+            clearTimeout(this.cartUpdateTimer);
+        }
+
+        return new Promise((resolve) => {
+            this.cartUpdateTimer = setTimeout(async () => {
+                try {
+                    const cartAnalysis = this.analyzeCartContents(cartItems);
+                    const candidateRecipes = this.applyRecipeRules(cartItems, cartAnalysis);
+                    const scoredRecipes = this.scoreAndRankRecipes(candidateRecipes, cartItems, customerType, userPreferences);
+                    const topRecipes = scoredRecipes.slice(0, 3);
+
+                    // OPTIMIZATION 4: Batch process missing ingredients
+                    const processedRecipes = await this.batchProcessMissingIngredients(topRecipes, cartItems, customerType);
+
+                    // Cache results
+                    this.lastCartHash = cartHash;
+                    this.lastRecipesResult = processedRecipes;
+
+                    console.log('🤖 AI: Generated', processedRecipes.length, 'optimized recipes');
+                    resolve(processedRecipes);
+                } catch (error) {
+                    console.error('🤖 AI: Error generating recipes:', error);
+                    resolve(this.lastRecipesResult || []);
+                }
+            }, this.CART_DEBOUNCE_TIME);
+        });
+    }
+
+    /**
+     * OPTIMIZATION: Create hash of cart contents to detect changes
+     */
+    private createCartHash(cartItems: CartItem[], customerType: string): string {
+        const cartString = cartItems
+            .map(item => `${item.product_name}:${item.quantity}:${item.unit_name}`)
+            .sort()
+            .join('|') + `|${customerType}`;
+
+        // Simple hash function
+        let hash = 0;
+        for (let i = 0; i < cartString.length; i++) {
+            const char = cartString.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return hash.toString();
+    }
+
+    /**
+     * OPTIMIZATION: Batch process missing ingredients to reduce API calls
+     */
+    private async batchProcessMissingIngredients(
+        recipes: Recipe[],
+        cartItems: CartItem[],
+        customerType: 'individual' | 'business'
+    ): Promise<Recipe[]> {
+        const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
+
+        // STEP 1: Collect ALL unique missing ingredients across all recipes
+        const allMissingIngredients = new Set<string>();
+        const recipeIngredientMap = new Map<string, { recipe: Recipe, ingredients: RecipeIngredient[] }>();
+
+        recipes.forEach(recipe => {
+            const missingIngredients: RecipeIngredient[] = [];
+
+            recipe.ingredients.forEach(ingredient => {
+                const ingredientName = ingredient.name.toLowerCase();
+                const isInCart = cartItemNames.some(cartItem =>
+                    cartItem.includes(ingredientName) || ingredientName.includes(cartItem)
+                );
+
+                if (!isInCart) {
+                    missingIngredients.push(ingredient);
+                    allMissingIngredients.add(ingredientName);
+                }
+            });
+
+            recipeIngredientMap.set(recipe.id, { recipe, ingredients: missingIngredients });
+        });
+
+        // STEP 2: Batch search for all missing ingredients (ONE API call per unique ingredient)
+        const ingredientAvailabilityMap = await this.batchCheckIngredientsAvailability(
+            Array.from(allMissingIngredients),
+            customerType
         );
 
-        console.log('🤖 AI: Generated', processedRecipes.length, 'personalized recipes');
+        // STEP 3: Process each recipe using the batched results
+        const processedRecipes: Recipe[] = [];
+
+        for (const [recipeId, { recipe, ingredients: missingIngredients }] of recipeIngredientMap) {
+            const availableMissingIngredients = missingIngredients.filter(ingredient =>
+                ingredientAvailabilityMap.has(ingredient.name.toLowerCase())
+            );
+
+            const estimatedCost = this.estimateCostFromAvailabilityMap(
+                availableMissingIngredients,
+                ingredientAvailabilityMap
+            );
+
+            processedRecipes.push({
+                ...recipe,
+                missing_ingredients: missingIngredients,
+                available_missing_ingredients: availableMissingIngredients,
+                estimated_total_cost: estimatedCost
+            });
+        }
+
         return processedRecipes;
     }
 
     /**
-     * Analyze cart contents using classification algorithms
+     * OPTIMIZATION: Batch check ingredient availability with caching
      */
+    private async batchCheckIngredientsAvailability(
+        ingredientNames: string[],
+        customerType: 'individual' | 'business'
+    ): Promise<Map<string, { products: any[], lowestPrice: number }>> {
+        const availabilityMap = new Map<string, { products: any[], lowestPrice: number }>();
+        const uncachedIngredients: string[] = [];
+
+        // STEP 1: Check cache first
+        ingredientNames.forEach(ingredientName => {
+            const cacheKey = `${ingredientName}:${customerType}`;
+            const cached = this.productSearchCache.get(cacheKey);
+
+            if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+                // Use cached data
+                const suitableProducts = cached.products.filter(product =>
+                    product.unit_prices.some((up: any) =>
+                        up.customer_type === customerType && up.quantity_available > 0
+                    )
+                );
+
+                if (suitableProducts.length > 0) {
+                    const lowestPrice = this.findLowestPrice(suitableProducts, customerType);
+                    availabilityMap.set(ingredientName, { products: suitableProducts, lowestPrice });
+                }
+            } else {
+                uncachedIngredients.push(ingredientName);
+            }
+        });
+
+        // STEP 2: Batch search for uncached ingredients
+        if (uncachedIngredients.length > 0) {
+            console.log(`🔍 Batch searching for ${uncachedIngredients.length} ingredients`);
+
+            try {
+                const token = await AsyncStorage.getItem('token');
+                if (!token) return availabilityMap;
+
+                // OPTIMIZATION: Search for multiple ingredients in fewer API calls
+                const searchPromises = uncachedIngredients.map(async (ingredientName) => {
+                    try {
+                        const searchResponse = await api.get(`/browse/products/search`, {
+                            params: { search: ingredientName, limit: 10 },
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+
+                        const products = searchResponse.data.items || [];
+
+                        // Cache the result
+                        const cacheKey = `${ingredientName}:${customerType}`;
+                        this.productSearchCache.set(cacheKey, {
+                            products,
+                            timestamp: Date.now(),
+                            customerType
+                        });
+
+                        // Check if available for this customer type
+                        const suitableProducts = products.filter((product: any) =>
+                            product.unit_prices.some((up: any) =>
+                                up.customer_type === customerType && up.quantity_available > 0
+                            )
+                        );
+
+                        if (suitableProducts.length > 0) {
+                            const lowestPrice = this.findLowestPrice(suitableProducts, customerType);
+                            return { ingredientName, products: suitableProducts, lowestPrice };
+                        }
+
+                        return null;
+                    } catch (error) {
+                        console.error(`❌ Error searching for ${ingredientName}:`, error);
+                        return null;
+                    }
+                });
+
+                // Wait for all searches to complete
+                const results = await Promise.all(searchPromises);
+
+                results.forEach(result => {
+                    if (result) {
+                        availabilityMap.set(result.ingredientName, {
+                            products: result.products,
+                            lowestPrice: result.lowestPrice
+                        });
+                    }
+                });
+
+            } catch (error) {
+                console.error('❌ Error in batch ingredient search:', error);
+            }
+        }
+
+        console.log(`📋 Found ${availabilityMap.size} available ingredients out of ${ingredientNames.length}`);
+        return availabilityMap;
+    }
+
+    /**
+     * OPTIMIZATION: Find lowest price from cached data
+     */
+    private findLowestPrice(products: any[], customerType: string): number {
+        let lowestPrice = Infinity;
+
+        products.forEach((product: any) => {
+            product.unit_prices.forEach((up: any) => {
+                if (up.customer_type === customerType && up.quantity_available > 0) {
+                    lowestPrice = Math.min(lowestPrice, up.price_per_unit);
+                }
+            });
+        });
+
+        return lowestPrice === Infinity ? 0 : lowestPrice;
+    }
+
+    /**
+     * OPTIMIZATION: Estimate cost from availability map (no additional API calls)
+     */
+    private estimateCostFromAvailabilityMap(
+        ingredients: RecipeIngredient[],
+        availabilityMap: Map<string, { products: any[], lowestPrice: number }>
+    ): number {
+        let totalCost = 0;
+
+        ingredients.forEach(ingredient => {
+            const availability = availabilityMap.get(ingredient.name.toLowerCase());
+            if (availability) {
+                totalCost += availability.lowestPrice;
+            }
+        });
+
+        return totalCost;
+    }
+
+    /**
+     * OPTIMIZATION: Improved product matching with caching
+     */
+    async findBestProductMatch(ingredientName: string, customerType: 'individual' | 'business'): Promise<any> {
+        try {
+            console.log(`🔍 Finding best match for: ${ingredientName} (${customerType})`);
+
+            // Check cache first
+            const cacheKey = `${ingredientName}:${customerType}`;
+            const cached = this.productSearchCache.get(cacheKey);
+            let products: any[] = [];
+
+            if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+                console.log(`📋 Using cached data for ${ingredientName}`);
+                products = cached.products;
+            } else {
+                // Fetch from API
+                const token = await AsyncStorage.getItem('token');
+                const searchResponse = await api.get(`/browse/products/search`, {
+                    params: { search: ingredientName, limit: 20 },
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                products = searchResponse.data.items || [];
+
+                // Cache the result
+                this.productSearchCache.set(cacheKey, {
+                    products,
+                    timestamp: Date.now(),
+                    customerType
+                });
+            }
+
+            console.log(`📦 Found ${products.length} products for ${ingredientName}`);
+
+            let bestMatch = null;
+            let lowestPrice = Infinity;
+
+            for (const product of products) {
+                const suitablePrices = product.unit_prices.filter(
+                    (up: any) => up.customer_type === customerType && up.quantity_available > 0
+                );
+
+                for (const unitPrice of suitablePrices) {
+                    if (unitPrice.price_per_unit < lowestPrice) {
+                        lowestPrice = unitPrice.price_per_unit;
+                        bestMatch = {
+                            farmer_product_id: product.id,
+                            unit_price_id: unitPrice.id,
+                            product_name: product.item,
+                            farmer_name: product.farmer_name,
+                            price_per_unit: unitPrice.price_per_unit,
+                            minimum_order: unitPrice.minimum_order,
+                            unit: unitPrice.unit
+                        };
+                    }
+                }
+            }
+
+            if (bestMatch) {
+                console.log(`🎯 Best match for ${ingredientName}:`, bestMatch.product_name);
+            }
+
+            return bestMatch;
+        } catch (error) {
+            console.error(`❌ Error finding product match for ${ingredientName}:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * OPTIMIZATION: Clear cache when needed
+     */
+    clearCache() {
+        this.productSearchCache.clear();
+        this.lastCartHash = '';
+        this.lastRecipesResult = [];
+        console.log('🧹 AI: Cache cleared');
+    }
+
+    // Keep all the other existing methods unchanged...
     private analyzeCartContents(cartItems: CartItem[]) {
         const analysis = {
             vegetableCount: 0,
@@ -4600,34 +4795,22 @@ class RuleBasedAIService {
         return analysis;
     }
 
-    /**
-     * Apply recipe matching rules
-     */
     private applyRecipeRules(cartItems: CartItem[], cartAnalysis: any): Recipe[] {
         const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
         const matchingRecipes: Recipe[] = [];
 
-        console.log('🔍 Cart items:', cartItemNames);
-
         for (const rule of this.recipeRules) {
             const matchScore = this.calculateRuleMatchScore(rule, cartItemNames);
-
-            console.log(`🔍 Recipe: ${rule.name}, Match score: ${matchScore}`);
 
             if (matchScore > 0.1) {
                 const recipe = this.createRecipeFromRule(rule, cartItems, matchScore);
                 matchingRecipes.push(recipe);
-                console.log(`✅ Added recipe: ${rule.name}`);
             }
         }
 
-        console.log(`📝 Total matching recipes: ${matchingRecipes.length}`);
         return matchingRecipes;
     }
 
-    /**
-     * Score and rank recipes using ML-inspired algorithms
-     */
     private scoreAndRankRecipes(
         recipes: Recipe[],
         cartItems: CartItem[],
@@ -4642,9 +4825,6 @@ class RuleBasedAIService {
             .sort((a, b) => b.confidence_score - a.confidence_score);
     }
 
-    /**
-     * Calculate ML-style confidence score (0-1)
-     */
     private calculateConfidenceScore(
         recipe: Recipe,
         cartItems: CartItem[],
@@ -4654,7 +4834,6 @@ class RuleBasedAIService {
         let score = 0;
         const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
 
-        // Ingredient overlap score (0.4 weight)
         const ingredientOverlap = recipe.ingredients.filter(ingredient =>
             cartItemNames.some(cartItem =>
                 cartItem.includes(ingredient.name) || ingredient.name.includes(cartItem)
@@ -4662,19 +4841,16 @@ class RuleBasedAIService {
         ).length;
         score += (ingredientOverlap / recipe.ingredients.length) * 0.4;
 
-        // Customer type relevance (0.2 weight)
         if (customerType === 'business' && recipe.difficulty !== 'hard') {
             score += 0.2;
         } else if (customerType === 'individual' && recipe.difficulty === 'easy') {
             score += 0.2;
         }
 
-        // Cuisine preference (0.2 weight)
         if (userPreferences?.preferredCuisine?.includes(recipe.cuisine_type)) {
             score += 0.2;
         }
 
-        // Completeness bonus (0.2 weight)
         const missingCount = recipe.ingredients.filter(ing =>
             !cartItemNames.some(cartItem =>
                 cartItem.includes(ing.name) || ing.name.includes(cartItem)
@@ -4685,9 +4861,6 @@ class RuleBasedAIService {
         return Math.min(score, 1.0);
     }
 
-    /**
-     * Calculate rule match score using set similarity
-     */
     private calculateRuleMatchScore(rule: RecipeRule, cartItemNames: string[]): number {
         const triggerMatches = rule.triggerIngredients.filter((trigger: string) =>
             cartItemNames.some(cartItem => {
@@ -4704,9 +4877,6 @@ class RuleBasedAIService {
         return score > 0 ? Math.max(score, 0.5) : 0;
     }
 
-    /**
-     * Helper methods for ingredient classification
-     */
     private isVegetable(itemName: string): boolean {
         const vegetables = this.ingredientCategories.get('vegetables') || [];
         return vegetables.some(veg => itemName.includes(veg) || veg.includes(itemName));
@@ -4727,9 +4897,6 @@ class RuleBasedAIService {
         return hints;
     }
 
-    /**
-     * Create recipe from rule
-     */
     private createRecipeFromRule(rule: RecipeRule, cartItems: CartItem[], matchScore: number): Recipe {
         return {
             id: `rule_${rule.name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
@@ -4748,214 +4915,6 @@ class RuleBasedAIService {
         };
     }
 
-    /**
-     * Process recipe to find missing ingredients and check their availability
-     */
-    private async processRecipeForMissingIngredients(
-        recipe: Recipe,
-        cartItems: CartItem[],
-        customerType: 'individual' | 'business'
-    ): Promise<Recipe> {
-        const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
-        const missingIngredients: RecipeIngredient[] = [];
-
-        // Find ALL missing ingredients
-        for (const ingredient of recipe.ingredients) {
-            const ingredientName = ingredient.name.toLowerCase();
-            const isInCart = cartItemNames.some(cartItem =>
-                cartItem.includes(ingredientName) || ingredientName.includes(cartItem)
-            );
-
-            if (!isInCart) {
-                missingIngredients.push(ingredient);
-            }
-        }
-
-        // Check availability of missing ingredients
-        const availableMissingIngredients = await this.checkIngredientsAvailability(
-            missingIngredients,
-            customerType
-        );
-
-        const estimatedCost = await this.estimateMissingIngredientsCost(availableMissingIngredients, customerType);
-
-        return {
-            ...recipe,
-            missing_ingredients: missingIngredients,
-            available_missing_ingredients: availableMissingIngredients,
-            estimated_total_cost: estimatedCost
-        };
-    }
-
-    /**
-     * Check which missing ingredients are actually available from farmers
-     */
-    private async checkIngredientsAvailability(
-        missingIngredients: RecipeIngredient[],
-        customerType: 'individual' | 'business'
-    ): Promise<RecipeIngredient[]> {
-        const availableIngredients: RecipeIngredient[] = [];
-
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) return availableIngredients;
-
-            for (const ingredient of missingIngredients) {
-                try {
-                    console.log(`🔍 Checking availability for: ${ingredient.name}`);
-
-                    const searchResponse = await api.get(`/browse/products/search`, {
-                        params: { search: ingredient.name, limit: 10 },
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-
-                    const products = searchResponse.data.items || [];
-                    console.log(`📦 Found ${products.length} products for ${ingredient.name}`);
-
-                    // Check if any farmer has this ingredient available for this customer type
-                    let hasAvailableProduct = false;
-                    let productDetails = [];
-
-                    for (const product of products) {
-                        const availableUnitPrices = product.unit_prices.filter((up: any) =>
-                            up.customer_type === customerType && up.quantity_available > 0
-                        );
-
-                        if (availableUnitPrices.length > 0) {
-                            hasAvailableProduct = true;
-                            productDetails.push({
-                                name: product.item,
-                                farmer: product.farmer_name,
-                                prices: availableUnitPrices.length
-                            });
-                        }
-                    }
-
-                    console.log(`✅ ${ingredient.name} available: ${hasAvailableProduct}`, productDetails);
-
-                    if (hasAvailableProduct) {
-                        availableIngredients.push(ingredient);
-                    }
-                } catch (error) {
-                    console.error(`❌ Error checking availability for ${ingredient.name}:`, error);
-                    // Continue to next ingredient if one fails
-                }
-            }
-        } catch (error) {
-            console.error('❌ Error checking ingredients availability:', error);
-        }
-
-        console.log(`📋 Available ingredients summary:`, availableIngredients.map(ing => ing.name));
-        return availableIngredients;
-    }
-
-    /**
-     * Estimate missing ingredients cost
-     */
-    private async estimateMissingIngredientsCost(
-        missingIngredients: RecipeIngredient[],
-        customerType: 'individual' | 'business'
-    ): Promise<number> {
-        try {
-            const token = await AsyncStorage.getItem('token');
-            if (!token) return 0;
-
-            let totalCost = 0;
-
-            for (const ingredient of missingIngredients) {
-                const searchResponse = await api.get(`/browse/products/search`, {
-                    params: { search: ingredient.name, limit: 10 },
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
-                const products = searchResponse.data.items || [];
-
-                const prices = products
-                    .flatMap((product: any) =>
-                        product.unit_prices
-                            .filter((up: any) => up.customer_type === customerType)
-                            .map((up: any) => up.price_per_unit)
-                    )
-                    .sort((a: number, b: number) => a - b);
-
-                if (prices.length > 0) {
-                    const lowestPrices = prices.slice(0, 3);
-                    const medianPrice = lowestPrices[Math.floor(lowestPrices.length / 2)];
-                    // Estimate cost for 1 unit
-                    totalCost += medianPrice * 1;
-                }
-            }
-
-            return totalCost;
-        } catch (error) {
-            console.error('Error estimating costs:', error);
-            return 0;
-        }
-    }
-
-    /**
-     * Find best product match for an ingredient
-     */
-    async findBestProductMatch(ingredientName: string, customerType: 'individual' | 'business'): Promise<any> {
-        try {
-            console.log(`🔍 Finding best match for: ${ingredientName} (${customerType})`);
-
-            const token = await AsyncStorage.getItem('token');
-            const searchResponse = await api.get(`/browse/products/search`, {
-                params: { search: ingredientName, limit: 20 },
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            const products = searchResponse.data.items || [];
-            console.log(`📦 Found ${products.length} products for ${ingredientName}`);
-
-            let bestMatch = null;
-            let lowestPrice = Infinity;
-
-            for (const product of products) {
-                console.log(`🏪 Checking product: ${product.item} from ${product.farmer_name}`);
-
-                const suitablePrices = product.unit_prices.filter(
-                    (up: any) => up.customer_type === customerType && up.quantity_available > 0
-                );
-
-                console.log(`💰 Found ${suitablePrices.length} suitable prices for ${product.item}`);
-
-                for (const unitPrice of suitablePrices) {
-                    console.log(`   Price: rs ${unitPrice.price_per_unit}, Available: ${unitPrice.quantity_available}, Min order: ${unitPrice.minimum_order}`);
-
-                    if (unitPrice.price_per_unit < lowestPrice) {
-                        lowestPrice = unitPrice.price_per_unit;
-                        bestMatch = {
-                            farmer_product_id: product.id,
-                            unit_price_id: unitPrice.id,
-                            product_name: product.item,
-                            farmer_name: product.farmer_name,
-                            price_per_unit: unitPrice.price_per_unit,
-                            minimum_order: unitPrice.minimum_order,
-                            unit: unitPrice.unit
-                        };
-                        console.log(`✅ New best match: ${product.item} from ${product.farmer_name} at rs ${unitPrice.price_per_unit}`);
-                    }
-                }
-            }
-
-            if (bestMatch) {
-                console.log(`🎯 Final best match for ${ingredientName}:`, bestMatch);
-            } else {
-                console.log(`❌ No suitable match found for ${ingredientName}`);
-            }
-
-            return bestMatch;
-        } catch (error) {
-            console.error(`❌ Error finding product match for ${ingredientName}:`, error);
-            return null;
-        }
-    }
-
-    /**
-     * Add missing ingredients to cart
-     */
     async addMissingIngredientsToCart(
         missingIngredients: RecipeIngredient[],
         customerType: 'individual' | 'business'
@@ -4971,25 +4930,18 @@ class RuleBasedAIService {
 
             for (const ingredient of missingIngredients) {
                 try {
-                    console.log(`🔄 Processing ingredient: ${ingredient.name}`);
-
                     const bestMatch = await this.findBestProductMatch(ingredient.name, customerType);
 
                     if (bestMatch) {
-                        // Always add just 1 unit or minimum order, whichever is higher
                         const finalQuantity = Math.max(1, bestMatch.minimum_order);
 
-                        console.log(`📝 Adding to cart: ${finalQuantity} ${bestMatch.unit} of ${bestMatch.product_name}`);
-
-                        const cartResponse = await api.post('/orders/cart/items', {
+                        await api.post('/orders/cart/items', {
                             farmer_product_id: bestMatch.farmer_product_id,
                             unit_price_id: bestMatch.unit_price_id,
                             quantity: finalQuantity
                         }, {
                             headers: { Authorization: `Bearer ${token}` }
                         });
-
-                        console.log(`✅ Successfully added ${ingredient.name} to cart`);
 
                         addedItems.push({
                             name: ingredient.name,
@@ -5000,19 +4952,11 @@ class RuleBasedAIService {
                             unit: bestMatch.unit
                         });
                     } else {
-                        console.log(`❌ No match found for ${ingredient.name}`);
                         errors.push(`Could not find ${ingredient.name} from any farmer`);
                     }
                 } catch (itemError: any) {
-                    console.error(`❌ Failed to add ${ingredient.name}:`, itemError);
-                    console.error('Error details:', itemError.response?.data);
                     errors.push(`Failed to add ${ingredient.name}: ${itemError.response?.data?.detail || itemError.message}`);
                 }
-            }
-
-            console.log(`📊 Cart addition summary: ${addedItems.length} added, ${errors.length} errors`);
-            if (errors.length > 0) {
-                console.log(`❌ Errors:`, errors);
             }
 
             return { success: addedItems.length > 0, addedItems, errors };
@@ -5024,3 +4968,2303 @@ class RuleBasedAIService {
 }
 
 export default new RuleBasedAIService();
+
+
+//////////////////////////////////////
+
+
+// services/voiceService.ts - Fixed with better error handling
+    import Voice, { SpeechResultsEvent, SpeechErrorEvent } from '@react-native-voice/voice';
+    import AsyncStorage from '@react-native-async-storage/async-storage';
+    import api from '@/services/api';
+    import { Platform } from 'react-native';
+
+    interface VoiceCommand {
+        action: 'search' | 'add' | 'checkout' | 'unknown';
+        product?: string;
+        quantity?: number;
+        unit?: string;
+        district?: string;
+        farmer?: string;
+        confidence: number;
+    }
+
+    interface VoiceResult {
+        success: boolean;
+        command?: VoiceCommand;
+        message: string;
+        data?: any;
+        suggestions?: string[];
+    }
+
+    interface ProductMatch {
+        id: number;
+        item: string;
+        farmer_name: string;
+        farmer_district: string;
+        unit_prices: Array<{
+            id: number;
+            unit: string;
+            customer_type: string;
+            price_per_unit: number;
+            quantity_available: number;
+            minimum_order: number;
+        }>;
+    }
+
+    class VoiceInputService {
+        private isListening = false;
+        private recognizedText = '';
+        private isInitialized = false;
+
+        // Common product mappings for Mauritian context
+        private productMappings = new Map([
+            ['tomato', ['tomato', 'tomate']],
+            ['potato', ['potato', 'pomme de terre']],
+            ['onion', ['onion', 'oignon']],
+            ['carrot', ['carrot', 'carotte']],
+            ['cabbage', ['cabbage', 'chou']],
+            ['lettuce', ['lettuce', 'laitue']],
+            ['spinach', ['spinach', 'épinard']],
+            ['broccoli', ['broccoli', 'brocoli']],
+            ['cauliflower', ['cauliflower', 'chou-fleur']],
+            ['bell pepper', ['bell pepper', 'pepper', 'capsicum', 'poivron']],
+            ['chili', ['chili', 'chilli', 'hot pepper', 'piment']],
+            ['cucumber', ['cucumber', 'concombre']],
+            ['eggplant', ['eggplant', 'aubergine', 'brinjal']],
+            ['okra', ['okra', 'lady finger', 'gombo']],
+            ['green beans', ['green beans', 'beans', 'haricots verts']],
+            ['pumpkin', ['pumpkin', 'citrouille']],
+            ['beetroot', ['beetroot', 'beet', 'betterave']],
+            ['radish', ['radish', 'radis']],
+            ['ginger', ['ginger', 'gingembre']],
+            ['garlic', ['garlic', 'ail']],
+            ['apple', ['apple', 'pomme']],
+            ['banana', ['banana', 'banane']],
+            ['orange', ['orange']],
+            ['mango', ['mango', 'mangue']],
+            ['pineapple', ['pineapple', 'ananas']],
+            ['papaya', ['papaya', 'papaye']],
+            ['guava', ['guava', 'goyave']],
+            ['lychee', ['lychee', 'litchi']],
+            ['coconut', ['coconut', 'coco']],
+            ['lemon', ['lemon', 'citron']],
+            ['lime', ['lime', 'citron vert']],
+            ['watermelon', ['watermelon', 'pastèque']],
+            ['melon', ['melon']],
+            ['grapes', ['grapes', 'raisin']],
+            ['strawberry', ['strawberry', 'fraise']]
+        ]);
+
+        // Unit mappings
+        private unitMappings = new Map([
+            ['kilogram', ['kg', 'kilo', 'kilogram', 'kilograms']],
+            ['gram', ['g', 'gram', 'grams', 'gramme', 'grammes']],
+            ['piece', ['piece', 'pieces', 'unit', 'units', 'each']],
+            ['bunch', ['bunch', 'bunches', 'bouquet']],
+            ['dozen', ['dozen', 'douzaine']],
+            ['basket', ['basket', 'baskets', 'panier']]
+        ]);
+
+        // Mauritian districts
+        private districts = [
+            'port louis', 'beau bassin-rose hill', 'vacoas-phoenix', 'curepipe', 'quatre bornes',
+            'triolet', 'goodlands', 'centre de flacq', 'mahebourg', 'saint pierre', 'rose belle',
+            'riviere du rempart', 'grand baie', 'pamplemousses', 'grand port', 'black river',
+            'moka', 'plaines wilhems', 'riviere noire', 'savanne', 'flacq'
+        ];
+
+        constructor() {
+            // Initialize but don't set up listeners immediately
+        }
+
+        private async initializeVoice() {
+            if (this.isInitialized) return;
+
+            try {
+                // Check if voice is available on this platform
+                if (Platform.OS === 'web') {
+                    console.warn('Voice recognition not available on web platform');
+                    return;
+                }
+
+                Voice.onSpeechStart = this.onSpeechStart;
+                Voice.onSpeechRecognized = this.onSpeechRecognized;
+                Voice.onSpeechEnd = this.onSpeechEnd;
+                Voice.onSpeechError = this.onSpeechError;
+                Voice.onSpeechResults = this.onSpeechResults;
+
+                this.isInitialized = true;
+                console.log('🎤 Voice service initialized successfully');
+            } catch (error) {
+                console.error('Voice initialization error:', error);
+                throw new Error('Voice recognition not available on this device');
+            }
+        }
+
+        private onSpeechStart = () => {
+            console.log('🎤 Voice: Speech started');
+            this.isListening = true;
+        };
+
+        private onSpeechRecognized = () => {
+            console.log('🎤 Voice: Speech recognized');
+        };
+
+        private onSpeechEnd = () => {
+            console.log('🎤 Voice: Speech ended');
+            this.isListening = false;
+        };
+
+        private onSpeechError = (error: SpeechErrorEvent) => {
+            console.error('🎤 Voice: Speech error', error);
+            this.isListening = false;
+        };
+
+        private onSpeechResults = (event: SpeechResultsEvent) => {
+            if (event.value && event.value.length > 0) {
+                this.recognizedText = event.value[0];
+                console.log('🎤 Voice: Recognized text:', this.recognizedText);
+            }
+        };
+
+        /**
+         * Start listening for voice input
+         */
+        async startListening(): Promise<void> {
+            try {
+                await this.initializeVoice();
+
+                if (this.isListening) {
+                    await this.stopListening();
+                }
+
+                // Reset recognized text
+                this.recognizedText = '';
+
+                await Voice.start('en-US');
+                this.isListening = true;
+            } catch (error) {
+                console.error('Error starting voice recognition:', error);
+                throw new Error('Failed to start voice recognition. Please check your microphone permissions.');
+            }
+        }
+
+        /**
+         * Stop listening and return recognized text
+         */
+        async stopListening(): Promise<string> {
+            try {
+                if (this.isListening) {
+                    await Voice.stop();
+                }
+                this.isListening = false;
+                return this.recognizedText;
+            } catch (error) {
+                console.error('Error stopping voice recognition:', error);
+                this.isListening = false;
+                return this.recognizedText;
+            }
+        }
+
+        /**
+         * Process voice command and execute action
+         */
+        async processVoiceCommand(
+            recognizedText: string,
+            customerType: 'individual' | 'business'
+        ): Promise<VoiceResult> {
+            try {
+                console.log('🤖 Processing voice command:', recognizedText);
+
+                if (!recognizedText || recognizedText.trim().length === 0) {
+                    return {
+                        success: false,
+                        message: "I didn't hear anything clearly. Please try speaking again.",
+                        suggestions: [
+                            "Make sure you're speaking clearly",
+                            "Check your microphone permissions",
+                            "Try again in a quieter environment"
+                        ]
+                    };
+                }
+
+                const command = this.parseVoiceCommand(recognizedText);
+                console.log('🧠 Parsed command:', command);
+
+                if (command.confidence < 0.3) {
+                    return {
+                        success: false,
+                        message: "I didn't understand that command. Try saying something like 'Search for tomatoes', 'Add 2 kg of potatoes to cart', or 'Checkout my items'.",
+                        suggestions: [
+                            "Search for tomatoes",
+                            "Add 2 kg of potatoes to cart",
+                            "Find carrots from Curepipe",
+                            "Checkout my items"
+                        ]
+                    };
+                }
+
+                switch (command.action) {
+                    case 'search':
+                        return await this.executeSearch(command, customerType);
+                    case 'add':
+                        return await this.executeAddToCart(command, customerType);
+                    case 'checkout':
+                        return await this.executeCheckout();
+                    default:
+                        return {
+                            success: false,
+                            message: "I understood your speech but couldn't determine the action. Try being more specific.",
+                            suggestions: [
+                                "Search for [product name]",
+                                "Add [quantity] [unit] of [product] to cart",
+                                "Checkout my items"
+                            ]
+                        };
+                }
+            } catch (error) {
+                console.error('Error processing voice command:', error);
+                return {
+                    success: false,
+                    message: "Sorry, there was an error processing your command. Please try again."
+                };
+            }
+        }
+
+        /**
+         * Parse voice command using NLP techniques
+         */
+        private parseVoiceCommand(text: string): VoiceCommand {
+            const normalizedText = text.toLowerCase().trim();
+            console.log('🔍 Parsing:', normalizedText);
+
+            let command: VoiceCommand = {
+                action: 'unknown',
+                confidence: 0
+            };
+
+            // Action detection with higher confidence scoring
+            if (this.containsWords(normalizedText, ['search', 'find', 'look for', 'show me'])) {
+                command.action = 'search';
+                command.confidence += 0.4;
+            } else if (this.containsWords(normalizedText, ['add', 'put', 'include', 'cart'])) {
+                command.action = 'add';
+                command.confidence += 0.4;
+            } else if (this.containsWords(normalizedText, ['checkout', 'check out', 'buy', 'purchase', 'order now'])) {
+                command.action = 'checkout';
+                command.confidence += 0.8; // High confidence for checkout
+                return command; // Return early for checkout
+            }
+
+            // Product detection
+            const detectedProduct = this.detectProduct(normalizedText);
+            if (detectedProduct) {
+                command.product = detectedProduct;
+                command.confidence += 0.3;
+            }
+
+            // Quantity and unit detection
+            const { quantity, unit } = this.detectQuantityAndUnit(normalizedText);
+            if (quantity) {
+                command.quantity = quantity;
+                command.confidence += 0.2;
+            }
+            if (unit) {
+                command.unit = unit;
+                command.confidence += 0.1;
+            }
+
+            // District detection
+            const detectedDistrict = this.detectDistrict(normalizedText);
+            if (detectedDistrict) {
+                command.district = detectedDistrict;
+                command.confidence += 0.1;
+            }
+
+            console.log('📊 Final command confidence:', command.confidence);
+            return command;
+        }
+
+        /**
+         * Execute search command
+         */
+        private async executeSearch(command: VoiceCommand, customerType: 'individual' | 'business'): Promise<VoiceResult> {
+            try {
+                const token = await AsyncStorage.getItem('token');
+                if (!token) {
+                    return { success: false, message: "Please log in to search for products." };
+                }
+
+                const searchParams: any = { limit: 20 };
+
+                if (command.product) {
+                    searchParams.search = command.product;
+                }
+                if (command.district) {
+                    searchParams.district = command.district;
+                }
+
+                console.log('🔍 Searching with params:', searchParams);
+
+                const response = await api.get('/browse/products/search', {
+                    params: searchParams,
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                const products = response.data.items || [];
+
+                // Filter products that have pricing for the customer type
+                const filteredProducts = products.filter((product: any) =>
+                    product.unit_prices.some((up: any) =>
+                        up.customer_type === customerType && up.quantity_available > 0
+                    )
+                );
+
+                if (filteredProducts.length === 0) {
+                    let message = `No ${command.product || 'products'} found`;
+                    if (command.district) {
+                        message += ` from farmers in ${command.district}`;
+                    }
+                    message += ` for ${customerType} customers.`;
+
+                    return {
+                        success: false,
+                        message,
+                        suggestions: [
+                            "Try searching without specifying a district",
+                            "Search for a different product",
+                            "Say 'search for vegetables' for broader results"
+                        ]
+                    };
+                }
+
+                const productNames = filteredProducts.slice(0, 5).map((p: any) => p.item).join(', ');
+                let message = `Found ${filteredProducts.length} ${command.product || 'products'}`;
+                if (command.district) {
+                    message += ` from ${command.district}`;
+                }
+                message += `: ${productNames}${filteredProducts.length > 5 ? ' and more' : ''}.`;
+
+                return {
+                    success: true,
+                    message,
+                    data: { products: filteredProducts, searchTerm: command.product }
+                };
+
+            } catch (error) {
+                console.error('Search error:', error);
+                return {
+                    success: false,
+                    message: "Sorry, there was an error searching for products. Please try again."
+                };
+            }
+        }
+
+        /**
+         * Execute add to cart command with intelligent matching
+         */
+        private async executeAddToCart(command: VoiceCommand, customerType: 'individual' | 'business'): Promise<VoiceResult> {
+            try {
+                const token = await AsyncStorage.getItem('token');
+                if (!token) {
+                    return { success: false, message: "Please log in to add items to cart." };
+                }
+
+                if (!command.product) {
+                    return {
+                        success: false,
+                        message: "Please specify which product you want to add. For example: 'Add 2 kg of tomatoes to cart'."
+                    };
+                }
+
+                // Search for the product
+                const searchResponse = await api.get('/browse/products/search', {
+                    params: { search: command.product, limit: 10 },
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                const products: ProductMatch[] = searchResponse.data.items || [];
+
+                // Filter and find best matches
+                const suitableProducts = products.filter(product =>
+                    product.unit_prices.some(up =>
+                        up.customer_type === customerType && up.quantity_available > 0
+                    )
+                );
+
+                if (suitableProducts.length === 0) {
+                    return {
+                        success: false,
+                        message: `Sorry, ${command.product} is not available from any farmers for ${customerType} customers right now.`,
+                        suggestions: [
+                            "Try searching for the product first to see availability",
+                            "Search for similar products",
+                            "Try again later as farmers update their inventory regularly"
+                        ]
+                    };
+                }
+
+                // Intelligent product and unit price selection
+                const bestMatch = this.findBestProductMatch(suitableProducts, command, customerType);
+                if (!bestMatch) {
+                    return {
+                        success: false,
+                        message: `Found ${command.product} but couldn't match your requirements. Please try with different units or quantities.`
+                    };
+                }
+
+                // Determine final quantity
+                const finalQuantity = this.calculateFinalQuantity(
+                    command.quantity || 1,
+                    bestMatch.unitPrice.minimum_order,
+                    customerType
+                );
+
+                // Check availability
+                if (finalQuantity > bestMatch.unitPrice.quantity_available) {
+                    return {
+                        success: false,
+                        message: `Sorry, only ${bestMatch.unitPrice.quantity_available} ${bestMatch.unitPrice.unit} of ${bestMatch.product.item} available from ${bestMatch.product.farmer_name}.`,
+                        suggestions: [
+                            "Try a smaller quantity",
+                            "Search for the same product from other farmers"
+                        ]
+                    };
+                }
+
+                // Add to cart
+                await api.post('/orders/cart/items', {
+                    farmer_product_id: bestMatch.product.id,
+                    unit_price_id: bestMatch.unitPrice.id,
+                    quantity: finalQuantity
+                }, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                const totalCost = (finalQuantity * bestMatch.unitPrice.price_per_unit).toFixed(2);
+
+                return {
+                    success: true,
+                    message: `Added ${finalQuantity} ${bestMatch.unitPrice.unit} of ${bestMatch.product.item} from ${bestMatch.product.farmer_name} to your cart for Rs ${totalCost}.`,
+                    data: {
+                        product: bestMatch.product.item,
+                        farmer: bestMatch.product.farmer_name,
+                        quantity: finalQuantity,
+                        unit: bestMatch.unitPrice.unit,
+                        cost: totalCost
+                    }
+                };
+
+            } catch (error: any) {
+                console.error('Add to cart error:', error);
+
+                if (error.response?.status === 400) {
+                    return {
+                        success: false,
+                        message: error.response.data.detail || "Unable to add item to cart. Please check the quantity and try again."
+                    };
+                }
+
+                return {
+                    success: false,
+                    message: "Sorry, there was an error adding the item to your cart. Please try again."
+                };
+            }
+        }
+
+        /**
+         * Execute checkout command
+         */
+        private async executeCheckout(): Promise<VoiceResult> {
+            try {
+                const token = await AsyncStorage.getItem('token');
+                if (!token) {
+                    return { success: false, message: "Please log in to checkout." };
+                }
+
+                // Get current cart
+                const cartResponse = await api.get('/orders/cart', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                const cart = cartResponse.data;
+
+                if (!cart.farmer_groups || cart.farmer_groups.length === 0) {
+                    return {
+                        success: false,
+                        message: "Your cart is empty. Add some items before checkout.",
+                        suggestions: [
+                            "Say 'Add tomatoes to cart' to add items",
+                            "Say 'Search for vegetables' to browse products"
+                        ]
+                    };
+                }
+
+                const itemCount = Number(cart.total_items) || 0;
+                const totalAmount = Number(cart.total_amount) || 0;
+                const farmerCount = cart.farmer_groups ? cart.farmer_groups.length : 0;
+
+                return {
+                    success: true,
+                    message: `Proceeding to checkout with ${itemCount} items from ${farmerCount} farmer${farmerCount > 1 ? 's' : ''} for Rs ${totalAmount.toFixed(2)}.`,
+                    data: {
+                        action: 'navigate_to_checkout',
+                        cart: cart
+                    }
+                };
+
+            } catch (error) {
+                console.error('Checkout error:', error);
+                return {
+                    success: false,
+                    message: "Sorry, there was an error accessing your cart for checkout."
+                };
+            }
+        }
+
+        // Helper methods
+        private containsWords(text: string, words: string[]): boolean {
+            return words.some(word => text.includes(word));
+        }
+
+        private detectProduct(text: string): string | undefined {
+            for (const [product, variants] of this.productMappings) {
+                if (variants.some(variant => text.includes(variant))) {
+                    return product;
+                }
+            }
+            return undefined;
+        }
+
+        private detectQuantityAndUnit(text: string): { quantity?: number; unit?: string } {
+            // Enhanced quantity detection with support for decimals and fractions
+            const quantityRegex = /(\d+(?:\.\d+)?|\bhalf\b|\bone\b|\btwo\b|\bthree\b|\bfour\b|\bfive\b|\bsix\b|\bseven\b|\beight\b|\bnine\b|\bten\b)/i;
+            const quantityMatch = text.match(quantityRegex);
+
+            let quantity: number | undefined;
+            if (quantityMatch) {
+                const quantityStr = quantityMatch[1].toLowerCase();
+                if (quantityStr === 'half') quantity = 0.5;
+                else if (quantityStr === 'one') quantity = 1;
+                else if (quantityStr === 'two') quantity = 2;
+                else if (quantityStr === 'three') quantity = 3;
+                else if (quantityStr === 'four') quantity = 4;
+                else if (quantityStr === 'five') quantity = 5;
+                else if (quantityStr === 'six') quantity = 6;
+                else if (quantityStr === 'seven') quantity = 7;
+                else if (quantityStr === 'eight') quantity = 8;
+                else if (quantityStr === 'nine') quantity = 9;
+                else if (quantityStr === 'ten') quantity = 10;
+                else quantity = parseFloat(quantityStr);
+            }
+
+            // Unit detection
+            let unit: string | undefined;
+            for (const [standardUnit, variants] of this.unitMappings) {
+                if (variants.some(variant => text.includes(variant))) {
+                    unit = standardUnit === 'kilogram' ? 'kg' :
+                        standardUnit === 'gram' ? 'g' :
+                            standardUnit;
+                    break;
+                }
+            }
+
+            return { quantity, unit };
+        }
+
+        private detectDistrict(text: string): string | undefined {
+            return this.districts.find(district =>
+                text.includes(district) || text.includes(district.replace(/\s+/g, ''))
+            );
+        }
+
+        private findBestProductMatch(
+            products: ProductMatch[],
+            command: VoiceCommand,
+            customerType: 'individual' | 'business'
+        ) {
+            for (const product of products) {
+                const suitableUnitPrices = product.unit_prices.filter(up =>
+                    up.customer_type === customerType && up.quantity_available > 0
+                );
+
+                // If specific unit requested, try to match it
+                if (command.unit) {
+                    const matchingUnitPrice = suitableUnitPrices.find(up =>
+                        up.unit.toLowerCase() === command.unit?.toLowerCase() ||
+                        this.unitMappings.get(command.unit || '')?.includes(up.unit.toLowerCase())
+                    );
+
+                    if (matchingUnitPrice) {
+                        return { product, unitPrice: matchingUnitPrice };
+                    }
+                }
+
+                // Otherwise, pick best available unit price (lowest price)
+                if (suitableUnitPrices.length > 0) {
+                    const bestUnitPrice = suitableUnitPrices.sort((a, b) => a.price_per_unit - b.price_per_unit)[0];
+                    return { product, unitPrice: bestUnitPrice };
+                }
+            }
+
+            return null;
+        }
+
+        private calculateFinalQuantity(
+            requestedQuantity: number,
+            minimumOrder: number,
+            customerType: 'individual' | 'business'
+        ): number {
+            const quantityStep = customerType === 'business' ? 25 : 1;
+            const adjustedMinimum = Math.ceil(minimumOrder / quantityStep) * quantityStep;
+            return Math.max(requestedQuantity, adjustedMinimum);
+        }
+
+        /**
+         * Check if microphone permission is available
+         */
+        async checkPermissions(): Promise<boolean> {
+            try {
+                if (Platform.OS === 'web') {
+                    return false;
+                }
+
+                await this.initializeVoice();
+                const available = await Voice.isAvailable();
+                // Voice.isAvailable() returns 1 for true, 0 for false
+                return available === 1;
+            } catch (error) {
+                console.error('Permission check error:', error);
+                return false;
+            }
+        }
+
+        /**
+         * Clean up voice recognition resources
+         */
+        async cleanup(): Promise<void> {
+            try {
+                if (this.isListening) {
+                    await Voice.stop();
+                }
+                if (this.isInitialized) {
+                    await Voice.destroy();
+                    Voice.removeAllListeners();
+                    this.isInitialized = false;
+                }
+            } catch (error) {
+                console.error('Cleanup error:', error);
+            }
+        }
+
+        /**
+         * Get current listening state
+         */
+        getIsListening(): boolean {
+            return this.isListening;
+        }
+    }
+
+    export default new VoiceInputService();
+
+
+//////////////////////////////////////
+
+
+// Updated VoiceInput.tsx with improved design and floating button capability
+import React, { useState, useEffect, useContext } from 'react';
+import {
+    View,
+    Text,
+    TouchableOpacity,
+    Modal,
+    ActivityIndicator,
+    Animated,
+    Dimensions,
+    Alert,
+    ViewStyle
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { AuthContext } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { useRouter } from 'expo-router';
+import VoiceInputService from '@/services/voiceService';
+
+interface VoiceInputProps {
+    onResult?: (result: any) => void;
+    onError?: (error: string) => void;
+    disabled?: boolean;
+    style?: ViewStyle; // NEW: Allow custom styling for floating button
+    iconSize?: number; // NEW: Custom icon size
+    iconColor?: string; // NEW: Custom icon color
+}
+
+export default function VoiceInput({
+                                       onResult,
+                                       onError,
+                                       disabled = false,
+                                       style,
+                                       iconSize = 20,
+                                       iconColor = "black"
+                                   }: VoiceInputProps) {
+    const { user } = useContext(AuthContext);
+    const { refreshCartCount } = useCart();
+    const router = useRouter();
+
+    const [isVisible, setIsVisible] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [recognizedText, setRecognizedText] = useState('');
+    const [result, setResult] = useState<string>('');
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [pulseAnim] = useState(new Animated.Value(1));
+    const [waveAnim] = useState(new Animated.Value(0));
+
+    useEffect(() => {
+        return () => {
+            VoiceInputService.cleanup();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (isListening) {
+            startPulseAnimation();
+            startWaveAnimation();
+        } else {
+            stopAnimations();
+        }
+    }, [isListening]);
+
+    const startPulseAnimation = () => {
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, {
+                    toValue: 1.2,
+                    duration: 800,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseAnim, {
+                    toValue: 1,
+                    duration: 800,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
+    };
+
+    const startWaveAnimation = () => {
+        Animated.loop(
+            Animated.timing(waveAnim, {
+                toValue: 1,
+                duration: 1500,
+                useNativeDriver: true,
+            })
+        ).start();
+    };
+
+    const stopAnimations = () => {
+        pulseAnim.stopAnimation();
+        waveAnim.stopAnimation();
+        pulseAnim.setValue(1);
+        waveAnim.setValue(0);
+    };
+
+    const handleVoicePress = async () => {
+        if (disabled) return;
+
+        try {
+            // Check permissions first
+            const hasPermission = await VoiceInputService.checkPermissions();
+            if (!hasPermission) {
+                Alert.alert(
+                    'Microphone Permission',
+                    'Please enable microphone permission in your device settings to use voice commands.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+
+            setIsVisible(true);
+            setIsListening(false);
+            setIsProcessing(false);
+            setRecognizedText('');
+            setResult('');
+            setSuggestions([]);
+
+            await startVoiceRecognition();
+        } catch (error) {
+            console.error('Voice input error:', error);
+            setIsVisible(false);
+            onError?.('Failed to start voice recognition. Please try again.');
+        }
+    };
+
+    const startVoiceRecognition = async () => {
+        try {
+            setIsListening(true);
+            await VoiceInputService.startListening();
+
+            // Auto-stop after 10 seconds
+            setTimeout(async () => {
+                if (isListening) {
+                    await stopVoiceRecognition();
+                }
+            }, 10000);
+
+        } catch (error) {
+            console.error('Start listening error:', error);
+            setIsListening(false);
+            setResult('Failed to start voice recognition.');
+        }
+    };
+
+    const stopVoiceRecognition = async () => {
+        try {
+            setIsListening(false);
+            const recognizedText = await VoiceInputService.stopListening();
+
+            if (recognizedText.trim()) {
+                setRecognizedText(recognizedText);
+                await processVoiceCommand(recognizedText);
+            } else {
+                setResult("I didn't hear anything. Please try again.");
+                setSuggestions([
+                    "Make sure your microphone is working",
+                    "Speak clearly and try again",
+                    "Check your device volume"
+                ]);
+            }
+        } catch (error) {
+            console.error('Stop listening error:', error);
+            setResult('Error processing your voice command.');
+        }
+    };
+
+    const processVoiceCommand = async (text: string) => {
+        try {
+            setIsProcessing(true);
+
+            const customerType = user?.role as 'individual' | 'business';
+            const result = await VoiceInputService.processVoiceCommand(text, customerType);
+
+            setResult(result.message);
+            setSuggestions(result.suggestions || []);
+
+            if (result.success) {
+                // Handle successful commands
+                if (result.data?.action === 'navigate_to_checkout') {
+                    // Navigate to checkout after a brief delay
+                    setTimeout(() => {
+                        setIsVisible(false);
+                        router.push('/(auth)/customer/checkout');
+                    }, 2000);
+                } else if (result.data?.products) {
+                    // For search results, could navigate to products page with search term
+                    onResult?.(result.data);
+                } else {
+                    // For add to cart, refresh cart count
+                    await refreshCartCount();
+                    onResult?.(result.data);
+                }
+            }
+
+        } catch (error) {
+            console.error('Process command error:', error);
+            setResult('Sorry, there was an error processing your command.');
+            setSuggestions(['Please try again']);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const retryVoiceInput = async () => {
+        setRecognizedText('');
+        setResult('');
+        setSuggestions([]);
+        await startVoiceRecognition();
+    };
+
+    const closeModal = () => {
+        setIsVisible(false);
+        setIsListening(false);
+        setIsProcessing(false);
+        VoiceInputService.stopListening().catch(console.error);
+    };
+
+    const trySuggestion = (suggestion: string) => {
+        setRecognizedText(suggestion);
+        processVoiceCommand(suggestion);
+    };
+
+    if (!user || (user.role !== 'individual' && user.role !== 'business')) {
+        return null;
+    }
+
+    return (
+        <>
+            {/* Voice Input Button */}
+            <TouchableOpacity
+                onPress={handleVoicePress}
+                disabled={disabled}
+                style={style || {
+                    width: 48,
+                    height: 48,
+                    borderRadius: 24,
+                    backgroundColor: '#EAF3D0',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}
+                activeOpacity={0.7}
+            >
+                <Ionicons
+                    name="mic"
+                    size={iconSize}
+                    color={disabled ? "#999" : iconColor}
+                />
+            </TouchableOpacity>
+
+            {/* Voice Input Modal - UPDATED DESIGN */}
+            <Modal
+                visible={isVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={closeModal}
+            >
+                <View
+                    className="flex-1 bg-black bg-opacity-50 justify-center items-center"
+                    style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
+                >
+                    <View className="bg-white rounded-2xl p-6 mx-6 w-full max-w-sm">
+
+                        {/* Voice Visualization */}
+                        <View className="items-center mb-6">
+                            {isListening ? (
+                                <View className="relative items-center justify-center my-8">
+                                    {/* Outer pulse ring - Better green ripple */}
+                                    <Animated.View
+                                        className="absolute w-32 h-32 rounded-full"
+                                        style={{
+                                            backgroundColor: '#EAF3D0',
+                                            opacity: 0.55,
+                                            transform: [{ scale: pulseAnim }],
+                                        }}
+                                    />
+
+                                    {/* Wave rings - Better green */}
+                                    <Animated.View
+                                        className="absolute w-24 h-24 rounded-full border-2"
+                                        style={{
+                                            borderColor: '#000000',
+                                            opacity: waveAnim.interpolate({
+                                                inputRange: [0, 1],
+                                                outputRange: [0.8, 0],
+                                            }),
+                                            transform: [{
+                                                scale: waveAnim.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: [1, 1.5],
+                                                }),
+                                            }],
+                                        }}
+                                    />
+
+                                    {/* Center microphone with green background */}
+                                    <View className="w-20 h-20 rounded-full bg-background items-center justify-center">
+                                        <Ionicons name="mic" size={32} color="black" />
+                                    </View>
+                                </View>
+                            ) : isProcessing ? (
+                                <View className="w-20 h-20 rounded-full bg-blue-500 items-center justify-center">
+                                    <ActivityIndicator size="large" color="white" />
+                                </View>
+                            ) : (
+                                // CHANGED: Mic icon instead of checkmark, bg-background with black icon
+                                <View className="w-20 h-20 rounded-full bg-background items-center justify-center">
+                                    <Ionicons name="mic" size={32} color="black" />
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Status Text */}
+                        <View className="mb-4">
+                            {isListening ? (
+                                <View className="items-center">
+                                    <Text className="text-base font-medium text-black mb-2">
+                                        listening...
+                                    </Text>
+                                    <Text className="text-xs text-gray-600 text-center my-4">
+                                        Try saying: &#34;Add 2 kg tomatoes to cart&#34; or &#34;Search for vegetables from Curepipe&#34;
+                                    </Text>
+                                </View>
+                            ) : isProcessing ? (
+                                <View className="items-center">
+                                    <Text className="text-base font-medium text-black mb-2">
+                                        Processing...
+                                    </Text>
+                                    {recognizedText && (
+                                        <Text className="text-sm text-gray-600 text-center italic">
+                                            &#34;{recognizedText}&#34;
+                                        </Text>
+                                    )}
+                                </View>
+                            ) : (
+                                <View>
+                                    {recognizedText && (
+                                        <View className="mb-3">
+                                            <Text className="text-sm text-gray-500 mb-1">You said:</Text>
+                                            <Text className="text-base italic text-gray-700">
+                                                &#34;{recognizedText}&#34;
+                                            </Text>
+                                        </View>
+                                    )}
+
+                                    {result && (
+                                        <View className="mb-3">
+                                            <Text className="text-base text-black leading-5">
+                                                {result}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Suggestions */}
+                        {suggestions.length > 0 && !isListening && !isProcessing && (
+                            <View className="mb-4">
+                                <Text className="text-sm font-medium text-gray-700 mb-2">
+                                    Try these commands:
+                                </Text>
+                                {suggestions.map((suggestion, index) => (
+                                    <TouchableOpacity
+                                        key={index}
+                                        onPress={() => trySuggestion(suggestion)}
+                                        className="bg-gray-100 rounded-lg p-3 mb-2"
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text className="text-sm text-gray-700">
+                                            &#34;{suggestion}&#34;
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+
+                        {/* Action Buttons */}
+                        <View className="flex-row gap-3">
+                            {!isListening && !isProcessing && (
+                                <TouchableOpacity
+                                    onPress={retryVoiceInput}
+                                    className="flex-1 bg-background py-3 rounded-lg"
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className="text-black font-medium text-center">
+                                        try again
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {isListening && (
+                                <TouchableOpacity
+                                    onPress={stopVoiceRecognition}
+                                    className="flex-1 bg-red-500 py-3 rounded-lg"
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className="text-white font-medium text-center">
+                                        stop listening
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            <TouchableOpacity
+                                onPress={closeModal}
+                                className="flex-1 bg-gray-200 py-3 rounded-lg"
+                                activeOpacity={0.7}
+                                disabled={isProcessing}
+                            >
+                                <Text className="text-black font-medium text-center">
+                                    {isProcessing ? 'processing...' : 'close'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Help Text */}
+                        {!isListening && !isProcessing && !result && (
+                            <View className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                <Text className="text-xs text-blue-700 text-center">
+                                    <Text className="font-semibold">Voice Commands:</Text>
+                                    {'\n'}• &#34;Search for tomatoes&#34;
+                                    {'\n'}• &#34;Add 2 kg potatoes to cart&#34;
+                                    {'\n'}• &#34;Find carrots from Curepipe&#34;
+                                    {'\n'}• &#34;Checkout my items&#34;
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </Modal>
+        </>
+    );
+}
+
+
+//////////////////////////////////////
+
+
+    export default {
+        expo: {
+            name: "Farmlink",
+            slug: "farmlink",
+            version: "1.0.0",
+            orientation: "portrait",
+            icon: "./assets/images/logo.png",
+            scheme: "farmlink",
+            userInterfaceStyle: "automatic",
+            newArchEnabled: true,
+            ios: {
+                supportsTablet: true,
+                bundleIdentifier: "com.imfestudio.farmlink",
+                infoPlist: {
+                    UIBackgroundModes: ["remote-notification"],
+                    ITSAppUsesNonExemptEncryption: false,
+                    NSMicrophoneUsageDescription: "FarmLink needs microphone access for voice commands to search products and add items to cart",
+                    NSSpeechRecognitionUsageDescription: "FarmLink uses speech recognition to process your voice commands for easier shopping"
+                }
+            },
+            android: {
+                package: "com.imfestudio.farmlink",
+                adaptiveIcon: {
+                    foregroundImage: "./assets/images/logo.png",
+                    backgroundColor: "#F2FBE0",
+                },
+                permissions: [
+                    "RECEIVE_BOOT_COMPLETED",
+                    "VIBRATE",
+                    "WAKE_LOCK",
+                    "INTERNET",
+                    "SYSTEM_ALERT_WINDOW",
+                    "RECORD_AUDIO"
+                ],
+                usesCleartextTraffic: true,
+                edgeToEdgeEnabled: true,
+            },
+            web: {
+                bundler: "metro",
+                output: "static",
+                favicon: "./assets/images/logo.png",
+            },
+            notification: {
+                icon: "./assets/icons/notification.png",
+                color: "#4CAF50",
+                // sounds: ["./assets/notification.wav"]
+            },
+            plugins: [
+                "expo-router",
+                "expo-web-browser",
+                "expo-dev-client",
+                [
+                    "expo-splash-screen",
+                    {
+                        image: "./assets/images/logo.png",
+                        imageWidth: 128,
+                        resizeMode: "contain",
+                        backgroundColor: "#F2FBE0",
+                    }
+                ],
+                [
+                    "expo-notifications",
+                    {
+                        icon: "./assets/icons/notification.png",
+                        color: "#4CAF50",
+                        // sounds: ["./assets/notification.wav"],
+                        mode: "development" // or "production"
+                    }
+                ],
+                [
+                    "@react-native-voice/voice",
+                    {
+                        microphonePermission: "CUSTOM: FarmLink needs microphone access for voice commands to search products and add items to cart.",
+                        speechRecognitionPermission: "CUSTOM: FarmLink uses speech recognition to process your voice commands for easier shopping."
+                    }
+                ]
+            ],
+            assetBundlePatterns: [
+                "assets/fonts/*",
+                "assets/images/*",
+                "assets/icons/*"
+            ],
+            experiments: {
+                typedRoutes: true,
+            },
+            extra: {
+                eas: {
+                    projectId: process.env.EXPO_PROJECT_ID || "a41102c3-6cc4-4134-a832-4a6db668c1b2"
+                },
+                STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || "pk_test_51RbVKCR2koWNU5mYXZLTBS8F2QFV6BNavZXTeL8vi2W84bBMncWqogZCYDdOKZxsLF3sqkOqytjofCnFzk3DTCB100zbpCFyuk",
+                MERCHANT_IDENTIFIER: process.env.MERCHANT_IDENTIFIER || "",
+                API_BASE_URL: process.env.API_BASE_URL || "https://farmlink-bmiy.onrender.com",
+            },
+            owner: "imfestudio",
+        },
+    };
+
+
+//////////////////////////////////////
+
+
+import { useEffect, useState, useContext, useCallback } from 'react';
+import {
+    View,
+    Text,
+    ScrollView,
+    RefreshControl,
+    ActivityIndicator,
+    FlatList,
+    TextInput,
+    TouchableOpacity,
+    Dimensions
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { AuthContext } from '@/context/AuthContext';
+import Header from '@/components/ui/Header';
+import ProductCard from '@/components/customer/ProductCard';
+import CustomAlert from '@/components/ui/CustomAlert';
+import FloatingActionButton from '@/components/ui/FloatingActionButton'; // Updated with voice
+import api from '@/services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
+
+interface Product {
+    id: number;
+    item: string;
+    category: string;
+    description?: string;
+    farmer_id: number;
+    farmer_name: string;
+    farmer_district: string;
+    lowest_price: number;
+    unit_prices: Array<{
+        id: number;
+        unit: string;
+        customer_type: 'individual' | 'business';
+        price_per_unit: number;
+        quantity_available: number;
+        minimum_order: number;
+    }>;
+    created_at: string;
+}
+
+interface SearchFilters {
+    search: string;
+    category: string;
+    district: string;
+}
+
+interface AlertState {
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons: Array<{
+        text: string;
+        onPress: () => void;
+        style?: 'default' | 'cancel' | 'destructive';
+    }>;
+}
+
+const categories = [
+    { value: '', label: 'all categories' },
+    { value: 'fruits', label: 'fruits' },
+    { value: 'vegetables', label: 'vegetables' }
+];
+
+export default function ProductsScreen() {
+    const router = useRouter();
+    const params = useLocalSearchParams();
+    const { user } = useContext(AuthContext);
+    const [products, setProducts] = useState<Product[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [searchText, setSearchText] = useState('');
+    const [districts, setDistricts] = useState<string[]>([]);
+    const [activeFilters, setActiveFilters] = useState<SearchFilters>({
+        search: '',
+        category: '',
+        district: ''
+    });
+    const [pagination, setPagination] = useState({
+        offset: 0,
+        limit: 20,
+        hasMore: true,
+        total: 0
+    });
+    const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+    const [alert, setAlert] = useState<AlertState>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+        buttons: []
+    });
+
+    const showAlert = (
+        type: 'success' | 'error' | 'warning' | 'info',
+        title: string,
+        message: string,
+        buttons: Array<{
+            text: string;
+            onPress: () => void;
+            style?: 'default' | 'cancel' | 'destructive';
+        }>
+    ) => {
+        setAlert({
+            visible: true,
+            type,
+            title,
+            message,
+            buttons
+        });
+    };
+
+    const hideAlert = () => {
+        setAlert(prev => ({ ...prev, visible: false }));
+    };
+
+    // Voice input handlers
+    const handleVoiceResult = (data: any) => {
+        if (data?.searchTerm) {
+            setSearchText(data.searchTerm);
+        }
+        if (data?.products) {
+            showAlert(
+                'success',
+                'Voice Search',
+                `Found ${data.products.length} products matching your search.`,
+                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
+            );
+        }
+    };
+
+    // Debounce search function
+    const debounceSearch = useCallback(
+        (() => {
+            let timeoutId: number;
+            return (searchValue: string) => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => {
+                    setActiveFilters(prev => ({ ...prev, search: searchValue }));
+                }, 500);
+            };
+        })(),
+        []
+    );
+
+    useEffect(() => {
+        if (user?.role !== 'individual' && user?.role !== 'business') {
+            router.replace('/(auth)');
+            return;
+        }
+
+        // Set initial search term from voice command or navigation params
+        if (params.searchTerm) {
+            setSearchText(params.searchTerm as string);
+        }
+
+        // Load initial data
+        fetchAllDistricts();
+        fetchProducts(true);
+
+        // Listen for screen dimension changes
+        const subscription = Dimensions.addEventListener('change', ({ window }) => {
+            setScreenWidth(window.width);
+        });
+
+        return () => subscription?.remove();
+    }, [user, params.searchTerm]);
+
+    // Trigger search when activeFilters change
+    useEffect(() => {
+        if (!loading) {
+            fetchProducts(true);
+        }
+    }, [activeFilters]);
+
+    // Handle search text changes with debouncing
+    useEffect(() => {
+        debounceSearch(searchText);
+    }, [searchText, debounceSearch]);
+
+    // Fetch all districts separately to keep them persistent
+    const fetchAllDistricts = async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) return;
+
+            const response = await api.get('/browse/districts', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const allDistricts = response.data.map((d: any) => d.district).sort();
+
+            setDistricts(allDistricts);
+        } catch (error) {
+            console.error('Error fetching districts:', error);
+        }
+    };
+
+    const buildSearchParams = (isNewSearch: boolean = false) => {
+        const params = new URLSearchParams();
+
+        if (activeFilters.search) params.append('search', activeFilters.search);
+        if (activeFilters.category) params.append('category', activeFilters.category);
+        if (activeFilters.district) params.append('district', activeFilters.district);
+
+        params.append('limit', pagination.limit.toString());
+        params.append('offset', isNewSearch ? '0' : pagination.offset.toString());
+
+        return params.toString();
+    };
+
+    const fetchProducts = async (isNewSearch: boolean = false) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                router.replace('/login');
+                return;
+            }
+
+            if (isNewSearch) {
+                setLoading(products.length === 0); // Only show loading spinner on initial load
+            } else {
+                setLoadingMore(true);
+            }
+
+            const searchParams = buildSearchParams(isNewSearch);
+            const response = await api.get(`/browse/products/search?${searchParams}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const newProducts = response.data.items || [];
+
+            if (isNewSearch) {
+                setProducts(newProducts);
+                setPagination(prev => ({
+                    ...prev,
+                    offset: newProducts.length,
+                    hasMore: response.data.has_next || false,
+                    total: response.data.total || 0
+                }));
+            } else {
+                setProducts(prev => [...prev, ...newProducts]);
+                setPagination(prev => ({
+                    ...prev,
+                    offset: prev.offset + newProducts.length,
+                    hasMore: response.data.has_next || false
+                }));
+            }
+
+        } catch (error: any) {
+            console.error('Error fetching products:', error);
+            showAlert(
+                'error',
+                'error',
+                'failed to load products',
+                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
+            );
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+            setLoadingMore(false);
+        }
+    };
+
+    const handleCategoryFilter = (category: string) => {
+        setActiveFilters(prev => ({ ...prev, category }));
+        setPagination(prev => ({ ...prev, offset: 0 }));
+    };
+
+    const handleDistrictFilter = (district: string) => {
+        setActiveFilters(prev => ({ ...prev, district }));
+        setPagination(prev => ({ ...prev, offset: 0 }));
+    };
+
+    const handleClearFilters = () => {
+        setSearchText('');
+        setActiveFilters({
+            search: '',
+            category: '',
+            district: ''
+        });
+        setPagination(prev => ({ ...prev, offset: 0 }));
+    };
+
+    const handleRefresh = () => {
+        setRefreshing(true);
+        fetchAllDistricts();
+        fetchProducts(true);
+    };
+
+    const handleLoadMore = () => {
+        if (!loadingMore && pagination.hasMore) {
+            fetchProducts(false);
+        }
+    };
+
+    const getNumColumns = () => {
+        if (screenWidth < 390) return 1;
+        if (screenWidth < 768) return 2;
+        return 3;
+    };
+
+    const renderProductItem = ({ item, index }: { item: Product; index: number }) => {
+        const numColumns = getNumColumns();
+        const isLastRow = Math.floor(index / numColumns) === Math.floor((products.length - 1) / numColumns);
+
+        return (
+            <View
+                style={{
+                    flex: 1,
+                    marginBottom: isLastRow ? 0 : 12,
+                    marginHorizontal: 4,
+                    maxWidth: `${100 / numColumns - 2}%`
+                }}
+            >
+                <ProductCard product={item} />
+            </View>
+        );
+    };
+
+    const renderFooter = () => {
+        if (!loadingMore) return null;
+        return (
+            <View className="py-4">
+                <ActivityIndicator size="small" color="#4CAF50" />
+            </View>
+        );
+    };
+
+    const CategoryFilter = () => (
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 18 }}
+            className="mb-4"
+        >
+            {categories.map((category) => (
+                <TouchableOpacity
+                    key={category.value}
+                    onPress={() => handleCategoryFilter(category.value)}
+                    className={`mr-3 px-4 py-2 rounded-full ${
+                        activeFilters.category === category.value
+                            ? 'bg-background'
+                            : 'bg-gray-100 border border-gray-100'
+                    }`}
+                    activeOpacity={0.7}
+                >
+                    <Text className={`text-sm font-medium ${
+                        activeFilters.category === category.value ? 'text-black' : 'text-gray-600'
+                    }`}>
+                        {category.label}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </ScrollView>
+    );
+
+    const DistrictFilter = () => {
+        return (
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 18 }}
+                className="mb-4"
+            >
+                <TouchableOpacity
+                    onPress={() => handleDistrictFilter('')}
+                    className={`mr-3 px-4 py-2 rounded-full ${
+                        activeFilters.district === ''
+                            ? 'bg-background'
+                            : 'bg-gray-100 border border-gray-100'
+                    }`}
+                    activeOpacity={0.7}
+                >
+                    <Text className={`text-sm font-medium ${
+                        activeFilters.district === '' ? 'text-black' : 'text-gray-600'
+                    }`}>
+                        all districts
+                    </Text>
+                </TouchableOpacity>
+
+                {districts.map((district) => {
+                    return (
+                        <TouchableOpacity
+                            key={district}
+                            onPress={() => handleDistrictFilter(district)}
+                            className={`mr-3 px-4 py-2 rounded-full ${
+                                activeFilters.district === district
+                                    ? 'bg-background'
+                                    : 'bg-gray-100 border border-gray-100'
+                            }`}
+                            activeOpacity={0.7}
+                        >
+                            <Text className={`text-sm font-medium ${
+                                activeFilters.district === district ? 'text-black' : 'text-gray-600'
+                            }`}>
+                                {district.toLowerCase()}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+        );
+    };
+
+    const EmptyProductsComponent = () => (
+        <View className="flex-1 justify-center items-center px-6 py-20">
+            <Text className="text-xl font-medium text-black mb-2 text-center">
+                no products found
+            </Text>
+            <Text className="text-gray-600 text-center mb-6">
+                {searchText || activeFilters.category || activeFilters.district
+                    ? 'try adjusting your search or filters'
+                    : 'no products are currently available'
+                }
+            </Text>
+            {(searchText || activeFilters.category || activeFilters.district) && (
+                <TouchableOpacity
+                    onPress={handleClearFilters}
+                    className="bg-action-green px-6 py-3 rounded-xl"
+                    activeOpacity={0.7}
+                >
+                    <Text className="text-white font-medium">
+                        clear filters
+                    </Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+
+    if (loading) {
+        return (
+            <View className="flex-1 bg-surface">
+                <Header
+                    title="products"
+                    showBackButton={true}
+                    showCartButton={true}
+                />
+                <View className="flex-1 justify-center items-center">
+                    <ActivityIndicator size="large" color="#4CAF50" />
+                    <Text className="text-gray-600 mt-4">loading products...</Text>
+                </View>
+            </View>
+        );
+    }
+
+    return (
+        <View className="flex-1 bg-surface">
+            <Header
+                title="products"
+                showBackButton={true}
+                showCartButton={true}
+                showOrdersButton={true}
+                showHomeButton={true}
+            />
+
+            <ScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        colors={['#4CAF50']}
+                    />
+                }
+                contentContainerStyle={{ paddingBottom: 100 }}
+            >
+                {/* Search Bar */}
+                <View className="px-5 pt-6 pb-4">
+                    <View className="mb-4">
+                        <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
+                            <Ionicons name="search" size={20} color="#666666" />
+                            <TextInput
+                                value={searchText}
+                                onChangeText={setSearchText}
+                                placeholder="search products..."
+                                className="flex-1 ml-3 text-base text-black leading-[1.2]"
+                                autoCorrect={false}
+                                autoCapitalize="none"
+                            />
+                            {searchText && (
+                                <TouchableOpacity
+                                    onPress={handleClearFilters}
+                                    className="ml-2 p-1"
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="close-circle" size={20} color="#666666" />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Voice Command Hint */}
+                    <View className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <View className="flex-row items-center">
+                            <Ionicons name="mic" size={16} color="#2563eb" />
+                            <Text className="text-blue-700 text-sm font-medium ml-2">
+                                did you know?
+                            </Text>
+                        </View>
+                        <Text className="text-blue-600 text-xs mt-1">
+                            You can use the Voice Command button as an alternative to browse, add to cart or order items.
+                        </Text>
+                    </View>
+
+                    {/* Results Summary */}
+                    <Text className="text-sm text-gray-600">
+                        {pagination.total} product{pagination.total !== 1 ? 's' : ''} found
+                        {activeFilters.search && ` for "${activeFilters.search}"`}
+                        {activeFilters.category && ` in ${activeFilters.category}`}
+                        {activeFilters.district && ` from ${activeFilters.district}`}
+                    </Text>
+                </View>
+
+                {/* Category Filter */}
+                <CategoryFilter />
+
+                {/* District Filter */}
+                <DistrictFilter />
+
+                {/* Products Grid */}
+                <View className="px-5">
+                    {products.length === 0 ? (
+                        <EmptyProductsComponent />
+                    ) : (
+                        <FlatList
+                            data={products}
+                            renderItem={renderProductItem}
+                            keyExtractor={(item) => item.id.toString()}
+                            numColumns={getNumColumns()}
+                            key={getNumColumns()}
+                            scrollEnabled={false}
+                            showsVerticalScrollIndicator={false}
+                            ListFooterComponent={renderFooter}
+                            onEndReached={handleLoadMore}
+                            onEndReachedThreshold={0.1}
+                        />
+                    )}
+                </View>
+            </ScrollView>
+
+            {/* Voice Command Floating Action Button */}
+            <FloatingActionButton
+                showVoice={true}
+                onResult={handleVoiceResult}
+            />
+
+            {/* Custom Alert */}
+            <CustomAlert
+                visible={alert.visible}
+                type={alert.type}
+                title={alert.title}
+                message={alert.message}
+                buttons={alert.buttons}
+                onClose={hideAlert}
+            />
+        </View>
+    );
+}
+
+
+//////////////////////////////////////
+
+
+// Updated Header component with notification badge + Voice Input
+    import { useContext, useEffect, use } from 'react';
+    import { View, Text, TouchableOpacity, Alert } from 'react-native';
+    import { Ionicons } from '@expo/vector-icons';
+    import { router, useFocusEffect } from 'expo-router';
+    import { AuthContext } from '@/context/AuthContext';
+    import { useCart } from '@/context/CartContext';
+    import { useFarmerOrders } from '@/context/FarmerOrdersContext';
+    import { useNotifications } from '@/context/NotificationContext';
+    import VoiceInput from '@/components/ui/VoiceInput'; // NEW: Import voice input
+    import { useCallback } from 'react';
+    import Animated, {
+        useSharedValue,
+        useAnimatedStyle,
+        withSpring,
+        withSequence,
+        withTiming,
+        runOnJS
+    } from 'react-native-reanimated';
+
+    interface HeaderProps {
+        title: string;
+        showBackButton?: boolean;
+        showCartButton?: boolean;
+        showSettingsButton?: boolean;
+        showLogoutButton?: boolean;
+        showOrdersButton?: boolean;
+        showNotificationButton?: boolean;
+        showHomeButton?: boolean;
+    }
+
+    export default function Header({
+                                       title,
+                                       showBackButton = false,
+                                       showCartButton = false,
+                                       showSettingsButton = false,
+                                       showLogoutButton = false,
+                                       showOrdersButton = false,
+                                       showNotificationButton = false,
+                                       showHomeButton = false,
+                                   }: HeaderProps) {
+        const { logout, user } = useContext(AuthContext);
+        const { cartItemCount, isFlashing, refreshCartCount } = useCart();
+        const { pendingOrdersCount, refreshPendingOrdersCount } = useFarmerOrders();
+        const { unreadCount, refreshNotifications } = useNotifications();
+
+        // Animation values - ONLY for the cart badge
+        const badgeScale = useSharedValue(1);
+        const badgeBackgroundColor = useSharedValue(0);
+
+        const handleBackPress = () => router.back();
+        const handleCartPress = () => router.push('/(auth)/customer/cart');
+        const handleSettingsPress = () => router.push('/profile');
+        const handleLogout = () => logout();
+        const handleNotificationPress = () => router.push('/(auth)/notifications');
+
+        const handleHomePress = () => {
+            if (user?.farmer_profile) {
+                router.push('/(auth)/farmer/dashboard');
+            } else {
+                router.push('/(auth)/customer/homepage');
+            }// Updated Header component with notification badge + Voice Input REMOVED
+            import { useContext, useEffect } from 'react';
+            import { View, Text, TouchableOpacity } from 'react-native';
+            import { Ionicons } from '@expo/vector-icons';
+            import { router, useFocusEffect } from 'expo-router';
+            import { AuthContext } from '@/context/AuthContext';
+            import { useCart } from '@/context/CartContext';
+            import { useFarmerOrders } from '@/context/FarmerOrdersContext';
+            import { useNotifications } from '@/context/NotificationContext';
+            import { useCallback } from 'react';
+            import Animated, {
+                useSharedValue,
+                useAnimatedStyle,
+                withSpring,
+                withSequence,
+                withTiming,
+                runOnJS
+            } from 'react-native-reanimated';
+
+            interface HeaderProps {
+                title: string;
+                showBackButton?: boolean;
+                showCartButton?: boolean;
+                showSettingsButton?: boolean;
+                showLogoutButton?: boolean;
+                showOrdersButton?: boolean;
+                showNotificationButton?: boolean;
+                showHomeButton?: boolean;
+            }
+
+            export default function Header({
+                                               title,
+                                               showBackButton = false,
+                                               showCartButton = false,
+                                               showSettingsButton = false,
+                                               showLogoutButton = false,
+                                               showOrdersButton = false,
+                                               showNotificationButton = false,
+                                               showHomeButton = false,
+                                           }: HeaderProps) {
+                const { logout, user } = useContext(AuthContext);
+                const { cartItemCount, isFlashing, refreshCartCount } = useCart();
+                const { pendingOrdersCount, refreshPendingOrdersCount } = useFarmerOrders();
+                const { unreadCount, refreshNotifications } = useNotifications();
+
+                // Animation values - ONLY for the cart badge
+                const badgeScale = useSharedValue(1);
+                const badgeBackgroundColor = useSharedValue(0);
+
+                const handleBackPress = () => router.back();
+                const handleCartPress = () => router.push('/(auth)/customer/cart');
+                const handleSettingsPress = () => router.push('/profile');
+                const handleLogout = () => logout();
+                const handleNotificationPress = () => router.push('/(auth)/notifications');
+
+                const handleHomePress = () => {
+                    if (user?.farmer_profile) {
+                        router.push('/(auth)/farmer/dashboard');
+                    } else {
+                        router.push('/(auth)/customer/homepage');
+                    }
+                }
+
+                const handleOrdersPress = () => {
+                    if (user?.farmer_profile) {
+                        router.push('/(auth)/farmer/orders');
+                    } else {
+                        router.push('/(auth)/customer/orders');
+                    }
+                }
+
+                // Refresh counts when screen comes into focus
+                useFocusEffect(
+                    useCallback(() => {
+                        // Only refresh counts when on specific screens that need real-time updates
+                        const shouldRefreshFarmerOrders = user?.role === 'farmer' && showOrdersButton &&
+                            (title === 'dashboard' || title === 'my orders');
+
+                        const shouldRefreshNotifications = showNotificationButton &&
+                            (title === 'notifications' || title === 'dashboard' || title === 'farmlink');
+
+                        if (shouldRefreshFarmerOrders) {
+                            refreshPendingOrdersCount();
+                        }
+
+                        if (shouldRefreshNotifications) {
+                            refreshNotifications();
+                        }
+                    }, [user?.role, showOrdersButton, showNotificationButton, title]) // Added title dependency
+                );
+
+                // Animated styles for cart badge ONLY
+                const animatedBadgeStyle = useAnimatedStyle(() => {
+                    return {
+                        transform: [{ scale: badgeScale.value }],
+                        backgroundColor: `rgba(239, 68, 68, ${1 - badgeBackgroundColor.value * 0.5})`,
+                    };
+                });
+
+                // Trigger flash animation when isFlashing changes
+                useEffect(() => {
+                    if (isFlashing) {
+                        badgeScale.value = withSequence(
+                            withSpring(1.3, { damping: 8, stiffness: 200 }),
+                            withSpring(1, { damping: 8, stiffness: 200 })
+                        );
+
+                        badgeBackgroundColor.value = withSequence(
+                            withTiming(1, { duration: 150 }),
+                            withTiming(0, { duration: 150 }),
+                            withTiming(1, { duration: 150 }),
+                            withTiming(0, { duration: 150 })
+                        );
+
+                        setTimeout(() => {
+                            runOnJS(refreshCartCount)();
+                        }, 100);
+                    }
+                }, [isFlashing]);
+
+                return (
+                    <View className="bg-background rounded-bl-[40px] rounded-br-[40px]" style={{ height: '20%' }}>
+                        <View className="pl-6 pr-6 justify-end h-full pb-5">
+                            <View className="flex-row justify-between items-center">
+                                <Text className="text-2xl font-semibold text-black">
+                                    {title.toLowerCase()}
+                                </Text>
+                                <View className="flex-row items-center gap-5">
+                                    {showHomeButton && (
+                                        <TouchableOpacity
+                                            onPress={handleHomePress}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons
+                                                name="home-sharp"
+                                                size={20}
+                                                color="#000000"
+                                            />
+                                        </TouchableOpacity>
+                                    )}
+                                    {showNotificationButton && (
+                                        <TouchableOpacity
+                                            onPress={handleNotificationPress}
+                                            activeOpacity={0.7}
+                                            className="relative"
+                                        >
+                                            <Ionicons
+                                                name="notifications"
+                                                size={20}
+                                                color="#000000"
+                                            />
+
+                                            {/* Notification Badge */}
+                                            {unreadCount > 0 && (
+                                                <View
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: -8,
+                                                        right: -8,
+                                                        backgroundColor: '#ef4444', // red-500
+                                                        borderRadius: 10,
+                                                        minWidth: 20,
+                                                        height: 20,
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                        borderWidth: 2,
+                                                        borderColor: '#ffffff',
+                                                    }}
+                                                >
+                                                    <Text
+                                                        className="text-white text-xs font-bold"
+                                                        style={{
+                                                            fontSize: unreadCount > 99 ? 8 : 10,
+                                                            lineHeight: unreadCount > 99 ? 10 : 12
+                                                        }}
+                                                    >
+                                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </TouchableOpacity>
+                                    )}
+                                    {showCartButton && (
+                                        <TouchableOpacity
+                                            onPress={handleCartPress}
+                                            activeOpacity={0.7}
+                                            className="relative"
+                                        >
+                                            <Ionicons
+                                                name="cart"
+                                                size={20}
+                                                color="#000000"
+                                            />
+
+                                            {cartItemCount > 0 && (
+                                                <Animated.View
+                                                    style={[
+                                                        {
+                                                            position: 'absolute',
+                                                            top: -8,
+                                                            right: -8,
+                                                            borderRadius: 10,
+                                                            minWidth: 20,
+                                                            height: 20,
+                                                            justifyContent: 'center',
+                                                            alignItems: 'center',
+                                                            borderWidth: 2,
+                                                            borderColor: '#ffffff',
+                                                        },
+                                                        animatedBadgeStyle
+                                                    ]}
+                                                >
+                                                    <Text
+                                                        className="text-white text-xs font-bold"
+                                                        style={{
+                                                            fontSize: cartItemCount > 99 ? 8 : 10,
+                                                            lineHeight: cartItemCount > 99 ? 10 : 12
+                                                        }}
+                                                    >
+                                                        {cartItemCount > 99 ? '99+' : cartItemCount}
+                                                    </Text>
+                                                </Animated.View>
+                                            )}
+                                        </TouchableOpacity>
+                                    )}
+                                    {showOrdersButton && user?.role === 'farmer' && (
+                                        <TouchableOpacity
+                                            onPress={handleOrdersPress}
+                                            activeOpacity={0.7}
+                                            className="relative"
+                                        >
+                                            <Ionicons
+                                                name="receipt"
+                                                size={20}
+                                                color="#000000"
+                                            />
+
+                                            {pendingOrdersCount > 0 && (
+                                                <View
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: -8,
+                                                        right: -8,
+                                                        backgroundColor: '#f59e0b', // amber-500
+                                                        borderRadius: 10,
+                                                        minWidth: 20,
+                                                        height: 20,
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                        borderWidth: 2,
+                                                        borderColor: '#ffffff',
+                                                    }}
+                                                >
+                                                    <Text
+                                                        className="text-white text-xs font-bold"
+                                                        style={{
+                                                            fontSize: pendingOrdersCount > 99 ? 8 : 10,
+                                                            lineHeight: pendingOrdersCount > 99 ? 10 : 12
+                                                        }}
+                                                    >
+                                                        {pendingOrdersCount > 99 ? '99+' : pendingOrdersCount}
+                                                    </Text>
+                                                </View>
+                                            )}
+                                        </TouchableOpacity>
+                                    )}
+                                    {showOrdersButton && user?.role !== 'farmer' && (
+                                        <TouchableOpacity
+                                            onPress={handleOrdersPress}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons
+                                                name="receipt"
+                                                size={20}
+                                                color="#000000"
+                                            />
+                                        </TouchableOpacity>
+                                    )}
+                                    {showSettingsButton && (
+                                        <TouchableOpacity
+                                            onPress={handleSettingsPress}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons
+                                                name="settings"
+                                                size={20}
+                                                color="#000000"
+                                            />
+                                        </TouchableOpacity>
+                                    )}
+                                    {showBackButton && (
+                                        <TouchableOpacity
+                                            onPress={handleBackPress}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons
+                                                name="arrow-back-sharp"
+                                                size={20}
+                                                color="#000000"
+                                            />
+                                        </TouchableOpacity>
+                                    )}
+                                    {showLogoutButton && (
+                                        <TouchableOpacity
+                                            onPress={handleLogout}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons
+                                                name="log-out"
+                                                size={20}
+                                                color="#000000"
+                                            />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                );
+            }
+
+
+//////////////////////////////////////
+
+
+// Updated FloatingActionButton with Voice Command for customers
+    import { TouchableOpacity, Alert } from 'react-native';
+    import { Ionicons } from '@expo/vector-icons';
+    import { useContext } from 'react';
+    import { AuthContext } from '@/context/AuthContext';
+    import { useRouter } from 'expo-router';
+    import VoiceInput from '@/components/ui/VoiceInput';
+
+    interface FloatingActionButtonProps {
+        onPress?: () => void;
+        icon?: string;
+        size?: number;
+        backgroundColor?: string;
+        iconColor?: string;
+        showVoice?: boolean; // NEW: Option to show voice instead of default action
+        onResult?: (data: any) => void; // NEW: Voice result handler
+        onError?: (error: string) => void; // NEW: Voice error handler
+    }
+
+    export default function FloatingActionButton({
+                                                     onPress,
+                                                     icon = 'add',
+                                                     size = 56,
+                                                     backgroundColor = '#EAF3D0',
+                                                     iconColor = '#000000',
+                                                     showVoice = false,
+                                                     onResult,
+                                                     onError
+                                                 }: FloatingActionButtonProps) {
+        const { user } = useContext(AuthContext);
+        const router = useRouter();
+
+        // Check if should show voice button (only for customers)
+        const isCustomer = user?.role === 'individual' || user?.role === 'business';
+        const shouldShowVoice = showVoice && isCustomer;
+
+        // Default voice input handlers if not provided
+        const handleVoiceResult = onResult || ((data: any) => {
+            if (data?.products) {
+                // Navigate to products page with search results
+                router.push({
+                    pathname: '/(auth)/customer/products',
+                    params: { searchTerm: data.searchTerm || '' }
+                });
+            }
+        });
+
+        const handleVoiceError = onError || ((error: string) => {
+            Alert.alert('Voice Command Error', error);
+        });
+
+        if (shouldShowVoice) {
+            // Return voice input component styled as floating button
+            return (
+                <VoiceInput
+                    onResult={handleVoiceResult}
+                    onError={handleVoiceError}
+                    style={{
+                        position: 'absolute',
+                        bottom: 24,
+                        right: 24,
+                        width: size,
+                        height: size,
+                        borderRadius: size / 2,
+                        backgroundColor: '#EAF3D0',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.25,
+                        shadowRadius: 3.84,
+                        elevation: 5,
+                    }}
+                    iconSize={size * 0.4}
+                    iconColor="black"
+                />
+            );
+        }
+
+        // Default floating action button (for farmers or when voice is disabled)
+        return (
+            <TouchableOpacity
+                onPress={onPress}
+                className="absolute bottom-6 right-6 rounded-full shadow-lg elevation-8"
+                style={{
+                    width: size,
+                    height: size,
+                    backgroundColor,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                }}
+                activeOpacity={0.8}
+            >
+                <Ionicons
+                    name={icon as any}
+                    size={size * 0.4}
+                    color={iconColor}
+                />
+            </TouchableOpacity>
+        );
+    }
