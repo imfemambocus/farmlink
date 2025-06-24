@@ -8,11 +8,9 @@ export default function AuthIndex() {
 
     if (!user) return null;
 
-    // Route to appropriate homepage based on user role
     if (user.role === 'farmer') {
         return <Dashboard />;
     }
 
-    // Business and Individual users get the same homepage
     return <Homepage />;
 }

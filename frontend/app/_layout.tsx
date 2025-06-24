@@ -7,6 +7,7 @@ import './globals.css';
 import { CartProvider } from "@/context/CartContext";
 import { FarmerOrdersProvider } from "@/context/FarmerOrdersContext";
 import {NotificationProvider} from "@/context/NotificationContext";
+import {LanguageProvider} from "@/context/LanguageContext";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -27,18 +28,20 @@ export default function RootLayout() {
     }
 
     return (
-        <AuthProvider>
-            <CartProvider>
-                <FarmerOrdersProvider>
-                    <NotificationProvider>
-                        <Stack
-                            screenOptions={{
-                                headerShown: false,
-                            }}
-                        />
-                    </NotificationProvider>
-                </FarmerOrdersProvider>
-            </CartProvider>
-        </AuthProvider>
+        <LanguageProvider>
+            <AuthProvider>
+                <CartProvider>
+                    <FarmerOrdersProvider>
+                        <NotificationProvider>
+                            <Stack
+                                screenOptions={{
+                                    headerShown: false,
+                                }}
+                            />
+                        </NotificationProvider>
+                    </FarmerOrdersProvider>
+                </CartProvider>
+            </AuthProvider>
+        </LanguageProvider>
     );
 }

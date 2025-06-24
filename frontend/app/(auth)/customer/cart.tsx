@@ -1,4 +1,3 @@
-// app/(auth)/customer/cart.tsx - Complete Version with Fixed AI Recipe Slider
 import { useEffect, useState, useContext, useCallback } from 'react';
 import {
     View,
@@ -12,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import RecipeSuggestions from '@/components/customer/RecipeSuggestions';
@@ -66,6 +66,7 @@ export default function CartScreen() {
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
+    const { tCart } = useTranslation();
     const [cart, setCart] = useState<Cart | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -187,15 +188,15 @@ export default function CartScreen() {
 
             showAlert(
                 'success',
-                'Updated',
-                'Item quantity updated successfully'
+                tCart('updated'),
+                tCart('itemQuantityUpdated')
             );
         } catch (error: any) {
             console.error('Error updating item:', error);
             showAlert(
                 'error',
-                'Update Failed',
-                error.response?.data?.detail || 'Failed to update item quantity'
+                tCart('updateFailed'),
+                error.response?.data?.detail || tCart('failedToUpdateQuantity')
             );
         } finally {
             setUpdatingItem(null);
@@ -205,12 +206,12 @@ export default function CartScreen() {
     const removeItem = async (itemId: number) => {
         showAlert(
             'warning',
-            'Remove Item',
-            'Are you sure you want to remove this item from your cart?',
+            tCart('removeItem'),
+            tCart('removeItemConfirm'),
             [
-                { text: 'Cancel', onPress: hideAlert, style: 'cancel' },
+                { text: tCart('cancel'), onPress: hideAlert, style: 'cancel' },
                 {
-                    text: 'Remove',
+                    text: tCart('remove'),
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -222,15 +223,15 @@ export default function CartScreen() {
 
                             showAlert(
                                 'success',
-                                'Removed',
-                                'Item removed from cart'
+                                tCart('removed'),
+                                tCart('itemRemovedFromCart')
                             );
                         } catch (error: any) {
                             console.error('Error removing item:', error);
                             showAlert(
                                 'error',
-                                'Remove Failed',
-                                'Failed to remove item from cart'
+                                tCart('removeFailed'),
+                                tCart('failedToRemoveItem')
                             );
                         }
                     }
@@ -243,8 +244,8 @@ export default function CartScreen() {
         if (!cart || cart.farmer_groups.length === 0) {
             showAlert(
                 'info',
-                'Empty Cart',
-                'Your cart is empty. Add some items before checkout.'
+                tCart('emptyCart'),
+                tCart('addItemsBeforeCheckout')
             );
             return;
         }
@@ -252,9 +253,7 @@ export default function CartScreen() {
         router.push('/(auth)/customer/checkout');
     };
 
-    // Handle when AI adds ingredients to cart
     const handleIngredientsAdded = useCallback(async () => {
-        // Refresh cart to show new items
         await fetchCart();
     }, [fetchCart]);
 
@@ -276,7 +275,6 @@ export default function CartScreen() {
         return numPrice.toFixed(2);
     };
 
-    // Convert cart items to format needed for AI
     const getCartItemsForAI = (): Array<{product_name: string, quantity: number, unit_name: string}> => {
         if (!cart) return [];
 
@@ -301,7 +299,6 @@ export default function CartScreen() {
         return (
             <View key={item.id} className="p-4 border-b border-gray-100 last:border-b-0">
                 <View className="flex-row items-center">
-                    {/* Product Image */}
                     <View
                         className="w-16 h-16 rounded-lg items-center justify-center mr-3"
                         style={{ backgroundColor: getProductBackgroundColor(item.product_name.toLowerCase() || '') }}
@@ -316,14 +313,12 @@ export default function CartScreen() {
                         />
                     </View>
 
-                    {/* Product Info */}
                     <View className="flex-1">
                         <Text className="text-base font-medium text-black mb-1">
-                            {item.product_name.toLowerCase() || 'unknown'}
+                            {item.product_name.toLowerCase() || tCart('unknownProduct')}
                         </Text>
                     </View>
 
-                    {/* Quantity Controls and Price per Unit */}
                     <View className="items-center mr-4">
                         <View className="flex-row items-center bg-gray-100 rounded-lg mb-1">
                             <TouchableOpacity
@@ -363,16 +358,14 @@ export default function CartScreen() {
                             </TouchableOpacity>
                         </View>
                         <Text className="text-xs text-gray-500 text-center">
-                            rs {formatPrice(item.unit_price_snapshot)} per {item.unit_name || 'unit'}
+                            rs {formatPrice(item.unit_price_snapshot)} {tCart('perUnit', { unit: item.unit_name || 'unit' })}
                         </Text>
                     </View>
 
-                    {/* Price */}
                     <Text className="text-xs font-semibold text-black mr-2">
                         rs {formatPrice(item.total_price)}
                     </Text>
 
-                    {/* Remove Button */}
                     <TouchableOpacity
                         onPress={() => removeItem(item.id)}
                         className="p-2"
@@ -387,16 +380,15 @@ export default function CartScreen() {
 
     const renderFarmerGroup = (group: FarmerGroup, index: number) => (
         <View key={group.farmer_id} className="bg-white rounded-xl mb-4 overflow-hidden border border-gray-200">
-            {/* Farmer Header */}
             <View className="bg-gray-100 px-4 py-3 flex-row items-center justify-between">
                 <View className="flex-1">
                     <Text className="text-lg font-semibold text-black mb-1">
-                        {group.farmer_name || 'unknown farmer'}
+                        {group.farmer_name || tCart('unknownFarmer')}
                     </Text>
                     <View className="flex-row items-center">
                         <Ionicons name="location-outline" size={14} color="#666666" />
                         <Text className="text-sm text-gray-600 ml-1">
-                            {group.farmer_district || 'unknown district'}
+                            {group.farmer_district || tCart('unknownDistrict')}
                         </Text>
                     </View>
                 </View>
@@ -409,7 +401,6 @@ export default function CartScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Items */}
             <View>
                 {group.items.map(renderCartItem)}
             </View>
@@ -420,12 +411,12 @@ export default function CartScreen() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title="my cart"
+                    title={tCart('myCart')}
                     showBackButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading cart...</Text>
+                    <Text className="text-gray-600 mt-4">{tCart('loadingCart')}</Text>
                 </View>
             </View>
         );
@@ -436,7 +427,7 @@ export default function CartScreen() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="my cart"
+                title={tCart('myCart')}
                 showBackButton={true}
                 showHomeButton={true}
                 showOrdersButton={true}
@@ -447,20 +438,11 @@ export default function CartScreen() {
                 <View className="flex-1 justify-center items-center px-6">
                     <Ionicons name="basket-outline" size={64} color="#d1d5db" />
                     <Text className="text-xl font-medium text-black mt-4 mb-2">
-                        your cart is empty
+                        {tCart('cartIsEmpty')}
                     </Text>
                     <Text className="text-gray-600 text-center mb-8">
-                        browse our fresh products and add items to your cart
+                        {tCart('browseProductsDescription')}
                     </Text>
-                    <TouchableOpacity
-                        onPress={() => router.push('/(auth)/customer/products')}
-                        className="bg-action-green px-8 py-4 rounded-xl"
-                        activeOpacity={0.7}
-                    >
-                        <Text className="text-white font-medium text-lg">
-                            browse products
-                        </Text>
-                    </TouchableOpacity>
                 </View>
             ) : (
                 <ScrollView
@@ -475,25 +457,22 @@ export default function CartScreen() {
                     }
                     contentContainerStyle={{ paddingBottom: 20 }}
                 >
-                    {/* Business pricing indicator */}
                     {user?.role === 'business' && (
                         <View className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                             <View className="flex-row items-center">
                                 <Ionicons name="business-outline" size={20} color="#2563eb" />
                                 <Text className="text-blue-700 text-sm font-medium ml-2">
-                                    business bulk pricing applied
+                                    {tCart('businessBulkPricing')}
                                 </Text>
                             </View>
                             <Text className="text-blue-600 text-xs mt-1">
-                                you&#39;re getting special wholesale prices for bulk orders
+                                {tCart('wholesalePrices')}
                             </Text>
                         </View>
                     )}
 
-                    {/* Farmer Groups */}
                     {cart.farmer_groups.map(renderFarmerGroup)}
 
-                    {/* AI Recipe Suggestions - Only for individual customers */}
                     <RecipeSuggestions
                         cartItems={getCartItemsForAI()}
                         customerType={user?.role as 'individual' | 'business'}
@@ -501,21 +480,20 @@ export default function CartScreen() {
                         onAlert={showAlert}
                     />
 
-                    {/* Bottom Checkout Section - Reverted to original */}
                     <View className="bg-white rounded-xl p-2 mt-4 mb-4">
                         <View className="flex-row justify-between items-center mb-4">
                             <View>
-                                <Text className="text-sm text-gray-600">total amount</Text>
+                                <Text className="text-sm text-gray-600">{tCart('totalAmount')}</Text>
                                 <Text className="text-2xl font-bold text-black">
                                     rs {formatPrice(cart.total_amount)}
                                 </Text>
                             </View>
                             <View className="items-end">
                                 <Text className="text-sm text-gray-600">
-                                    {cart.total_items} item{cart.total_items !== 1 ? 's' : ''}
+                                    {cart.total_items} {cart.total_items !== 1 ? tCart('items') : tCart('item')}
                                 </Text>
                                 <Text className="text-sm text-gray-600">
-                                    {cart.farmer_groups.length} farmer{cart.farmer_groups.length !== 1 ? 's' : ''}
+                                    {cart.farmer_groups.length} {cart.farmer_groups.length !== 1 ? tCart('farmers') : tCart('farmer')}
                                 </Text>
                             </View>
                         </View>
@@ -527,14 +505,13 @@ export default function CartScreen() {
                             disabled={processingCheckout}
                         >
                             <Text className="text-center font-medium text-black text-lg">
-                                {processingCheckout ? 'processing...' : 'checkout'}
+                                {processingCheckout ? tCart('processing') : tCart('checkout')}
                             </Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
             )}
 
-            {/* Custom Alert */}
             <CustomAlert
                 visible={alert.visible}
                 type={alert.type}

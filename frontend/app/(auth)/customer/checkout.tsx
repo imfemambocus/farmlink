@@ -1,4 +1,3 @@
-// app/(auth)/customer/checkout.tsx
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -14,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -51,7 +51,6 @@ interface DeliveryInfo {
     notes: string;
 }
 
-// Main checkout component wrapped with Stripe provider
 export default function CheckoutScreenWrapper() {
     return (
         <StripeProvider
@@ -67,6 +66,7 @@ function CheckoutScreen() {
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
+    const { tCheckout } = useTranslation();
     const { confirmPayment, createPaymentMethod, initPaymentSheet, presentPaymentSheet } = useStripe();
 
     const [cart, setCart] = useState<Cart | null>(null);
@@ -92,7 +92,6 @@ function CheckoutScreen() {
             return;
         }
 
-        // Pre-fill user info with null checks
         if (user.individual_profile) {
             setDeliveryInfo(prev => ({
                 ...prev,
@@ -124,7 +123,6 @@ function CheckoutScreen() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            // Process cart data with proper number conversion
             const cartData = response.data;
             const processedCart: Cart = {
                 id: cartData.id || null,
@@ -143,7 +141,7 @@ function CheckoutScreen() {
             };
 
             if (!processedCart.farmer_groups || processedCart.farmer_groups.length === 0) {
-                Alert.alert('Empty Cart', 'Your cart is empty', [
+                Alert.alert(tCheckout('emptyCart'), tCheckout('cartIsEmpty'), [
                     { text: 'OK', onPress: () => router.back() }
                 ]);
                 return;
@@ -152,7 +150,7 @@ function CheckoutScreen() {
             setCart(processedCart);
         } catch (error: any) {
             console.error('Error fetching cart:', error);
-            Alert.alert('Error', 'Failed to load cart');
+            Alert.alert(tCheckout('error'), tCheckout('failedToLoadCart'));
             router.back();
         } finally {
             setLoading(false);
@@ -163,16 +161,16 @@ function CheckoutScreen() {
         const newErrors: {[key: string]: string} = {};
 
         if (!deliveryInfo.full_name.trim()) {
-            newErrors.full_name = 'Full name is required';
+            newErrors.full_name = tCheckout('fullNameRequired');
         }
         if (!deliveryInfo.phone.trim()) {
-            newErrors.phone = 'Phone number is required';
+            newErrors.phone = tCheckout('phoneRequired');
         }
         if (!deliveryInfo.address.trim()) {
-            newErrors.address = 'Delivery address is required';
+            newErrors.address = tCheckout('addressRequired');
         }
         if (paymentMethodType === 'card' && !cardComplete) {
-            newErrors.card = 'Please enter valid card details';
+            newErrors.card = tCheckout('validCardRequired');
         }
 
         setErrors(newErrors);
@@ -183,7 +181,7 @@ function CheckoutScreen() {
         try {
             const token = await AsyncStorage.getItem('token');
             const response = await api.post('/payment/create-payment-intent', {
-                amount: Math.round(cart!.total_amount * 100), // Convert to cents
+                amount: Math.round(cart!.total_amount * 100),
                 currency: 'lkr',
                 cart_id: cart!.id,
                 delivery_info: deliveryInfo
@@ -194,7 +192,7 @@ function CheckoutScreen() {
             return response.data.client_secret;
         } catch (error: any) {
             console.error('Error creating payment intent:', error);
-            throw new Error('Failed to create payment intent');
+            throw new Error(tCheckout('failedCreatePayment'));
         }
     };
 
@@ -206,10 +204,10 @@ function CheckoutScreen() {
                 merchantDisplayName: 'FarmLink',
                 paymentIntentClientSecret: clientSecret,
                 customFlow: false,
-                style: 'alwaysDark', // or 'alwaysLight' or 'automatic'
+                style: 'alwaysDark',
                 googlePay: {
                     merchantCountryCode: 'LK',
-                    testEnv: true, // Set to false in production
+                    testEnv: true,
                     currencyCode: 'LKR',
                 },
                 applePay: {
@@ -223,18 +221,18 @@ function CheckoutScreen() {
                     ),
                 },
                 allowsDelayedPaymentMethods: true,
-                returnURL: 'your-app://stripe-redirect', // Replace with your app's URL scheme
+                returnURL: 'your-app://stripe-redirect',
             });
 
             if (!error) {
                 setPaymentSheetEnabled(true);
             } else {
                 console.error('Payment sheet initialization error:', error);
-                Alert.alert('Error', 'Failed to initialize payment options');
+                Alert.alert(tCheckout('error'), tCheckout('failedInitializePayment'));
             }
         } catch (error: any) {
             console.error('Payment sheet initialization error:', error);
-            Alert.alert('Error', 'Failed to initialize payment options');
+            Alert.alert(tCheckout('error'), tCheckout('failedInitializePayment'));
         }
     };
 
@@ -246,7 +244,6 @@ function CheckoutScreen() {
         try {
             const clientSecret = await createPaymentIntent();
 
-            // Create payment method from card
             const { error: pmError, paymentMethod } = await createPaymentMethod({
                 paymentMethodType: 'Card',
                 paymentMethodData: {
@@ -262,7 +259,6 @@ function CheckoutScreen() {
                 throw new Error(pmError.message);
             }
 
-            // Confirm payment
             const paymentResult = await confirmPayment(clientSecret, {
                 paymentMethodType: 'Card',
                 paymentMethodData: {
@@ -274,12 +270,11 @@ function CheckoutScreen() {
                 throw new Error(paymentResult.error.message);
             }
 
-            // Payment successful - confirm with backend and create order
             await confirmPaymentAndCreateOrder(paymentResult.paymentIntent!.id);
 
         } catch (error: any) {
             console.error('Payment error:', error);
-            Alert.alert('Payment Failed', error.message || 'Payment could not be processed');
+            Alert.alert(tCheckout('paymentFailed'), error.message || tCheckout('paymentError'));
         } finally {
             setProcessing(false);
         }
@@ -297,10 +292,8 @@ function CheckoutScreen() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            // Refresh cart count after successful order creation
             await refreshCartCount();
 
-            // Navigate to success screen
             router.push({
                 pathname: '/(auth)/customer/payment/order-success',
                 params: {
@@ -311,9 +304,7 @@ function CheckoutScreen() {
 
         } catch (error: any) {
             console.error('Error confirming payment and creating order:', error);
-            console.error('Error response:', error.response?.data);
-            console.error('Error status:', error.response?.status);
-            Alert.alert('Order Error', 'Payment was successful but order creation failed. Please contact support.');
+            Alert.alert(tCheckout('orderError'), tCheckout('orderCreationFailed'));
         }
     };
 
@@ -323,7 +314,6 @@ function CheckoutScreen() {
         setProcessing(true);
 
         try {
-            // Initialize payment sheet if not already done
             if (!paymentSheetEnabled) {
                 await initializePaymentSheet();
             }
@@ -332,17 +322,11 @@ function CheckoutScreen() {
 
             if (error) {
                 if (error.code === 'Canceled') {
-                    // User canceled the payment
                     return;
                 }
                 throw new Error(error.message);
             }
 
-            // Payment successful - we need to get the payment intent ID
-            // For Payment Sheet, we'll need to implement a different flow
-            // For now, let's use a simplified approach
-
-            // Navigate to success (in production, use webhooks to handle this)
             await refreshCartCount();
             router.push({
                 pathname: '/(auth)/customer/payment/order-success',
@@ -354,23 +338,17 @@ function CheckoutScreen() {
 
         } catch (error: any) {
             console.error('Payment error:', error);
-            Alert.alert('Payment Failed', error.message || 'Payment could not be processed');
+            Alert.alert(tCheckout('paymentFailed'), error.message || tCheckout('paymentError'));
         } finally {
             setProcessing(false);
         }
     };
 
     const createOrders = async () => {
-        // Note: This function should be called automatically by Stripe webhooks
-        // or by using the confirm-payment endpoint instead of create-from-cart
-
-        // For now, we'll navigate to success since payment was successful
-        // In production, you'd want to verify the order was created via webhooks
-
         router.push({
             pathname: '/(auth)/customer/payment/order-success',
             params: {
-                payment_intent_id: 'success', // You can pass the payment intent ID here
+                payment_intent_id: 'success',
                 amount: cart?.total_amount?.toString() || '0'
             }
         });
@@ -378,50 +356,50 @@ function CheckoutScreen() {
 
     const renderDeliveryForm = () => (
         <View className="bg-white rounded-xl p-4 mb-4">
-            <Text className="text-xl font-semibold text-black mb-4">delivery information</Text>
+            <Text className="text-xl font-semibold text-black mb-4">{tCheckout('deliveryInformation')}</Text>
 
             <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-700 mb-2">full name *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">{tCheckout('fullName')} {tCheckout('required')}</Text>
                 <TextInput
                     value={deliveryInfo.full_name}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, full_name: text }))}
                     className="border border-gray-300 rounded-lg px-3 py-3 text-base"
-                    placeholder="Enter your full name"
+                    placeholder={tCheckout('enterFullName')}
                 />
                 {errors.full_name && <Text className="text-red-500 text-xs mt-1">{errors.full_name}</Text>}
             </View>
 
             <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-700 mb-2">phone number *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">{tCheckout('phoneNumber')} {tCheckout('required')}</Text>
                 <TextInput
                     value={deliveryInfo.phone}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, phone: text }))}
                     className="border border-gray-300 rounded-lg px-3 py-3 text-base"
-                    placeholder="Enter phone number"
+                    placeholder={tCheckout('enterPhoneNumber')}
                     keyboardType="phone-pad"
                 />
                 {errors.phone && <Text className="text-red-500 text-xs mt-1">{errors.phone}</Text>}
             </View>
 
             <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-700 mb-2">email address</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">{tCheckout('emailAddress')}</Text>
                 <TextInput
                     value={deliveryInfo.email}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, email: text }))}
                     className="border border-gray-300 rounded-lg px-3 py-3 text-base"
-                    placeholder="Enter email address"
+                    placeholder={tCheckout('enterEmailAddress')}
                     keyboardType="email-address"
                     autoCapitalize="none"
                 />
             </View>
 
             <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-700 mb-2">delivery address *</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">{tCheckout('deliveryAddress')} {tCheckout('required')}</Text>
                 <TextInput
                     value={deliveryInfo.address}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, address: text }))}
                     className="border border-gray-300 rounded-lg px-3 py-3 text-base"
-                    placeholder="Enter complete delivery address"
+                    placeholder={tCheckout('enterCompleteAddress')}
                     multiline
                     numberOfLines={3}
                     textAlignVertical="top"
@@ -430,12 +408,12 @@ function CheckoutScreen() {
             </View>
 
             <View>
-                <Text className="text-sm font-medium text-gray-700 mb-2">delivery notes (optional)</Text>
+                <Text className="text-sm font-medium text-gray-700 mb-2">{tCheckout('deliveryNotes')}</Text>
                 <TextInput
                     value={deliveryInfo.notes}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, notes: text }))}
                     className="border border-gray-300 rounded-lg px-3 py-3 text-base"
-                    placeholder="Any special delivery instructions..."
+                    placeholder={tCheckout('specialInstructions')}
                     multiline
                     numberOfLines={2}
                     textAlignVertical="top"
@@ -446,9 +424,8 @@ function CheckoutScreen() {
 
     const renderPaymentMethods = () => (
         <View className="bg-white rounded-xl p-4 mb-4">
-            <Text className="text-xl font-semibold text-black mb-4">payment method</Text>
+            <Text className="text-xl font-semibold text-black mb-4">{tCheckout('paymentMethod')}</Text>
 
-            {/* Payment Method Selection */}
             <View className="mb-4">
                 <TouchableOpacity
                     onPress={() => setPaymentMethodType('card')}
@@ -456,7 +433,7 @@ function CheckoutScreen() {
                     activeOpacity={0.7}
                 >
                     <Ionicons name="card-outline" size={20} color="#333" />
-                    <Text className="ml-2 text-base font-medium">credit/debit card</Text>
+                    <Text className="ml-2 text-base font-medium">{tCheckout('creditDebitCard')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -471,15 +448,14 @@ function CheckoutScreen() {
                 >
                     <Ionicons name="wallet-outline" size={20} color="#333" />
                     <Text className="ml-2 text-base font-medium">
-                        {Platform.OS === 'ios' ? 'Apple Pay' : 'Google Pay'}
+                        {Platform.OS === 'ios' ? tCheckout('applePay') : tCheckout('googlePay')}
                     </Text>
                 </TouchableOpacity>
             </View>
 
-            {/* Card Input for card payments */}
             {paymentMethodType === 'card' && (
                 <View>
-                    <Text className="text-sm font-medium text-gray-700 mb-2">card details *</Text>
+                    <Text className="text-sm font-medium text-gray-700 mb-2">{tCheckout('cardDetails')} {tCheckout('required')}</Text>
                     <CardField
                         postalCodeEnabled={false}
                         placeholders={{
@@ -505,14 +481,13 @@ function CheckoutScreen() {
             {paymentMethodType === 'payment_sheet' && !paymentSheetEnabled && (
                 <View className="p-3 bg-gray-50 rounded-lg">
                     <Text className="text-sm text-gray-600 text-center">
-                        initializing payment options...
+                        {tCheckout('initializingPayment')}
                     </Text>
                 </View>
             )}
         </View>
     );
 
-    // Helper function to safely format prices
     const formatPrice = (price: number | string | undefined): string => {
         const numPrice = Number(price) || 0;
         return numPrice.toFixed(2);
@@ -521,11 +496,11 @@ function CheckoutScreen() {
     const renderOrderSummary = () => (
         <View className="bg-white rounded-xl p-4 mb-4">
             <View className="flex-row justify-between items-center mb-4">
-                <Text className="text-xl font-semibold text-black">order summary</Text>
+                <Text className="text-xl font-semibold text-black">{tCheckout('orderSummary')}</Text>
                 <View className="items-end">
-                    <Text className="text-sm text-gray-400">{cart?.total_items} items</Text>
+                    <Text className="text-sm text-gray-400">{cart?.total_items} {tCheckout('items')}</Text>
                     <Text className="text-sm text-gray-400">
-                        {cart?.farmer_groups.length} farmer{cart?.farmer_groups.length !== 1 ? 's' : ''}
+                        {cart?.farmer_groups.length} {cart?.farmer_groups.length !== 1 ? tCheckout('farmers') : tCheckout('farmer')}
                     </Text>
                 </View>
             </View>
@@ -533,29 +508,29 @@ function CheckoutScreen() {
             {cart?.farmer_groups.map((group) => (
                 <View key={group.farmer_id} className="mb-4 pb-4 border-b border-gray-100 last:border-b-0">
                     <View className="flex-row justify-between items-center mb-2">
-                        <Text className="font-medium text-black">{group.farmer_name || 'unknown farmer'}</Text>
-                        <Text className="text-sm text-gray-600">{group.farmer_district || 'unknown district'}</Text>
+                        <Text className="font-medium text-black">{group.farmer_name || tCheckout('unknownFarmer')}</Text>
+                        <Text className="text-sm text-gray-600">{group.farmer_district || tCheckout('unknownDistrict')}</Text>
                     </View>
 
                     {group.items?.map((item, index) => (
                         <View key={index} className="flex-row justify-between items-center py-1">
                             <Text className="text-sm text-gray-600 flex-1">
-                                {item.quantity || 0} {item.unit_name || 'unit'} {item.product_name.toLowerCase() || 'unknown product'}
+                                {item.quantity || 0} {item.unit_name || tCheckout('unit')} {item.product_name.toLowerCase() || tCheckout('unknownProduct')}
                             </Text>
                             <Text className="text-sm font-medium">rs {formatPrice(item.total_price)}</Text>
                         </View>
                     )) || []}
 
                     <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-gray-100">
-                        <Text className="font-medium text-black">subtotal</Text>
+                        <Text className="font-medium text-black">{tCheckout('subtotal')}</Text>
                         <Text className="font-medium text-black">rs {formatPrice(group.subtotal)}</Text>
                     </View>
                 </View>
             ))}
 
             <View className="flex-row justify-between items-center pt-4 border-t border-gray-200">
-                <Text className="text-lg font-semibold text-black">total amount</Text>
-                <Text className="text-xl font-bold text-action-green">rs {formatPrice(cart?.total_amount)}</Text>
+                <Text className="text-lg font-semibold text-black">{tCheckout('totalAmount')}</Text>
+                <Text className="text-xl font-bold text-black">rs {formatPrice(cart?.total_amount)}</Text>
             </View>
         </View>
     );
@@ -571,10 +546,10 @@ function CheckoutScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title="Checkout" showBackButton={true} />
+                <Header title={tCheckout('checkoutTitle')} showBackButton={true} />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">Loading checkout...</Text>
+                    <Text className="text-gray-600 mt-4">{tCheckout('loadingCheckout')}</Text>
                 </View>
             </View>
         );
@@ -585,7 +560,7 @@ function CheckoutScreen() {
             className="flex-1 bg-surface"
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-            <Header title="Checkout" showBackButton={true} />
+            <Header title={tCheckout('checkoutTitle')} showBackButton={true} />
 
             <ScrollView
                 className="flex-1 px-2 pt-3"
@@ -596,7 +571,6 @@ function CheckoutScreen() {
                 {renderDeliveryForm()}
                 {renderPaymentMethods()}
 
-                {/* Payment Button */}
                 <View className="mb-8 px-5">
                     <TouchableOpacity
                         onPress={handlePayment}
@@ -605,7 +579,7 @@ function CheckoutScreen() {
                         disabled={processing || (paymentMethodType === 'payment_sheet' && !paymentSheetEnabled)}
                     >
                         <Text className="text-center font-medium text-black text-lg">
-                            {processing ? 'processing...' : 'pay now'}
+                            {processing ? tCheckout('processing') : tCheckout('payNow')}
                         </Text>
                     </TouchableOpacity>
                 </View>

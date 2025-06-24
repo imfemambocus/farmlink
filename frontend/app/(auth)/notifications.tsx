@@ -1,4 +1,3 @@
-// app/(auth)/notifications.tsx
 import {useContext, useEffect, useState} from 'react';
 import {
     View,
@@ -13,6 +12,7 @@ import Header from '@/components/ui/Header';
 import { useNotifications } from '@/context/NotificationContext';
 import { Ionicons } from '@expo/vector-icons';
 import {AuthContext} from "@/context/AuthContext";
+import { useTranslation } from '@/context/LanguageContext';
 
 interface AppNotification {
     id: number;
@@ -34,6 +34,7 @@ export default function NotificationsScreen() {
     const { notifications, unreadCount, refreshNotifications, markAsRead, markAllAsRead } = useNotifications();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const { t, tNotifications } = useTranslation();
 
     useEffect(() => {
         loadNotifications();
@@ -54,12 +55,10 @@ export default function NotificationsScreen() {
     };
 
     const handleNotificationPress = async (notification: AppNotification) => {
-        // Mark as read if not already read
         if (!notification.is_read) {
             await markAsRead(notification.id);
         }
 
-        // Navigate based on notification type and data
         if (notification.order_id) {
             router.push(`/(auth)/${user?.farmer_profile ? 'farmer' : 'customer'}/orders`);
         }
@@ -89,15 +88,15 @@ export default function NotificationsScreen() {
     const getNotificationColor = (type: string) => {
         switch (type) {
             case 'order_created':
-                return '#3b82f6'; // blue
+                return '#3b82f6';
             case 'order_status_changed':
-                return '#f59e0b'; // amber
+                return '#f59e0b';
             case 'order_delivered':
-                return '#10b981'; // green
+                return '#10b981';
             case 'order_cancelled':
-                return '#ef4444'; // red
+                return '#ef4444';
             default:
-                return '#6b7280'; // gray
+                return '#6b7280';
         }
     };
 
@@ -106,14 +105,14 @@ export default function NotificationsScreen() {
         const now = new Date();
         const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
 
-        if (diffInMinutes < 1) return 'just now';
-        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+        if (diffInMinutes < 1) return tNotifications('justNow');
+        if (diffInMinutes < 60) return `${diffInMinutes}${tNotifications('minutesAgo')}`;
 
         const diffInHours = Math.floor(diffInMinutes / 60);
-        if (diffInHours < 24) return `${diffInHours}h ago`;
+        if (diffInHours < 24) return `${diffInHours}${tNotifications('hoursAgo')}`;
 
         const diffInDays = Math.floor(diffInHours / 24);
-        if (diffInDays < 7) return `${diffInDays}d ago`;
+        if (diffInDays < 7) return `${diffInDays}${tNotifications('daysAgo')}`;
 
         return date.toLocaleDateString('en-US', {
             month: 'short',
@@ -132,7 +131,6 @@ export default function NotificationsScreen() {
             activeOpacity={0.7}
         >
             <View className="flex-row items-start">
-                {/* Icon */}
                 <View
                     className="w-10 h-10 rounded-full items-center justify-center mr-3 mt-1"
                     style={{ backgroundColor: getNotificationColor(notification.type) + '20' }}
@@ -144,7 +142,6 @@ export default function NotificationsScreen() {
                     />
                 </View>
 
-                {/* Content */}
                 <View className="flex-1">
                     <View className="flex-row items-center justify-between mb-1">
                         <Text className={`text-base font-medium ${
@@ -163,10 +160,9 @@ export default function NotificationsScreen() {
                         {notification.message.toLowerCase()}
                     </Text>
 
-                    {/* Additional info for order notifications */}
                     {notification.farmer_name && (
                         <Text className="text-xs text-gray-500 mb-1">
-                            from {notification.farmer_name.toLowerCase()}
+                            {tNotifications('from')} {notification.farmer_name.toLowerCase()}
                         </Text>
                     )}
 
@@ -181,10 +177,10 @@ export default function NotificationsScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title="notifications" showBackButton={true} />
+                <Header title={tNotifications('notificationsTitle')} showBackButton={true} />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading notifications...</Text>
+                    <Text className="text-gray-600 mt-4">{tNotifications('loadingNotifications')}</Text>
                 </View>
             </View>
         );
@@ -192,14 +188,13 @@ export default function NotificationsScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title="notifications" showBackButton={true} />
+            <Header title={tNotifications('notificationsTitle')} showBackButton={true} />
 
-            {/* Header Actions */}
             {notifications.length > 0 && (
                 <View className="px-5 py-3 bg-white border-b border-gray-100">
                     <View className="flex-row justify-between items-center">
                         <Text className="text-sm text-gray-600">
-                            {unreadCount > 0 ? `${unreadCount} unread` : 'all caught up!'}
+                            {unreadCount > 0 ? `${unreadCount} ${tNotifications('unread')}` : tNotifications('allCaughtUp')}
                         </Text>
                         {unreadCount > 0 && (
                             <TouchableOpacity
@@ -208,7 +203,7 @@ export default function NotificationsScreen() {
                                 activeOpacity={0.7}
                             >
                                 <Text className="text-sm font-medium text-black">
-                                    mark all read
+                                    {tNotifications('markAllRead')}
                                 </Text>
                             </TouchableOpacity>
                         )}
@@ -220,10 +215,10 @@ export default function NotificationsScreen() {
                 <View className="flex-1 justify-center items-center px-6">
                     <Ionicons name="notifications-outline" size={64} color="#d1d5db" />
                     <Text className="text-xl font-medium text-black mt-4 mb-2">
-                        no notifications yet
+                        {tNotifications('noNotificationsYet')}
                     </Text>
                     <Text className="text-gray-600 text-center">
-                        you&#39;ll receive notifications about order updates and new orders here
+                        {tNotifications('notificationsAppearHere')}
                     </Text>
                 </View>
             ) : (

@@ -1,4 +1,3 @@
-// Updated VoiceInput.tsx with improved design and floating button capability
 import React, { useState, useEffect, useContext } from 'react';
 import {
     View,
@@ -16,14 +15,15 @@ import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useRouter } from 'expo-router';
 import VoiceInputService from '@/services/voiceService';
+import { useTranslation } from '@/context/LanguageContext';
 
 interface VoiceInputProps {
     onResult?: (result: any) => void;
     onError?: (error: string) => void;
     disabled?: boolean;
-    style?: ViewStyle; // NEW: Allow custom styling for floating button
-    iconSize?: number; // NEW: Custom icon size
-    iconColor?: string; // NEW: Custom icon color
+    style?: ViewStyle;
+    iconSize?: number;
+    iconColor?: string;
 }
 
 export default function VoiceInput({
@@ -37,6 +37,7 @@ export default function VoiceInput({
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
+    const { t, tVoice } = useTranslation();
 
     const [isVisible, setIsVisible] = useState(false);
     const [isListening, setIsListening] = useState(false);
@@ -100,13 +101,12 @@ export default function VoiceInput({
         if (disabled) return;
 
         try {
-            // Check permissions first
             const hasPermission = await VoiceInputService.checkPermissions();
             if (!hasPermission) {
                 Alert.alert(
-                    'Microphone Permission',
-                    'Please enable microphone permission in your device settings to use voice commands.',
-                    [{ text: 'OK' }]
+                    tVoice('microphonePermission'),
+                    tVoice('enableMicrophone'),
+                    [{ text: t('common.ok') }]
                 );
                 return;
             }
@@ -120,9 +120,9 @@ export default function VoiceInput({
 
             await startVoiceRecognition();
         } catch (error) {
-            console.error('Voice input error:', error);
+            console.error(tVoice('voiceError'), error);
             setIsVisible(false);
-            onError?.('Failed to start voice recognition. Please try again.');
+            onError?.(tVoice('failedToStart'));
         }
     };
 
@@ -131,7 +131,6 @@ export default function VoiceInput({
             setIsListening(true);
             await VoiceInputService.startListening();
 
-            // Auto-stop after 10 seconds
             setTimeout(async () => {
                 if (isListening) {
                     await stopVoiceRecognition();
@@ -139,9 +138,9 @@ export default function VoiceInput({
             }, 10000);
 
         } catch (error) {
-            console.error('Start listening error:', error);
+            console.error(tVoice('voiceError'), error);
             setIsListening(false);
-            setResult('Failed to start voice recognition.');
+            setResult(tVoice('failedToStart'));
         }
     };
 
@@ -154,16 +153,16 @@ export default function VoiceInput({
                 setRecognizedText(recognizedText);
                 await processVoiceCommand(recognizedText);
             } else {
-                setResult("I didn't hear anything. Please try again.");
+                setResult(tVoice('didntHear'));
                 setSuggestions([
-                    "Make sure your microphone is working",
-                    "Speak clearly and try again",
-                    "Check your device volume"
+                    tVoice('makesSure'),
+                    tVoice('checkPermissions'),
+                    tVoice('tryQuieter')
                 ]);
             }
         } catch (error) {
-            console.error('Stop listening error:', error);
-            setResult('Error processing your voice command.');
+            console.error(tVoice('voiceError'), error);
+            setResult(tVoice('didntUnderstand'));
         }
     };
 
@@ -178,27 +177,23 @@ export default function VoiceInput({
             setSuggestions(result.suggestions || []);
 
             if (result.success) {
-                // Handle successful commands
                 if (result.data?.action === 'navigate_to_checkout') {
-                    // Navigate to checkout after a brief delay
                     setTimeout(() => {
                         setIsVisible(false);
                         router.push('/(auth)/customer/checkout');
                     }, 2000);
                 } else if (result.data?.products) {
-                    // For search results, could navigate to products page with search term
                     onResult?.(result.data);
                 } else {
-                    // For add to cart, refresh cart count
                     await refreshCartCount();
                     onResult?.(result.data);
                 }
             }
 
         } catch (error) {
-            console.error('Process command error:', error);
-            setResult('Sorry, there was an error processing your command.');
-            setSuggestions(['Please try again']);
+            console.error(tVoice('voiceError'), error);
+            setResult(tVoice('didntUnderstand'));
+            setSuggestions([tVoice('tryAgain')]);
         } finally {
             setIsProcessing(false);
         }
@@ -229,7 +224,6 @@ export default function VoiceInput({
 
     return (
         <>
-            {/* Voice Input Button */}
             <TouchableOpacity
                 onPress={handleVoicePress}
                 disabled={disabled}
@@ -251,7 +245,6 @@ export default function VoiceInput({
                 />
             </TouchableOpacity>
 
-            {/* Voice Input Modal - UPDATED DESIGN */}
             <Modal
                 visible={isVisible}
                 transparent={true}
@@ -264,11 +257,9 @@ export default function VoiceInput({
                 >
                     <View className="bg-white rounded-2xl p-6 mx-6 w-full max-w-sm">
 
-                        {/* Voice Visualization */}
                         <View className="items-center mb-6">
                             {isListening ? (
                                 <View className="relative items-center justify-center my-8">
-                                    {/* Outer pulse ring - Better green ripple */}
                                     <Animated.View
                                         className="absolute w-32 h-32 rounded-full"
                                         style={{
@@ -278,7 +269,6 @@ export default function VoiceInput({
                                         }}
                                     />
 
-                                    {/* Wave rings - Better green */}
                                     <Animated.View
                                         className="absolute w-24 h-24 rounded-full border-2"
                                         style={{
@@ -296,7 +286,6 @@ export default function VoiceInput({
                                         }}
                                     />
 
-                                    {/* Center microphone with green background */}
                                     <View className="w-20 h-20 rounded-full bg-background items-center justify-center">
                                         <Ionicons name="mic" size={32} color="black" />
                                     </View>
@@ -306,28 +295,26 @@ export default function VoiceInput({
                                     <ActivityIndicator size="large" color="white" />
                                 </View>
                             ) : (
-                                // CHANGED: Mic icon instead of checkmark, bg-background with black icon
                                 <View className="w-20 h-20 rounded-full bg-background items-center justify-center">
                                     <Ionicons name="mic" size={32} color="black" />
                                 </View>
                             )}
                         </View>
 
-                        {/* Status Text */}
                         <View className="mb-4">
                             {isListening ? (
                                 <View className="items-center">
                                     <Text className="text-base font-medium text-black mb-2">
-                                        listening...
+                                        {tVoice('listening')}
                                     </Text>
                                     <Text className="text-xs text-gray-600 text-center my-4">
-                                        Try saying: &#34;Add 2 kg tomatoes to cart&#34; or &#34;Search for vegetables from Curepipe&#34;
+                                        {tVoice('addToCart')} {tVoice('findCarrots')}
                                     </Text>
                                 </View>
                             ) : isProcessing ? (
                                 <View className="items-center">
                                     <Text className="text-base font-medium text-black mb-2">
-                                        Processing...
+                                        {tVoice('processing')}
                                     </Text>
                                     {recognizedText && (
                                         <Text className="text-sm text-gray-600 text-center italic">
@@ -339,7 +326,7 @@ export default function VoiceInput({
                                 <View>
                                     {recognizedText && (
                                         <View className="mb-3">
-                                            <Text className="text-sm text-gray-500 mb-1">You said:</Text>
+                                            <Text className="text-sm text-gray-500 mb-1">{tVoice('youSaid')}</Text>
                                             <Text className="text-base italic text-gray-700">
                                                 &#34;{recognizedText}&#34;
                                             </Text>
@@ -357,11 +344,10 @@ export default function VoiceInput({
                             )}
                         </View>
 
-                        {/* Suggestions */}
                         {suggestions.length > 0 && !isListening && !isProcessing && (
                             <View className="mb-4">
                                 <Text className="text-sm font-medium text-gray-700 mb-2">
-                                    Try these commands:
+                                    {tVoice('tryTheseCommands')}
                                 </Text>
                                 {suggestions.map((suggestion, index) => (
                                     <TouchableOpacity
@@ -378,7 +364,6 @@ export default function VoiceInput({
                             </View>
                         )}
 
-                        {/* Action Buttons */}
                         <View className="flex-row gap-3">
                             {!isListening && !isProcessing && (
                                 <TouchableOpacity
@@ -387,7 +372,7 @@ export default function VoiceInput({
                                     activeOpacity={0.7}
                                 >
                                     <Text className="text-black font-medium text-center">
-                                        try again
+                                        {tVoice('tryAgain')}
                                     </Text>
                                 </TouchableOpacity>
                             )}
@@ -399,7 +384,7 @@ export default function VoiceInput({
                                     activeOpacity={0.7}
                                 >
                                     <Text className="text-white font-medium text-center">
-                                        stop listening
+                                        {tVoice('stopListening')}
                                     </Text>
                                 </TouchableOpacity>
                             )}
@@ -411,20 +396,19 @@ export default function VoiceInput({
                                 disabled={isProcessing}
                             >
                                 <Text className="text-black font-medium text-center">
-                                    {isProcessing ? 'processing...' : 'close'}
+                                    {isProcessing ? tVoice('processing') : tVoice('close')}
                                 </Text>
                             </TouchableOpacity>
                         </View>
 
-                        {/* Help Text */}
                         {!isListening && !isProcessing && !result && (
                             <View className="mt-4 p-3 bg-blue-50 rounded-lg">
                                 <Text className="text-xs text-blue-700 text-center">
-                                    <Text className="font-semibold">Voice Commands:</Text>
-                                    {'\n'}• &#34;Search for tomatoes&#34;
-                                    {'\n'}• &#34;Add 2 kg potatoes to cart&#34;
-                                    {'\n'}• &#34;Find carrots from Curepipe&#34;
-                                    {'\n'}• &#34;Checkout my items&#34;
+                                    <Text className="font-semibold">{tVoice('voiceCommands')}</Text>
+                                    {'\n'}• &#34;{tVoice('searchForTomatoes')}&#34;
+                                    {'\n'}• &#34;{tVoice('addToCart')}&#34;
+                                    {'\n'}• &#34;{tVoice('findCarrots')}&#34;
+                                    {'\n'}• &#34;{tVoice('checkoutItems')}&#34;
                                 </Text>
                             </View>
                         )}

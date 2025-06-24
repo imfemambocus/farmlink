@@ -1,4 +1,3 @@
-// context/NotificationContext.tsx - Fixed version
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '@/context/AuthContext';
@@ -6,8 +5,8 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import api from '@/services/api';
+import { useLanguage } from '@/context/LanguageContext';
 
-// Configure notification behavior
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
         shouldShowAlert: true,
@@ -76,9 +75,10 @@ interface NotificationProviderProps {
 
 export const NotificationProvider = ({ children }: NotificationProviderProps) => {
     const { user } = useContext(AuthContext);
+    const { t } = useLanguage();
     const [unreadCount, setUnreadCount] = useState(0);
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
-    const [isLoading, setIsLoading] = useState(false); // Add loading state to prevent multiple calls
+    const [isLoading, setIsLoading] = useState(false);
     const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
     const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
@@ -88,27 +88,23 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                 return;
             }
 
-            // Check existing permissions
             const { status: existingStatus } = await Notifications.getPermissionsAsync();
             let finalStatus = existingStatus;
 
-            // Request permissions if not granted
             if (existingStatus !== 'granted') {
                 const { status } = await Notifications.requestPermissionsAsync();
                 finalStatus = status;
             }
 
             if (finalStatus !== 'granted') {
-                console.log('Permission not granted for push notifications');
+                console.log(t('notifications.permissionNotGranted'));
                 return;
             }
 
-            // Get push token
             const token = await Notifications.getExpoPushTokenAsync({
                 projectId: process.env.EXPO_PROJECT_ID,
             });
 
-            // Configure notification channel for Android
             if (Platform.OS === 'android') {
                 Notifications.setNotificationChannelAsync('default', {
                     name: 'default',
@@ -118,13 +114,12 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                 });
             }
 
-            // Register token with backend
             if (user && token.data) {
                 await registerDeviceToken(token.data);
             }
 
         } catch (error) {
-            console.error('Error registering for push notifications:', error);
+            console.error(t('notifications.errorRegisteringPush'), error);
         }
     };
 
@@ -143,15 +138,15 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 
-            console.log('Device token registered successfully');
+            console.log(t('notifications.deviceTokenRegistered'));
         } catch (error) {
-            console.error('Error registering device token:', error);
+            console.error(t('notifications.errorRegisteringToken'), error);
         }
     };
 
     const refreshNotifications = async () => {
         try {
-            if (!user || isLoading) return; // Prevent multiple simultaneous calls
+            if (!user || isLoading) return;
 
             setIsLoading(true);
             const token = await AsyncStorage.getItem('token');
@@ -165,7 +160,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             setUnreadCount(response.data.unread_count || 0);
 
         } catch (error) {
-            console.error('Error fetching notifications:', error);
+            console.error(t('notifications.errorFetchingNotifications'), error);
         } finally {
             setIsLoading(false);
         }
@@ -180,7 +175,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            // Update local state
             setNotifications(prev =>
                 prev.map(notif =>
                     notif.id === notificationId
@@ -191,7 +185,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             setUnreadCount(prev => Math.max(0, prev - 1));
 
         } catch (error) {
-            console.error('Error marking notification as read:', error);
+            console.error(t('notifications.errorMarkingRead'), error);
         }
     };
 
@@ -204,7 +198,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            // Update local state
             setNotifications(prev =>
                 prev.map(notif => ({
                     ...notif,
@@ -215,38 +208,36 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             setUnreadCount(0);
 
         } catch (error) {
-            console.error('Error marking all notifications as read:', error);
+            console.error(t('notifications.errorMarkingAllRead'), error);
         }
     };
 
     const handleNotificationReceived = (notification: Notifications.Notification) => {
-        console.log('Notification received:', notification);
+        console.log(t('notifications.notificationReceived'), notification);
         refreshNotifications();
 
         const data = notification.request.content.data as NotificationData;
         if (data?.type === 'order_created') {
-            console.log('New order notification received');
+            console.log(t('notifications.newOrderReceived'));
         } else if (data?.type === 'order_status_changed') {
-            console.log('Order status change notification received');
+            console.log(t('notifications.statusChangeReceived'));
         }
     };
 
     const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
-        console.log('Notification tapped:', response);
+        console.log(t('notifications.notificationTapped'), response);
         const data = response.notification.request.content.data as NotificationData;
 
         if (data?.order_id) {
-            console.log('Navigate to order:', data.order_id);
+            console.log(t('notifications.navigateToOrder'), data.order_id);
         }
     };
 
     useEffect(() => {
         if (user) {
-            // Only run once when user changes
             registerForPushNotifications();
             refreshNotifications();
 
-            // Set up notification listeners - Fixed deprecation
             const notifSub = Notifications.addNotificationReceivedListener(handleNotificationReceived);
             const responseSub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
@@ -254,7 +245,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             responseListener.current = responseSub;
 
             return () => {
-                // Fixed deprecation warning - use .remove() instead
                 notifSub.remove();
                 responseSub.remove();
             };
@@ -262,7 +252,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             setNotifications([]);
             setUnreadCount(0);
         }
-    }, [user?.id]); // Only depend on user.id, not the entire user object
+    }, [user?.id]);
 
     return (
         <NotificationContext.Provider value={{

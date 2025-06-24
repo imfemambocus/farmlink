@@ -1,4 +1,3 @@
-// context/CartContext.tsx
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '@/context/AuthContext';
@@ -37,7 +36,6 @@ export const CartProvider = ({ children }: CartProviderProps) => {
 
     const refreshCartCount = async () => {
         try {
-            // Only fetch cart for customers (individual/business users)
             if (!user || !['individual', 'business'].includes(user.role)) {
                 setCartItemCount(0);
                 return;
@@ -70,7 +68,6 @@ export const CartProvider = ({ children }: CartProviderProps) => {
     };
 
     useEffect(() => {
-        // Only refresh when user changes and is a customer
         if (user && ['individual', 'business'].includes(user.role)) {
             refreshCartCount();
         } else {

@@ -13,12 +13,18 @@ import Animated, {
 } from 'react-native-reanimated';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { animations } from "@/constants/animations";
+import { useLanguage, useTranslation } from '@/context/LanguageContext';
+import LanguageSelector from '@/components/ui/LanguageSelector';
 
 export default function IntroScreen() {
     const router = useRouter();
     const animationRef = useRef<LottieView>(null);
     const [showContent, setShowContent] = useState(false);
     const [showMainContent, setShowMainContent] = useState(false);
+
+    // Language
+    const { isLoading: languageLoading } = useLanguage();
+    const { t } = useTranslation();
 
     // Splash animations
     const logoScale = useSharedValue(0.5);
@@ -82,6 +88,9 @@ export default function IntroScreen() {
     }));
 
     useEffect(() => {
+        // Wait for language to initialize before starting animations
+        if (languageLoading) return;
+
         const startAnimationSequence = async () => {
             // Check auth status
             const token = await AsyncStorage.getItem('token');
@@ -97,11 +106,10 @@ export default function IntroScreen() {
             // After splash animation completes, decide next action
             setTimeout(() => {
                 if (token) {
-                    // User is authenticated - navigate to auth area
+                    // User is authenticated - navigate to auth
                     router.replace('/(auth)');
                 } else {
                     // No token - start transition sequence
-                    // 1. Background transition
                     splashBackgroundOpacity.value = withTiming(0, {
                         duration: 600,
                         easing: Easing.out(Easing.ease)
@@ -113,9 +121,7 @@ export default function IntroScreen() {
 
                     setShowContent(true);
 
-                    // 2. Smooth logo transition sequence
                     setTimeout(() => {
-                        // Step A: Logo slides left and scales down smoothly
                         logoTranslateX.value = withTiming(-125, {
                             duration: 1000,
                             easing: Easing.out(Easing.cubic)
@@ -125,23 +131,19 @@ export default function IntroScreen() {
                             easing: Easing.out(Easing.cubic)
                         });
 
-                        // Step B: Show farmlink text next to logo
                         headerTextOpacity.value = withDelay(
                             500,
                             withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) })
                         );
 
-                        // Step C: Slide the whole header group up to make space
                         headerGroupTranslateY.value = withDelay(
                             900,
                             withTiming(-100, { duration: 800, easing: Easing.out(Easing.cubic) })
                         );
 
-                        // 3. Show main content after header settles
                         setTimeout(() => {
                             setShowMainContent(true);
 
-                            // Animate main content in
                             taglineOpacity.value = withTiming(1, {
                                 duration: 800,
                                 easing: Easing.out(Easing.ease)
@@ -167,32 +169,42 @@ export default function IntroScreen() {
                         }, 1200);
                     }, 300);
                 }
-            }, 2500); // Wait for initial animation to complete
+            }, 2500);
         };
 
         startAnimationSequence();
-    }, []);
+    }, [languageLoading]);
+
+    if (languageLoading) {
+        return (
+            <SafeAreaView className="flex-1 bg-background justify-center items-center">
+                <StatusBar hidden={true} />
+                <LottieView
+                    source={animations.leaf}
+                    autoPlay
+                    loop
+                    style={{ width: 100, height: 100 }}
+                />
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView className="flex-1">
             <StatusBar hidden={true} />
 
-            {/* Splash Background */}
             <Animated.View
                 style={[splashBackgroundStyle, { backgroundColor: '#F2FBE0' }]}
                 className="absolute inset-0"
             />
 
-            {/* Intro Background */}
             <Animated.View
                 style={[introBackgroundStyle, { backgroundColor: '#FFFFFF' }]}
                 className="absolute inset-0"
             />
 
             <View className="flex-1">
-                {/* Header Section - Logo stays in absolute position */}
                 <Animated.View style={[headerGroupAnimatedStyle]} className="absolute top-1/3 left-0 right-0">
-                    {/* Logo - stays in same absolute position, then slides */}
                     <View className="items-center">
                         <Animated.View style={[logoAnimatedStyle]}>
                             <LottieView
@@ -205,7 +217,6 @@ export default function IntroScreen() {
                         </Animated.View>
                     </View>
 
-                    {/* Text appears next to logo after it slides */}
                     {showContent && (
                         <Animated.View
                             style={[headerTextAnimatedStyle, {
@@ -217,23 +228,20 @@ export default function IntroScreen() {
                             }]}
                         >
                             <Text className="text-3xl font-bold text-black">
-                                farmlink
+                                {t('intro.title')}
                             </Text>
                         </Animated.View>
                     )}
                 </Animated.View>
 
-                {/* Main Content */}
                 {showMainContent && (
                     <View className="flex-1 justify-center items-center px-6">
-                        {/* Main Tagline */}
                         <Animated.View style={[taglineAnimatedStyle]} className="items-center mb-16">
-                            <Text className="text-lg text-gray-700 text-center font-sans px-4 leading-6">
-                                connecting consumers directly with farmers for fresh, local produce
+                            <Text className="text-base text-gray-700 text-center font-sans px-4 leading-6">
+                                {t('intro.subtitle')}
                             </Text>
                         </Animated.View>
 
-                        {/* Buttons */}
                         <Animated.View style={[buttonsAnimatedStyle]} className="w-full max-w-sm">
                             <TouchableOpacity
                                 onPress={() => router.push('/login')}
@@ -241,7 +249,7 @@ export default function IntroScreen() {
                                 activeOpacity={0.8}
                             >
                                 <Text className="text-white text-lg font-semibold">
-                                    log in
+                                    {t('intro.login')}
                                 </Text>
                             </TouchableOpacity>
 
@@ -251,21 +259,23 @@ export default function IntroScreen() {
                                 activeOpacity={0.8}
                             >
                                 <Text className="text-black text-lg font-semibold">
-                                    register
+                                    {t('intro.register')}
                                 </Text>
                             </TouchableOpacity>
                         </Animated.View>
                     </View>
                 )}
 
-                {/* Footer with trademark */}
                 {showMainContent && (
                     <Animated.View style={[footerAnimatedStyle]} className="absolute bottom-8 left-0 right-0 items-center">
+                        <View className="w-full flex-row justify-center">
+                            <LanguageSelector style="minimal" showLabel={false} />
+                        </View>
                         <Text className="text-sm text-gray-500 font-sans mb-2">
-                            fresh produce, fair prices, direct from farm
+                            {t('intro.footer')}
                         </Text>
                         <Text className="text-xs text-gray-400 font-sans">
-                            © IMFE Studio
+                            {t('intro.copyright')}
                         </Text>
                     </Animated.View>
                 )}

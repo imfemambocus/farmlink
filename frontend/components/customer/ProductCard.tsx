@@ -1,10 +1,10 @@
-// Customer ProductCard
 import { useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import { AuthContext } from '@/context/AuthContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { useRouter } from "expo-router";
 import { getProductBackgroundColor } from "@/utils/products";
 import { UnitPrice } from "@/types";
@@ -29,7 +29,6 @@ interface ProductCardProps {
     product: Product;
 }
 
-// Helper functions
 const getFilteredUnitPrices = (unitPrices: UnitPrice[], userRole: string): UnitPrice[] => {
     if (userRole === 'farmer') {
         return unitPrices;
@@ -46,6 +45,7 @@ const getQuantityStep = (userRole: string): number => {
 export default function ProductCard({ product }: ProductCardProps) {
     const { user } = useContext(AuthContext);
     const { triggerCartFlash } = useCart();
+    const { t, tCustomer } = useTranslation();
     const router = useRouter();
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedUnitPrice, setSelectedUnitPrice] = useState<UnitPrice | null>(null);
@@ -60,7 +60,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     const userRole = user?.role || 'individual';
     const quantityStep = getQuantityStep(userRole);
 
-    // Filter unit prices based on user role
     const filteredUnitPrices = getFilteredUnitPrices(product.unit_prices, userRole);
 
     const addToCart = async (unitPriceId: number, selectedQuantity: number) => {
@@ -81,13 +80,10 @@ export default function ProductCard({ product }: ProductCardProps) {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            // Trigger cart flash animation instead of showing alert
             triggerCartFlash();
 
         } catch (error: any) {
             console.error('Error adding to cart:', error);
-            // For errors, we could still show a brief message or just log
-            // For now, we'll just log the error
         } finally {
             setAddingToCart(false);
         }
@@ -107,14 +103,13 @@ export default function ProductCard({ product }: ProductCardProps) {
     const addToCartFromModal = async () => {
         if (selectedUnitPrice) {
             await addToCart(selectedUnitPrice.id, quantity);
-            closeModal(); // Close modal after adding to cart
+            closeModal();
         }
     };
 
     const openModal = () => {
         if (filteredUnitPrices.length > 0) {
             setSelectedUnitPrice(filteredUnitPrices[0]);
-            // Set quantity to minimum order, adjusted to quantity step
             const minOrder = filteredUnitPrices[0].minimum_order;
             const adjustedMinOrder = Math.ceil(minOrder / quantityStep) * quantityStep;
             setQuantity(Math.max(adjustedMinOrder, quantityStep));
@@ -135,7 +130,6 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     const handleUnitPriceSelect = (unitPrice: UnitPrice) => {
         setSelectedUnitPrice(unitPrice);
-        // Adjust quantity to minimum order and quantity step
         const minOrder = unitPrice.minimum_order;
         const adjustedMinOrder = Math.ceil(minOrder / quantityStep) * quantityStep;
         setQuantity(Math.max(adjustedMinOrder, quantityStep));
@@ -161,24 +155,21 @@ export default function ProductCard({ product }: ProductCardProps) {
         transform: [{ translateY: modalTranslateY.value }],
     }));
 
-    // Don't render if no prices available for this user type
     if (filteredUnitPrices.length === 0) {
         return null;
     }
 
     return (
         <>
-            {/* Main Product Card */}
             <TouchableOpacity
                 onPress={openModal}
                 className="bg-surface rounded-xl border border-gray-200 p-4"
                 activeOpacity={0.7}
             >
-                {/* Product Image Container */}
                 <View className="w-1/2 aspect-square rounded-[40px] items-center justify-center mb-3 self-center">
                     {imageError ? (
                         <Text className="text-xs text-gray-500 text-center px-2">
-                            Image failed to load
+                            {tCustomer('imageFailedToLoad')}
                         </Text>
                     ) : (
                         <Image
@@ -193,7 +184,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                     )}
                 </View>
 
-                {/* Product Name and Category Tag */}
                 <View className="flex-row items-center justify-between mb-3">
                     <Text className="text-sm font-medium text-black flex-1" numberOfLines={1}>
                         {product.item.toLowerCase()}
@@ -205,7 +195,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                     </View>
                 </View>
 
-                {/* Price and Add to Cart */}
                 <View className="flex-row items-end justify-between">
                     <View>
                         <View className="flex-row items-center mb-1">
@@ -215,10 +204,10 @@ export default function ProductCard({ product }: ProductCardProps) {
                         </View>
                         <View className="flex-row items-baseline">
                             <Text className="text-base font-bold text-black">
-                                rs {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].price_per_unit : product.lowest_price}
+                                {t('units.rs')} {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].price_per_unit : product.lowest_price}
                             </Text>
                             <Text className="text-xs text-gray-500 ml-1">
-                                / {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].unit : 'unit'}
+                                / {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].unit : t('units.unit')}
                             </Text>
                         </View>
                     </View>
@@ -243,7 +232,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </View>
             </TouchableOpacity>
 
-            {/* Product Details Modal */}
             <Modal
                 animationType="none"
                 transparent={true}
@@ -280,14 +268,13 @@ export default function ProductCard({ product }: ProductCardProps) {
                             modalStyle
                         ]}
                     >
-                        {/* Large Product Image */}
                         <View
                             className="h-[24rem] rounded-[40px] w-full mb-3 items-center justify-center"
                             style={{ backgroundColor: getProductBackgroundColor(product.item) }}
                         >
                             {imageError ? (
                                 <Text className="text-sm text-gray-500 text-center px-4">
-                                    Image failed to load
+                                    {tCustomer('imageFailedToLoad')}
                                 </Text>
                             ) : (
                                 <Image
@@ -302,9 +289,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                             )}
                         </View>
 
-                        {/* Fixed Content Layout */}
                         <View className="flex-1 p-2">
-                            {/* Product Name and Farmer */}
                             <View className="mb-3">
                                 <View className="flex-row items-center justify-between mb-1">
                                     <Text className="text-xl font-medium text-black flex-1">
@@ -314,11 +299,10 @@ export default function ProductCard({ product }: ProductCardProps) {
                                         {userRole === 'business' && (
                                             <View className="px-3 py-1 bg-blue-100 rounded-full">
                                                 <Text className="text-xs text-blue-600 font-medium">
-                                                    bulk pricing
+                                                    {tCustomer('bulkPricing')}
                                                 </Text>
                                             </View>
                                         )}
-                                        {/* Fresh indicator for items listed in last 3 days */}
                                         {(() => {
                                             const listingDate = new Date(product.created_at);
                                             const threeDaysAgo = new Date();
@@ -327,8 +311,8 @@ export default function ProductCard({ product }: ProductCardProps) {
                                         })() && (
                                             <View className="flex-row items-center">
                                                 <Ionicons name="leaf" size={12} color="#4CAF50" />
-                                                <Text className="text-xs text-action-green ml-1 font-medium">
-                                                    fresh
+                                                <Text className="text-xs text-black ml-1 font-medium">
+                                                    {tCustomer('fresh')}
                                                 </Text>
                                             </View>
                                         )}
@@ -336,7 +320,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                 </View>
                                 <View className="flex-row items-center justify-between">
                                     <View className="flex-row items-center">
-                                        <Text className="text-base text-gray-600">produced by: </Text>
+                                        <Text className="text-base text-gray-600">{tCustomer('producedBy')} </Text>
                                         <TouchableOpacity
                                             onPress={() => {
                                                 closeModal();
@@ -344,7 +328,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                             }}
                                             activeOpacity={0.7}
                                         >
-                                            <Text className="text-base text-action-green font-medium">
+                                            <Text className="text-base text-black font-medium">
                                                 {product.farmer_name}
                                             </Text>
                                         </TouchableOpacity>
@@ -358,11 +342,10 @@ export default function ProductCard({ product }: ProductCardProps) {
                                 </View>
                             </View>
 
-                            {/* Description */}
                             {product.description && (
                                 <View className="mb-3">
                                     <Text className="text-base font-medium text-black mb-2">
-                                        description
+                                        {tCustomer('description')}
                                     </Text>
                                     <Text className="text-gray-600 text-sm">
                                         {product.description}
@@ -370,10 +353,9 @@ export default function ProductCard({ product }: ProductCardProps) {
                                 </View>
                             )}
 
-                            {/* Pricing & Stock */}
                             <View className="mb-3">
                                 <Text className="text-base font-medium text-black mb-2">
-                                    {userRole === 'business' ? 'select unit & bulk price' : 'select unit & price'}
+                                    {userRole === 'business' ? tCustomer('selectUnitBulkPrice') : tCustomer('selectUnitPrice')}
                                 </Text>
                                 <View className="flex-row gap-2">
                                     {filteredUnitPrices.map((unitPrice) => (
@@ -382,7 +364,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                             onPress={() => handleUnitPriceSelect(unitPrice)}
                                             className={`p-3 rounded-lg border ${
                                                 selectedUnitPrice?.id === unitPrice.id
-                                                    ? 'bg-gray-100 border-action-green'
+                                                    ? 'bg-gray-100 border-black'
                                                     : 'bg-gray-50 border-gray-200'
                                             }`}
                                             style={{
@@ -393,14 +375,14 @@ export default function ProductCard({ product }: ProductCardProps) {
                                         >
                                             <Text className={`text-center text-sm ${
                                                 selectedUnitPrice?.id === unitPrice.id
-                                                    ? 'text-action-green font-medium'
+                                                    ? 'text-black font-medium'
                                                     : 'text-black'
                                             }`}>
-                                                rs {unitPrice.price_per_unit} / {unitPrice.unit}
+                                                {t('units.rs')} {unitPrice.price_per_unit} / {unitPrice.unit}
                                             </Text>
                                             {userRole === 'business' && (
                                                 <Text className="text-xs text-gray-500 text-center mt-1">
-                                                    min: {unitPrice.minimum_order}
+                                                    {tCustomer('min')}: {unitPrice.minimum_order}
                                                 </Text>
                                             )}
                                         </TouchableOpacity>
@@ -408,14 +390,12 @@ export default function ProductCard({ product }: ProductCardProps) {
                                 </View>
                             </View>
 
-                            {/* Quantity Selection */}
                             {selectedUnitPrice && (
                                 <View className="mb-5">
                                     <Text className="text-base font-medium text-black mb-2">
-                                        quantity {userRole === 'business' && `(steps of ${quantityStep})`}
+                                        {t('productManagement.quantity')} {userRole === 'business' && `(${tCustomer('quantitySteps')} ${quantityStep})`}
                                     </Text>
                                     <View className="flex-row gap-4">
-                                        {/* Left Column - Quantity Controls */}
                                         <View className="flex-[65%]">
                                             <View className="flex-row items-center justify-between bg-gray-100 rounded-lg p-2">
                                                 <TouchableOpacity
@@ -442,7 +422,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                                         {quantity}
                                                     </Text>
                                                     <Text className="text-xs text-gray-600 text-center">
-                                                        min: {selectedUnitPrice.minimum_order} | max: {selectedUnitPrice.quantity_available}
+                                                        {tCustomer('min')}: {selectedUnitPrice.minimum_order} | {tCustomer('max')}: {selectedUnitPrice.quantity_available}
                                                     </Text>
                                                 </View>
 
@@ -461,17 +441,15 @@ export default function ProductCard({ product }: ProductCardProps) {
                                             </View>
                                         </View>
 
-                                        {/* Right Column - Total Price */}
                                         <View className="flex-[35%] bg-gray-100 rounded-lg p-3 justify-center items-center flex flex-row gap-2">
                                             <Text className="text-center text-lg font-semibold">
-                                                rs {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
+                                                {t('units.rs')} {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
                                             </Text>
                                         </View>
                                     </View>
                                 </View>
                             )}
 
-                            {/* Action Button */}
                             <View className="pb-2">
                                 <TouchableOpacity
                                     onPress={addToCartFromModal}
@@ -480,7 +458,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                     disabled={addingToCart || !selectedUnitPrice}
                                 >
                                     <Text className="text-center font-medium text-black">
-                                        {addingToCart ? 'adding to cart...' : 'add to cart'}
+                                        {addingToCart ? tCustomer('addingToCart') : tCustomer('addToCart')}
                                     </Text>
                                 </TouchableOpacity>
                             </View>

@@ -10,8 +10,10 @@ import {
     SafeAreaView,
 } from 'react-native';
 import { AuthContext } from '@/context/AuthContext';
+import { useTranslation } from '@/context/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/ui/Header';
+import LanguageSelector from '@/components/ui/LanguageSelector';
 
 interface FormErrors {
     [key: string]: string;
@@ -19,6 +21,7 @@ interface FormErrors {
 
 export default function ProfileEditScreen() {
     const { user, updateProfile } = useContext(AuthContext);
+    const { t, tAuth, tValidation, tProfile, tCommon } = useTranslation();
 
     // Initialize formData with a function to get initial values
     const getInitialFormData = () => {
@@ -58,7 +61,6 @@ export default function ProfileEditScreen() {
     const [errors, setErrors] = useState<FormErrors>({});
     const [loading, setLoading] = useState(false);
 
-    // Update formData when user changes (for cases where user data loads asynchronously)
     useEffect(() => {
         if (user) {
             setFormData(getInitialFormData());
@@ -70,55 +72,54 @@ export default function ProfileEditScreen() {
 
         if (!user) return false;
 
-        // Common validations
         if (user.role === 'farmer' || user.role === 'individual') {
             if (!formData.first_name?.trim()) {
-                newErrors.first_name = 'first name is required';
+                newErrors.first_name = tValidation('firstNameRequired');
             }
             if (!formData.last_name?.trim()) {
-                newErrors.last_name = 'last name is required';
+                newErrors.last_name = tValidation('lastNameRequired');
             }
         }
 
         if (!formData.phone_number?.trim()) {
-            newErrors.phone_number = 'phone number is required';
+            newErrors.phone_number = tValidation('phoneRequired');
         } else if (!/^\d{7,15}$/.test(formData.phone_number.replace(/\s+/g, ''))) {
-            newErrors.phone_number = 'please enter a valid phone number';
+            newErrors.phone_number = tValidation('validPhone');
         }
 
         // Role-specific validations
         if (user.role === 'farmer') {
             if (!formData.district?.trim()) {
-                newErrors.district = 'district is required';
+                newErrors.district = tValidation('districtRequired');
             }
         } else if (user.role === 'individual') {
             if (!formData.date_of_birth?.trim()) {
-                newErrors.date_of_birth = 'date of birth is required';
+                newErrors.date_of_birth = tValidation('dobRequired');
             }
             if (!formData.street?.trim()) {
-                newErrors.street = 'street is required';
+                newErrors.street = tValidation('streetRequired');
             }
             if (!formData.city_town?.trim()) {
-                newErrors.city_town = 'city/town is required';
+                newErrors.city_town = tValidation('cityRequired');
             }
             if (!formData.post_code?.trim()) {
-                newErrors.post_code = 'post code is required';
+                newErrors.post_code = tValidation('postCodeRequired');
             }
         } else if (user.role === 'business') {
             if (!formData.business_name?.trim()) {
-                newErrors.business_name = 'business name is required';
+                newErrors.business_name = tValidation('businessNameRequired');
             }
             if (!formData.contact_name?.trim()) {
-                newErrors.contact_name = 'contact name is required';
+                newErrors.contact_name = tValidation('contactNameRequired');
             }
             if (!formData.street?.trim()) {
-                newErrors.street = 'street is required';
+                newErrors.street = tValidation('streetRequired');
             }
             if (!formData.city_town?.trim()) {
-                newErrors.city_town = 'city/town is required';
+                newErrors.city_town = tValidation('cityRequired');
             }
             if (!formData.post_code?.trim()) {
-                newErrors.post_code = 'post code is required';
+                newErrors.post_code = tValidation('postCodeRequired');
             }
         }
 
@@ -135,15 +136,15 @@ export default function ProfileEditScreen() {
         try {
             await updateProfile(formData);
             Alert.alert(
-                'success',
-                'profile updated successfully!',
-                [{ text: 'ok', style: 'default' }]
+                tCommon('success'),
+                tProfile('profileUpdated'),
+                [{ text: tCommon('ok'), style: 'default' }]
             );
         } catch (error: any) {
             Alert.alert(
-                'error',
-                error.message || 'failed to update profile',
-                [{ text: 'ok', style: 'default' }]
+                tCommon('error'),
+                error.message || tProfile('failedToUpdate'),
+                [{ text: tCommon('ok'), style: 'default' }]
             );
         } finally {
             setLoading(false);
@@ -152,7 +153,6 @@ export default function ProfileEditScreen() {
 
     const updateFormData = (field: string, value: string) => {
         setFormData({ ...formData, [field]: value });
-        // Clear error when user starts typing
         if (errors[field]) {
             setErrors({ ...errors, [field]: '' });
         }
@@ -172,9 +172,9 @@ export default function ProfileEditScreen() {
             <View className="relative">
                 <TextInput
                     className={`
-                        border rounded-xl px-4 text-base bg-surface border-black text-black leading-[1.2]
-                        ${errors[field] ? 'border-red-500 text-red-500' : ''}
-                    `}
+            border rounded-xl px-4 text-base bg-surface border-black text-black leading-[1.2]
+            ${errors[field] ? 'border-red-500 text-red-500' : ''}
+          `}
                     style={{
                         height: 48,
                         paddingVertical: 0,
@@ -217,7 +217,7 @@ export default function ProfileEditScreen() {
         return (
             <SafeAreaView className="flex-1 bg-background">
                 <View className="flex-1 justify-center items-center">
-                    <Text className="text-lg font-sans">no user data available</Text>
+                    <Text className="text-lg font-sans">{tProfile('noUserData')}</Text>
                 </View>
             </SafeAreaView>
         );
@@ -226,16 +226,14 @@ export default function ProfileEditScreen() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="profile"
+                title={tProfile('profileTitle')}
                 showBackButton={true}
                 showLogoutButton={true}
             />
 
-            {/* Form Section */}
             <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
                 <View className="pb-6">
-                    {/* Account and Email Display */}
-                    <View className="mb-6 pb-4 flex-row justify-between items-center">
+                    <View className="mb-4 pb-4 flex-row justify-between items-center">
                         <View className="flex-row items-center">
                             <View className="bg-black rounded-full p-1.5 mr-2">
                                 <Ionicons
@@ -245,7 +243,7 @@ export default function ProfileEditScreen() {
                                 />
                             </View>
                             <Text className="text-sm text-black font-medium">
-                                {user.role} account
+                                {t(`auth.${user.role}`)} {tProfile('account')}
                             </Text>
                         </View>
                         <Text className="text-base text-gray-900 font-sans">
@@ -258,47 +256,50 @@ export default function ProfileEditScreen() {
                         </Text>
                     </View>
 
-                    {/* Farmer Fields */}
+                    <View className="mb-6">
+                        <LanguageSelector
+                            style="button"
+                            showLabel={true}
+                        />
+                    </View>
+
                     {user.role === 'farmer' && (
                         <>
-                            {renderInput('first_name', 'first name', 'enter your first name', 'default', 'person-outline')}
-                            {renderInput('last_name', 'last name', 'enter your last name', 'default', 'id-card-outline')}
-                            {renderInput('phone_number', 'phone number', '+1234567890', 'numeric', 'call-outline')}
-                            {renderInput('district', 'district', 'enter your district', 'default', 'location-outline')}
+                            {renderInput('first_name', tAuth('firstName'), tAuth('enterFirstName'), 'default', 'person-outline')}
+                            {renderInput('last_name', tAuth('lastName'), tAuth('enterLastName'), 'default', 'id-card-outline')}
+                            {renderInput('phone_number', tAuth('phoneNumber'), tAuth('enterPhoneNumber'), 'numeric', 'call-outline')}
+                            {renderInput('district', tAuth('district'), tAuth('enterDistrict'), 'default', 'location-outline')}
                         </>
                     )}
 
-                    {/* Individual Fields */}
                     {user.role === 'individual' && (
                         <>
-                            {renderInput('first_name', 'first name', 'enter your first name', 'default', 'person-outline')}
-                            {renderInput('last_name', 'last name', 'enter your last name', 'default', 'id-card-outline')}
-                            {renderInput('date_of_birth', 'date of birth', 'yyyy-mm-dd', 'default', 'calendar-outline')}
-                            {renderInput('phone_number', 'phone number', '+1234567890', 'numeric', 'call-outline')}
-                            {renderInput('street', 'street address', 'enter your street address', 'default', 'home-outline')}
-                            {renderInput('city_town', 'city/town', 'enter your city or town', 'default', 'location-outline')}
-                            {renderInput('post_code', 'post code', 'enter your post code', 'default', 'mail-outline')}
+                            {renderInput('first_name', tAuth('firstName'), tAuth('enterFirstName'), 'default', 'person-outline')}
+                            {renderInput('last_name', tAuth('lastName'), tAuth('enterLastName'), 'default', 'id-card-outline')}
+                            {renderInput('date_of_birth', tAuth('dateOfBirth'), tAuth('enterDateOfBirth'), 'default', 'calendar-outline')}
+                            {renderInput('phone_number', tAuth('phoneNumber'), tAuth('enterPhoneNumber'), 'numeric', 'call-outline')}
+                            {renderInput('street', tAuth('streetAddress'), tAuth('enterStreetAddress'), 'default', 'home-outline')}
+                            {renderInput('city_town', tAuth('cityTown'), tAuth('enterCityTown'), 'default', 'location-outline')}
+                            {renderInput('post_code', tAuth('postCode'), tAuth('enterPostCode'), 'default', 'mail-outline')}
                         </>
                     )}
 
-                    {/* Business Fields */}
                     {user.role === 'business' && (
                         <>
-                            {renderInput('business_name', 'business name', 'enter your business name', 'default', 'business-outline')}
-                            {renderInput('contact_name', 'contact name', 'enter contact person name', 'default', 'person-outline')}
-                            {renderInput('phone_number', 'phone number', '+1234567890', 'numeric', 'call-outline')}
-                            {renderInput('street', 'street address', 'enter business address', 'default', 'home-outline')}
-                            {renderInput('city_town', 'city/town', 'enter city or town', 'default', 'location-outline')}
-                            {renderInput('post_code', 'post code', 'enter post code', 'default', 'mail-outline')}
+                            {renderInput('business_name', tAuth('businessName'), tAuth('enterBusinessName'), 'default', 'business-outline')}
+                            {renderInput('contact_name', tAuth('contactName'), tAuth('enterContactName'), 'default', 'person-outline')}
+                            {renderInput('phone_number', tAuth('phoneNumber'), tAuth('enterPhoneNumber'), 'numeric', 'call-outline')}
+                            {renderInput('street', tAuth('streetAddress'), tAuth('enterBusinessAddress'), 'default', 'home-outline')}
+                            {renderInput('city_town', tAuth('cityTown'), tAuth('enterCityTown'), 'default', 'location-outline')}
+                            {renderInput('post_code', tAuth('postCode'), tAuth('enterPostCode'), 'default', 'mail-outline')}
                         </>
                     )}
 
-                    {/* Submit Button */}
                     <TouchableOpacity
                         className={`
-                            rounded-xl py-4 px-6 mt-6 flex-row justify-center items-center
-                            ${loading ? 'bg-gray-400' : 'bg-black'}
-                        `}
+              rounded-xl py-4 px-6 mt-6 flex-row justify-center items-center
+              ${loading ? 'bg-gray-400' : 'bg-black'}
+            `}
                         onPress={handleSubmit}
                         disabled={loading}
                         activeOpacity={0.8}
@@ -307,12 +308,12 @@ export default function ProfileEditScreen() {
                             <>
                                 <ActivityIndicator size="small" color="#FFFFFF" />
                                 <Text className="text-white text-lg font-medium ml-2">
-                                    updating...
+                                    {tProfile('updating')}
                                 </Text>
                             </>
                         ) : (
                             <Text className="text-white text-lg font-semibold">
-                                update profile
+                                {tProfile('updateProfile')}
                             </Text>
                         )}
                     </TouchableOpacity>

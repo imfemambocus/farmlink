@@ -13,12 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/ui/Header';
 import api from '@/services/api';
-
-const roles = [
-    { label: 'Farmer', value: 'farmer' },
-    { label: 'Individual', value: 'individual' },
-    { label: 'Business', value: 'business' },
-];
+import { useTranslation } from '@/context/LanguageContext';
 
 interface FormErrors {
     [key: string]: string;
@@ -29,33 +24,32 @@ export default function Register() {
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<FormErrors>({});
     const [showPassword, setShowPassword] = useState(false);
+    const { t, tAuth, tValidation, tCommon, getErrorMessage } = useTranslation();
 
-    // Use separate state for form fields, default empty strings
+    const roles = [
+        { label: tAuth('farmer'), value: 'farmer' },
+        { label: tAuth('individual'), value: 'individual' },
+        { label: tAuth('business'), value: 'business' },
+    ];
+
     const [form, setForm] = useState({
         email: '',
         password: '',
         role: 'individual',
-
-        // Farmer fields
         first_name: '',
         last_name: '',
         phone_number: '',
         district: '',
-
-        // Individual fields
         date_of_birth: '',
         street: '',
         city_town: '',
         post_code: '',
-
-        // Business fields
         business_name: '',
         contact_name: '',
     });
 
     const handleChange = (field: string, value: string) => {
         setForm((prev) => ({ ...prev, [field]: value }));
-        // Clear error when user starts typing
         if (errors[field]) {
             setErrors({ ...errors, [field]: '' });
         }
@@ -64,60 +58,56 @@ export default function Register() {
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {};
 
-        // Email validation
         if (!form.email.trim()) {
-            newErrors.email = 'email is required';
+            newErrors.email = tValidation('emailRequired');
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-            newErrors.email = 'please enter a valid email address';
+            newErrors.email = tValidation('validEmail');
         }
 
-        // Password validation
         if (!form.password.trim()) {
-            newErrors.password = 'password is required';
+            newErrors.password = tValidation('passwordRequired');
         } else if (form.password.length < 6) {
-            newErrors.password = 'password must be at least 6 characters';
+            newErrors.password = tValidation('passwordMinLength');
         }
 
-        // Role-specific validations
         if (form.role === 'farmer') {
-            if (!form.first_name.trim()) newErrors.first_name = 'first name is required';
-            if (!form.last_name.trim()) newErrors.last_name = 'last name is required';
+            if (!form.first_name.trim()) newErrors.first_name = tValidation('firstNameRequired');
+            if (!form.last_name.trim()) newErrors.last_name = tValidation('lastNameRequired');
             if (!form.phone_number.trim()) {
-                newErrors.phone_number = 'phone number is required';
+                newErrors.phone_number = tValidation('phoneRequired');
             } else if (!/^\d{7,15}$/.test(form.phone_number.replace(/\s+/g, ''))) {
-                newErrors.phone_number = 'please enter a valid phone number';
+                newErrors.phone_number = tValidation('validPhone');
             }
-            if (!form.district.trim()) newErrors.district = 'district is required';
+            if (!form.district.trim()) newErrors.district = tValidation('districtRequired');
         } else if (form.role === 'individual') {
-            if (!form.first_name.trim()) newErrors.first_name = 'first name is required';
-            if (!form.last_name.trim()) newErrors.last_name = 'last name is required';
-            if (!form.date_of_birth.trim()) newErrors.date_of_birth = 'date of birth is required';
+            if (!form.first_name.trim()) newErrors.first_name = tValidation('firstNameRequired');
+            if (!form.last_name.trim()) newErrors.last_name = tValidation('lastNameRequired');
+            if (!form.date_of_birth.trim()) newErrors.date_of_birth = tValidation('dobRequired');
             if (!form.phone_number.trim()) {
-                newErrors.phone_number = 'phone number is required';
+                newErrors.phone_number = tValidation('phoneRequired');
             } else if (!/^\d{7,15}$/.test(form.phone_number.replace(/\s+/g, ''))) {
-                newErrors.phone_number = 'please enter a valid phone number';
+                newErrors.phone_number = tValidation('validPhone');
             }
-            if (!form.street.trim()) newErrors.street = 'street address is required';
-            if (!form.city_town.trim()) newErrors.city_town = 'city/town is required';
-            if (!form.post_code.trim()) newErrors.post_code = 'post code is required';
+            if (!form.street.trim()) newErrors.street = tValidation('streetRequired');
+            if (!form.city_town.trim()) newErrors.city_town = tValidation('cityRequired');
+            if (!form.post_code.trim()) newErrors.post_code = tValidation('postCodeRequired');
         } else if (form.role === 'business') {
-            if (!form.business_name.trim()) newErrors.business_name = 'business name is required';
-            if (!form.contact_name.trim()) newErrors.contact_name = 'contact name is required';
+            if (!form.business_name.trim()) newErrors.business_name = tValidation('businessNameRequired');
+            if (!form.contact_name.trim()) newErrors.contact_name = tValidation('contactNameRequired');
             if (!form.phone_number.trim()) {
-                newErrors.phone_number = 'phone number is required';
+                newErrors.phone_number = tValidation('phoneRequired');
             } else if (!/^\d{7,15}$/.test(form.phone_number.replace(/\s+/g, ''))) {
-                newErrors.phone_number = 'please enter a valid phone number';
+                newErrors.phone_number = tValidation('validPhone');
             }
-            if (!form.street.trim()) newErrors.street = 'street address is required';
-            if (!form.city_town.trim()) newErrors.city_town = 'city/town is required';
-            if (!form.post_code.trim()) newErrors.post_code = 'post code is required';
+            if (!form.street.trim()) newErrors.street = tValidation('streetRequired');
+            if (!form.city_town.trim()) newErrors.city_town = tValidation('cityRequired');
+            if (!form.post_code.trim()) newErrors.post_code = tValidation('postCodeRequired');
         }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Build payload dynamically based on role
     const buildPayload = () => {
         const base = {
             email: form.email,
@@ -167,16 +157,16 @@ export default function Register() {
             const payload = buildPayload();
             await api.post('/auth/register', payload);
             Alert.alert(
-                'success',
-                'account created successfully! please log in.',
-                [{ text: 'ok', style: 'default' }]
+                tCommon('success'),
+                tAuth('accountCreated'),
+                [{ text: tCommon('ok'), style: 'default' }]
             );
             router.replace('/login');
         } catch (err: any) {
             Alert.alert(
-                'registration failed',
-                err.response?.data?.detail || 'registration failed',
-                [{ text: 'ok', style: 'default' }]
+                tAuth('registrationFailed'),
+                getErrorMessage(err),
+                [{ text: tCommon('ok'), style: 'default' }]
             );
         } finally {
             setLoading(false);
@@ -249,28 +239,25 @@ export default function Register() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="create account"
+                title={tAuth('createAccount')}
                 showBackButton={true}
                 showLogoutButton={false}
             />
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 <View className="px-6 pt-6 pb-8">
-                    {/* Form Header */}
                     <View className="mb-8">
                         <Text className="text-lg text-gray-600 font-sans">
-                            join the farmlink community
+                            {tAuth('joinCommunity')}
                         </Text>
                     </View>
 
-                    {/* Basic Fields */}
-                    {renderInput('email', 'email', 'enter your email', 'email-address', 'mail-outline')}
-                    {renderInput('password', 'password', 'enter your password', 'default', undefined, true)}
+                    {renderInput('email', tAuth('email'), tAuth('enterEmail'), 'email-address', 'mail-outline')}
+                    {renderInput('password', tAuth('password'), tAuth('enterPassword'), 'default', undefined, true)}
 
-                    {/* Role Selector */}
                     <View className="mb-6">
                         <Text className="text-base font-medium mb-3 text-black">
-                            account type
+                            {tAuth('accountType')}
                         </Text>
                         <View className="flex-row gap-2">
                             {roles.map((role) => (
@@ -293,40 +280,38 @@ export default function Register() {
                         </View>
                     </View>
 
-                    {/* Role-specific Fields */}
                     {form.role === 'farmer' && (
                         <>
-                            {renderInput('first_name', 'first name', 'enter your first name', 'default', 'person-outline')}
-                            {renderInput('last_name', 'last name', 'enter your last name', 'default', 'id-card-outline')}
-                            {renderInput('phone_number', 'phone number', '+1234567890', 'phone-pad', 'call-outline')}
-                            {renderInput('district', 'district', 'enter your district', 'default', 'location-outline')}
+                            {renderInput('first_name', tAuth('firstName'), tAuth('enterFirstName'), 'default', 'person-outline')}
+                            {renderInput('last_name', tAuth('lastName'), tAuth('enterLastName'), 'default', 'id-card-outline')}
+                            {renderInput('phone_number', tAuth('phoneNumber'), tAuth('enterPhoneNumber'), 'phone-pad', 'call-outline')}
+                            {renderInput('district', tAuth('district'), tAuth('enterDistrict'), 'default', 'location-outline')}
                         </>
                     )}
 
                     {form.role === 'individual' && (
                         <>
-                            {renderInput('first_name', 'first name', 'enter your first name', 'default', 'person-outline')}
-                            {renderInput('last_name', 'last name', 'enter your last name', 'default', 'id-card-outline')}
-                            {renderInput('date_of_birth', 'date of birth', 'yyyy-mm-dd', 'default', 'calendar-outline')}
-                            {renderInput('phone_number', 'phone number', '+1234567890', 'phone-pad', 'call-outline')}
-                            {renderInput('street', 'street address', 'enter your street address', 'default', 'home-outline')}
-                            {renderInput('city_town', 'city/town', 'enter your city or town', 'default', 'location-outline')}
-                            {renderInput('post_code', 'post code', 'enter your post code', 'default', 'mail-outline')}
+                            {renderInput('first_name', tAuth('firstName'), tAuth('enterFirstName'), 'default', 'person-outline')}
+                            {renderInput('last_name', tAuth('lastName'), tAuth('enterLastName'), 'default', 'id-card-outline')}
+                            {renderInput('date_of_birth', tAuth('dateOfBirth'), tAuth('enterDateOfBirth'), 'default', 'calendar-outline')}
+                            {renderInput('phone_number', tAuth('phoneNumber'), tAuth('enterPhoneNumber'), 'phone-pad', 'call-outline')}
+                            {renderInput('street', tAuth('streetAddress'), tAuth('enterStreetAddress'), 'default', 'home-outline')}
+                            {renderInput('city_town', tAuth('cityTown'), tAuth('enterCityTown'), 'default', 'location-outline')}
+                            {renderInput('post_code', tAuth('postCode'), tAuth('enterPostCode'), 'default', 'mail-outline')}
                         </>
                     )}
 
                     {form.role === 'business' && (
                         <>
-                            {renderInput('business_name', 'business name', 'enter your business name', 'default', 'business-outline')}
-                            {renderInput('contact_name', 'contact name', 'enter contact person name', 'default', 'person-outline')}
-                            {renderInput('phone_number', 'phone number', '+1234567890', 'phone-pad', 'call-outline')}
-                            {renderInput('street', 'street address', 'enter business address', 'default', 'home-outline')}
-                            {renderInput('city_town', 'city/town', 'enter city or town', 'default', 'location-outline')}
-                            {renderInput('post_code', 'post code', 'enter post code', 'default', 'mail-outline')}
+                            {renderInput('business_name', tAuth('businessName'), tAuth('enterBusinessName'), 'default', 'business-outline')}
+                            {renderInput('contact_name', tAuth('contactName'), tAuth('enterContactName'), 'default', 'person-outline')}
+                            {renderInput('phone_number', tAuth('phoneNumber'), tAuth('enterPhoneNumber'), 'phone-pad', 'call-outline')}
+                            {renderInput('street', tAuth('streetAddress'), tAuth('enterBusinessAddress'), 'default', 'home-outline')}
+                            {renderInput('city_town', tAuth('cityTown'), tAuth('enterCityTown'), 'default', 'location-outline')}
+                            {renderInput('post_code', tAuth('postCode'), tAuth('enterPostCode'), 'default', 'mail-outline')}
                         </>
                     )}
 
-                    {/* Register Button */}
                     <TouchableOpacity
                         className={`
                             rounded-xl py-4 px-6 mt-6 mb-6 flex-row justify-center items-center
@@ -340,32 +325,31 @@ export default function Register() {
                             <>
                                 <ActivityIndicator size="small" color="#FFFFFF" />
                                 <Text className="text-white text-lg font-medium ml-2">
-                                    creating account...
+                                    {tAuth('creatingAccount')}
                                 </Text>
                             </>
                         ) : (
                             <Text className="text-white text-lg font-semibold">
-                                create account
+                                {tAuth('createAccount')}
                             </Text>
                         )}
                     </TouchableOpacity>
 
-                    {/* Login Link */}
                     <View className="items-center">
                         <TouchableOpacity
                             onPress={() => router.push('/login')}
                             activeOpacity={0.7}
                         >
                             <Text className="text-base font-sans text-gray-600">
-                                already have an account?{' '}
+                                {tAuth('alreadyHaveAccount')}{' '}
                                 <Text className="text-success font-medium">
-                                    log in
+                                    {t('intro.login')}
                                 </Text>
                             </Text>
                         </TouchableOpacity>
 
                         <Text className="text-xs mt-4 text-gray-400 font-sans">
-                            © IMFE Studio
+                            {t('intro.copyright')}
                         </Text>
                     </View>
                 </View>

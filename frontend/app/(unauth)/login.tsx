@@ -12,6 +12,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/ui/Header';
+import { useTranslation } from '@/context/LanguageContext';
 
 interface FormErrors {
     [key: string]: string;
@@ -26,22 +27,21 @@ export default function Login() {
 
     const { login } = useContext(AuthContext);
     const router = useRouter();
+    const { t, tAuth, tValidation, tCommon, getErrorMessage } = useTranslation();
 
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {};
 
-        // Email validation
         if (!email.trim()) {
-            newErrors.email = 'email is required';
+            newErrors.email = tValidation('emailRequired');
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            newErrors.email = 'please enter a valid email address';
+            newErrors.email = tValidation('validEmail');
         }
 
-        // Password validation
         if (!password.trim()) {
-            newErrors.password = 'password is required';
+            newErrors.password = tValidation('passwordRequired');
         } else if (password.length < 6) {
-            newErrors.password = 'password must be at least 6 characters';
+            newErrors.password = tValidation('passwordMinLength');
         }
 
         setErrors(newErrors);
@@ -58,9 +58,9 @@ export default function Login() {
             await login(email, password);
         } catch (err: any) {
             Alert.alert(
-                'login failed',
-                err.response?.data?.detail || 'invalid credentials',
-                [{ text: 'ok', style: 'default' }]
+                tAuth('loginFailed'),
+                getErrorMessage(err),
+                [{ text: tCommon('ok'), style: 'default' }]
             );
         } finally {
             setLoading(false);
@@ -76,26 +76,23 @@ export default function Login() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="welcome back"
+                title={tAuth('welcomeBack')}
                 showBackButton={true}
                 showLogoutButton={false}
             />
 
             <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 <View className="flex-1 justify-center px-6 pt-8">
-                    {/* Form Header */}
                     <View className="mb-8">
                         <Text className="text-lg text-gray-600 font-sans">
-                            sign in to your account
+                            {tAuth('signInToAccount')}
                         </Text>
                     </View>
 
-                    {/* Form */}
                     <View className="mb-8">
-                        {/* Email Input */}
                         <View className="mb-5">
                             <Text className="text-base font-medium mb-2 text-black">
-                                email
+                                {tAuth('email')}
                             </Text>
                             <View className="relative">
                                 <TextInput
@@ -108,7 +105,7 @@ export default function Login() {
                                         paddingVertical: 0,
                                         textAlignVertical: 'center'
                                     }}
-                                    placeholder="enter your email"
+                                    placeholder={tAuth('enterEmail')}
                                     placeholderTextColor="#666666"
                                     value={email}
                                     onChangeText={(text) => {
@@ -134,10 +131,9 @@ export default function Login() {
                             )}
                         </View>
 
-                        {/* Password Input */}
                         <View className="mb-6">
                             <Text className="text-base font-medium mb-2 text-black">
-                                password
+                                {tAuth('password')}
                             </Text>
                             <View className="relative">
                                 <TextInput
@@ -150,7 +146,7 @@ export default function Login() {
                                         paddingVertical: 0,
                                         textAlignVertical: 'center'
                                     }}
-                                    placeholder="enter your password"
+                                    placeholder={tAuth('enterPassword')}
                                     placeholderTextColor="#666666"
                                     value={password}
                                     onChangeText={(text) => {
@@ -181,7 +177,6 @@ export default function Login() {
                             )}
                         </View>
 
-                        {/* Login Button */}
                         <TouchableOpacity
                             className={`
                             rounded-xl py-4 px-6 flex-row justify-center items-center
@@ -195,36 +190,34 @@ export default function Login() {
                                 <>
                                     <ActivityIndicator size="small" color="#FFFFFF" />
                                     <Text className="text-white text-lg font-medium ml-2">
-                                        signing in...
+                                        {tAuth('signingIn')}
                                     </Text>
                                 </>
                             ) : (
                                 <Text className="text-white text-lg font-semibold">
-                                    log in
+                                    {t('intro.login')}
                                 </Text>
                             )}
                         </TouchableOpacity>
                     </View>
 
-                    {/* Register Link */}
                     <View className="items-center mb-8">
                         <TouchableOpacity
                             onPress={() => router.push('/register')}
                             activeOpacity={0.7}
                         >
                             <Text className="text-base font-sans text-gray-600">
-                                don't have an account?{' '}
+                                {tAuth('dontHaveAccount')}{' '}
                                 <Text className="text-success font-medium">
-                                    register
+                                    {t('intro.register')}
                                 </Text>
                             </Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Footer */}
                     <View className="items-center pb-8">
                         <Text className="text-xs text-gray-400 font-sans">
-                            © IMFE Studio
+                            {t('intro.copyright')}
                         </Text>
                     </View>
                 </View>

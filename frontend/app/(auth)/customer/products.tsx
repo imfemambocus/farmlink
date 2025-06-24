@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
-import FloatingActionButton from '@/components/ui/FloatingActionButton'; // Updated with voice
+import FloatingActionButton from '@/components/ui/FloatingActionButton';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,16 +59,11 @@ interface AlertState {
     }>;
 }
 
-const categories = [
-    { value: '', label: 'all categories' },
-    { value: 'fruits', label: 'fruits' },
-    { value: 'vegetables', label: 'vegetables' }
-];
-
 export default function ProductsScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const { user } = useContext(AuthContext);
+    const { tDashboard, tCustomer, tCommon } = useTranslation();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -94,6 +90,12 @@ export default function ProductsScreen() {
         buttons: []
     });
 
+    const categories = [
+        { value: '', label: tCustomer('allCategories') },
+        { value: 'fruits', label: tDashboard('fruits') },
+        { value: 'vegetables', label: tDashboard('vegetables') }
+    ];
+
     const showAlert = (
         type: 'success' | 'error' | 'warning' | 'info',
         title: string,
@@ -117,7 +119,6 @@ export default function ProductsScreen() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
-    // Voice input handlers
     const handleVoiceResult = (data: any) => {
         if (data?.searchTerm) {
             setSearchText(data.searchTerm);
@@ -125,14 +126,13 @@ export default function ProductsScreen() {
         if (data?.products) {
             showAlert(
                 'success',
-                'Voice Search',
-                `Found ${data.products.length} products matching your search.`,
-                [{ text: 'OK', onPress: hideAlert, style: 'cancel' }]
+                tCustomer('voiceSearch'),
+                tCustomer('foundProductsMatching', { count: data.products.length }),
+                [{ text: tCommon('ok'), onPress: hideAlert, style: 'cancel' }]
             );
         }
     };
 
-    // Debounce search function
     const debounceSearch = useCallback(
         (() => {
             let timeoutId: number;
@@ -152,16 +152,13 @@ export default function ProductsScreen() {
             return;
         }
 
-        // Set initial search term from voice command or navigation params
         if (params.searchTerm) {
             setSearchText(params.searchTerm as string);
         }
 
-        // Load initial data
         fetchAllDistricts();
         fetchProducts(true);
 
-        // Listen for screen dimension changes
         const subscription = Dimensions.addEventListener('change', ({ window }) => {
             setScreenWidth(window.width);
         });
@@ -169,19 +166,16 @@ export default function ProductsScreen() {
         return () => subscription?.remove();
     }, [user, params.searchTerm]);
 
-    // Trigger search when activeFilters change
     useEffect(() => {
         if (!loading) {
             fetchProducts(true);
         }
     }, [activeFilters]);
 
-    // Handle search text changes with debouncing
     useEffect(() => {
         debounceSearch(searchText);
     }, [searchText, debounceSearch]);
 
-    // Fetch all districts separately to keep them persistent
     const fetchAllDistricts = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
@@ -221,7 +215,7 @@ export default function ProductsScreen() {
             }
 
             if (isNewSearch) {
-                setLoading(products.length === 0); // Only show loading spinner on initial load
+                setLoading(products.length === 0);
             } else {
                 setLoadingMore(true);
             }
@@ -254,9 +248,9 @@ export default function ProductsScreen() {
             console.error('Error fetching products:', error);
             showAlert(
                 'error',
-                'error',
-                'failed to load products',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
+                tCommon('error'),
+                tCustomer('failedToLoadProducts'),
+                [{ text: tCommon('ok'), onPress: hideAlert, style: 'cancel' }]
             );
         } finally {
             setLoading(false);
@@ -378,7 +372,7 @@ export default function ProductsScreen() {
                     <Text className={`text-sm font-medium ${
                         activeFilters.district === '' ? 'text-black' : 'text-gray-600'
                     }`}>
-                        all districts
+                        {tCustomer('allDistricts')}
                     </Text>
                 </TouchableOpacity>
 
@@ -409,22 +403,22 @@ export default function ProductsScreen() {
     const EmptyProductsComponent = () => (
         <View className="flex-1 justify-center items-center px-6 py-20">
             <Text className="text-xl font-medium text-black mb-2 text-center">
-                no products found
+                {tCustomer('noProductsFound')}
             </Text>
             <Text className="text-gray-600 text-center mb-6">
                 {searchText || activeFilters.category || activeFilters.district
-                    ? 'try adjusting your search or filters'
-                    : 'no products are currently available'
+                    ? tCustomer('adjustSearchFilters')
+                    : tCustomer('noProductsCurrentlyAvailable')
                 }
             </Text>
             {(searchText || activeFilters.category || activeFilters.district) && (
                 <TouchableOpacity
                     onPress={handleClearFilters}
-                    className="bg-action-green px-6 py-3 rounded-xl"
+                    className="bg-background px-6 py-3 rounded-xl"
                     activeOpacity={0.7}
                 >
-                    <Text className="text-white font-medium">
-                        clear filters
+                    <Text className="text-black font-medium">
+                        {tCustomer('clearFilters')}
                     </Text>
                 </TouchableOpacity>
             )}
@@ -435,7 +429,7 @@ export default function ProductsScreen() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title="products"
+                    title={tCustomer('products')}
                     showBackButton={true}
                     showCartButton={true}
                     showOrdersButton={true}
@@ -444,7 +438,7 @@ export default function ProductsScreen() {
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading products...</Text>
+                    <Text className="text-gray-600 mt-4">{tCustomer('loadingProducts')}</Text>
                 </View>
             </View>
         );
@@ -453,7 +447,7 @@ export default function ProductsScreen() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="products"
+                title={tCustomer('products')}
                 showBackButton={true}
                 showCartButton={true}
                 showOrdersButton={true}
@@ -473,7 +467,6 @@ export default function ProductsScreen() {
                 }
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {/* Search Bar */}
                 <View className="px-5 pt-6 pb-4">
                     <View className="mb-4">
                         <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
@@ -481,7 +474,7 @@ export default function ProductsScreen() {
                             <TextInput
                                 value={searchText}
                                 onChangeText={setSearchText}
-                                placeholder="search products..."
+                                placeholder={tCustomer('searchProducts')}
                                 className="flex-1 ml-3 text-base text-black leading-[1.2]"
                                 autoCorrect={false}
                                 autoCapitalize="none"
@@ -498,35 +491,30 @@ export default function ProductsScreen() {
                         </View>
                     </View>
 
-                    {/* Voice Command Hint */}
                     <View className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                         <View className="flex-row items-center">
                             <Ionicons name="mic" size={16} color="#2563eb" />
                             <Text className="text-blue-700 text-sm font-medium ml-2">
-                                did you know?
+                                {tCustomer('didYouKnow')}
                             </Text>
                         </View>
                         <Text className="text-blue-600 text-xs mt-1">
-                            You can use the Voice Command button as an alternative to browse, add to cart or order items.
+                            {tCustomer('voiceCommandHint')}
                         </Text>
                     </View>
 
-                    {/* Results Summary */}
                     <Text className="text-sm text-gray-600">
-                        {pagination.total} product{pagination.total !== 1 ? 's' : ''} found
-                        {activeFilters.search && ` for "${activeFilters.search}"`}
-                        {activeFilters.category && ` in ${activeFilters.category}`}
-                        {activeFilters.district && ` from ${activeFilters.district}`}
+                        {pagination.total} {pagination.total === 1 ? tCustomer('productFound') : tCustomer('productsFound')}
+                        {activeFilters.search && ` ${tCustomer('forSearch', { search: activeFilters.search })}`}
+                        {activeFilters.category && ` ${tCustomer('inCategory', { category: activeFilters.category })}`}
+                        {activeFilters.district && ` ${tCustomer('fromDistrict', { district: activeFilters.district })}`}
                     </Text>
                 </View>
 
-                {/* Category Filter */}
                 <CategoryFilter />
 
-                {/* District Filter */}
                 <DistrictFilter />
 
-                {/* Products Grid */}
                 <View className="px-5">
                     {products.length === 0 ? (
                         <EmptyProductsComponent />
@@ -547,13 +535,11 @@ export default function ProductsScreen() {
                 </View>
             </ScrollView>
 
-            {/* Voice Command Floating Action Button */}
             <FloatingActionButton
                 showVoice={true}
                 onResult={handleVoiceResult}
             />
 
-            {/* Custom Alert */}
             <CustomAlert
                 visible={alert.visible}
                 type={alert.type}

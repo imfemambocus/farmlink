@@ -1,4 +1,3 @@
-// app/(auth)/farmer/homepage.tsx - Horizontal Slider Picker Version
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -15,6 +14,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import StatCard from '@/components/farmer/StatCard';
 import ProductCard from '@/components/farmer/ProductCard';
@@ -67,6 +67,7 @@ type PickerType = 'sales' | 'revenue' | null;
 export default function FarmerDashboard() {
     const router = useRouter();
     const { user } = useContext(AuthContext);
+    const { t, tDashboard, tCommon } = useTranslation();
     const [products, setProducts] = useState<Product[]>([]);
     const [stats, setStats] = useState<DashboardStats>({
         totalProducts: 0,
@@ -84,7 +85,7 @@ export default function FarmerDashboard() {
     const [loadingSales, setLoadingSales] = useState(false);
     const [loadingRevenue, setLoadingRevenue] = useState(false);
     const [activePicker, setActivePicker] = useState<PickerType>(null);
-    const [slideAnim] = useState(new Animated.Value(300)); // Start below screen
+    const [slideAnim] = useState(new Animated.Value(300));
     const [alert, setAlert] = useState<AlertState>({
         visible: false,
         type: 'info',
@@ -93,7 +94,6 @@ export default function FarmerDashboard() {
         buttons: []
     });
 
-    // Define which items are fruits vs vegetables
     const fruitItems = new Set([
         'apple', 'banana', 'orange', 'mango', 'pineapple', 'papaya',
         'guava', 'lychee', 'coconut', 'lemon', 'lime', 'watermelon',
@@ -108,22 +108,22 @@ export default function FarmerDashboard() {
     ]);
 
     const timePeriodOptions = [
-        { key: 'this_week' as TimePeriod, label: 'this week', short: 'week' },
-        { key: 'this_month' as TimePeriod, label: 'this month', short: 'month' },
-        { key: 'this_year' as TimePeriod, label: 'this year', short: 'year' },
-        { key: 'all_time' as TimePeriod, label: 'all time', short: 'all' },
-        { key: 'january' as TimePeriod, label: 'january', short: 'jan' },
-        { key: 'february' as TimePeriod, label: 'february', short: 'feb' },
-        { key: 'march' as TimePeriod, label: 'march', short: 'mar' },
-        { key: 'april' as TimePeriod, label: 'april', short: 'apr' },
-        { key: 'may' as TimePeriod, label: 'may', short: 'may' },
-        { key: 'june' as TimePeriod, label: 'june', short: 'jun' },
-        { key: 'july' as TimePeriod, label: 'july', short: 'jul' },
-        { key: 'august' as TimePeriod, label: 'august', short: 'aug' },
-        { key: 'september' as TimePeriod, label: 'september', short: 'sep' },
-        { key: 'october' as TimePeriod, label: 'october', short: 'oct' },
-        { key: 'november' as TimePeriod, label: 'november', short: 'nov' },
-        { key: 'december' as TimePeriod, label: 'december', short: 'dec' },
+        { key: 'this_week' as TimePeriod, label: tDashboard('thisWeek'), short: tDashboard('thisWeek') },
+        { key: 'this_month' as TimePeriod, label: tDashboard('thisMonth'), short: tDashboard('thisMonth') },
+        { key: 'this_year' as TimePeriod, label: tDashboard('thisYear'), short: tDashboard('thisYear') },
+        { key: 'all_time' as TimePeriod, label: tDashboard('allTime'), short: tDashboard('allTime') },
+        { key: 'january' as TimePeriod, label: tDashboard('january'), short: tDashboard('january') },
+        { key: 'february' as TimePeriod, label: tDashboard('february'), short: tDashboard('february') },
+        { key: 'march' as TimePeriod, label: tDashboard('march'), short: tDashboard('march') },
+        { key: 'april' as TimePeriod, label: tDashboard('april'), short: tDashboard('april') },
+        { key: 'may' as TimePeriod, label: tDashboard('may'), short: tDashboard('may') },
+        { key: 'june' as TimePeriod, label: tDashboard('june'), short: tDashboard('june') },
+        { key: 'july' as TimePeriod, label: tDashboard('july'), short: tDashboard('july') },
+        { key: 'august' as TimePeriod, label: tDashboard('august'), short: tDashboard('august') },
+        { key: 'september' as TimePeriod, label: tDashboard('september'), short: tDashboard('september') },
+        { key: 'october' as TimePeriod, label: tDashboard('october'), short: tDashboard('october') },
+        { key: 'november' as TimePeriod, label: tDashboard('november'), short: tDashboard('november') },
+        { key: 'december' as TimePeriod, label: tDashboard('december'), short: tDashboard('december') },
     ];
 
     const showAlert = (
@@ -149,7 +149,6 @@ export default function FarmerDashboard() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
-    // Slider Picker Functions
     const showPicker = (type: PickerType) => {
         setActivePicker(type);
         Animated.spring(slideAnim, {
@@ -190,7 +189,6 @@ export default function FarmerDashboard() {
         }
         fetchDashboardData();
 
-        // Listen for screen dimension changes
         const subscription = Dimensions.addEventListener('change', ({ window }) => {
             setScreenWidth(window.width);
         });
@@ -198,14 +196,12 @@ export default function FarmerDashboard() {
         return () => subscription?.remove();
     }, [user]);
 
-    // Separate effect for sales period changes
     useEffect(() => {
         if (user?.role === 'farmer') {
             fetchSalesData();
         }
     }, [salesTimePeriod, user]);
 
-    // Separate effect for revenue period changes
     useEffect(() => {
         if (user?.role === 'farmer') {
             fetchRevenueData();
@@ -220,25 +216,21 @@ export default function FarmerDashboard() {
                 return;
             }
 
-            // Fetch farmer's products
             const productsResponse = await api.get('/products/my', {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             setProducts(productsResponse.data || []);
 
-            // Calculate basic stats from products
             const totalProducts = (productsResponse.data || []).length;
             const activeProducts = (productsResponse.data || []).filter((p: Product) => p.is_active).length;
 
-            // Update product stats
             setStats(prev => ({
                 ...prev,
                 totalProducts,
                 activeProducts
             }));
 
-            // Fetch sales and revenue data
             await Promise.all([
                 fetchSalesData(),
                 fetchRevenueData()
@@ -248,9 +240,9 @@ export default function FarmerDashboard() {
             console.error('Error fetching dashboard data:', error);
             showAlert(
                 'error',
-                'error',
-                'failed to load dashboard data',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
+                tDashboard('error'),
+                tDashboard('failedToLoadDashboard'),
+                [{ text: tCommon('ok'), onPress: hideAlert, style: 'cancel' }]
             );
         } finally {
             setLoading(false);
@@ -340,14 +332,12 @@ export default function FarmerDashboard() {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            // Update local state
             setProducts(prev =>
                 prev.map(p =>
                     p.id === productId ? { ...p, is_active: newStatus } : p
                 )
             );
 
-            // Update stats
             setStats(prev => ({
                 ...prev,
                 activeProducts: prev.activeProducts + (newStatus ? 1 : -1)
@@ -355,18 +345,18 @@ export default function FarmerDashboard() {
 
             showAlert(
                 'success',
-                'success',
-                `product ${newStatus ? 'listed' : 'unlisted'} successfully`,
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
+                tDashboard('success'),
+                newStatus ? tDashboard('productListedSuccessfully') : tDashboard('productUnlistedSuccessfully'),
+                [{ text: tCommon('ok'), onPress: hideAlert, style: 'cancel' }]
             );
 
         } catch (error: any) {
             console.error('Error updating product status:', error);
             showAlert(
                 'error',
-                'error',
-                'failed to update product status',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
+                tDashboard('error'),
+                tDashboard('failedToUpdateStatus'),
+                [{ text: tCommon('ok'), onPress: hideAlert, style: 'cancel' }]
             );
         }
     };
@@ -377,20 +367,20 @@ export default function FarmerDashboard() {
                 case 'fruits':
                     return {
                         emoji: '🍎',
-                        title: 'no fruits yet',
-                        subtitle: 'you haven\'t listed any fruits for sale'
+                        title: tDashboard('noFruits'),
+                        subtitle: tDashboard('noFruitsListed')
                     };
                 case 'vegetables':
                     return {
                         emoji: '🥕',
-                        title: 'no vegetables yet',
-                        subtitle: 'you haven\'t listed any vegetables for sale'
+                        title: tDashboard('noVegetables'),
+                        subtitle: tDashboard('noVegetablesListed')
                     };
                 default:
                     return {
                         emoji: '🌱',
-                        title: 'no products yet',
-                        subtitle: 'start by adding your first product to begin selling on farmlink'
+                        title: tDashboard('noProducts'),
+                        subtitle: tDashboard('startAdding')
                     };
             }
         };
@@ -431,14 +421,12 @@ export default function FarmerDashboard() {
         </TouchableOpacity>
     );
 
-    // Calculate number of columns based on screen width
     const getNumColumns = () => {
         if (screenWidth < 390) return 1;
         if (screenWidth < 768) return 2;
         return 3;
     };
 
-    // Filter products based on active tab
     const getFilteredProducts = () => {
         if (activeTab === 'all') return products;
         if (activeTab === 'fruits') {
@@ -475,21 +463,21 @@ export default function FarmerDashboard() {
 
     const getSalesTimePeriodLabel = (): string => {
         const option = timePeriodOptions.find(opt => opt.key === salesTimePeriod);
-        return option ? option.label.toLowerCase() : 'this month';
+        return option ? option.label.toLowerCase() : tDashboard('thisMonth');
     };
 
     const getRevenueTimePeriodLabel = (): string => {
         const option = timePeriodOptions.find(opt => opt.key === revenueTimePeriod);
-        return option ? option.label.toLowerCase() : 'this month';
+        return option ? option.label.toLowerCase() : tDashboard('thisMonth');
     };
 
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title="dashboard" showSettingsButton={true} showOrdersButton={true} />
+                <Header title={tCommon('dashboard')} showSettingsButton={true} showOrdersButton={true} />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading dashboard...</Text>
+                    <Text className="text-gray-600 mt-4">{tDashboard('loadingDashboard')}</Text>
                 </View>
             </View>
         );
@@ -500,7 +488,7 @@ export default function FarmerDashboard() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="dashboard"
+                title={tCommon('dashboard')}
                 showSettingsButton={true}
                 showOrdersButton={true}
                 showNotificationButton={true}
@@ -518,39 +506,34 @@ export default function FarmerDashboard() {
                 }
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {/* Welcome Section */}
                 <View className="px-5 pt-6 pb-4">
                     <Text className="text-xl font-semibold text-black mb-2">
-                        welcome back, {user?.farmer_profile?.first_name.toLowerCase()}!
+                        {tDashboard('welcomeBack')}, {user?.farmer_profile?.first_name.toLowerCase()}!
                     </Text>
                     <Text className="text-base text-gray-600">
-                        here&#39;s your farm&#39;s performance overview
+                        {tDashboard('farmPerformance')}
                     </Text>
                 </View>
 
-                {/* Statistics Cards - WITH HORIZONTAL SLIDER PICKER */}
                 <View className="px-5 mb-6">
                     <View className="flex-row mb-3">
                         <StatCard
-                            title="total products"
+                            title={tDashboard('totalProducts')}
                             value={stats.totalProducts}
                             icon="leaf-outline"
                             color="#4CAF50"
                         />
                         <StatCard
-                            title="active listings"
+                            title={tDashboard('activeListings')}
                             value={stats.activeProducts}
                             icon="checkmark-circle-outline"
                             color="#2196F3"
                         />
                     </View>
 
-                    {/* Bottom Row with Horizontal Slider Triggers */}
                     <View className="flex-row gap-2">
-                        {/* Sales Card */}
                         <View className="flex-1">
                             <View className="bg-white rounded-xl p-4 border border-gray-200 relative" style={{ height: 120, overflow: 'hidden' }}>
-                                {/* Background Icon */}
                                 <View
                                     className="absolute rounded-full items-center justify-center"
                                     style={{
@@ -564,11 +547,9 @@ export default function FarmerDashboard() {
                                     <Ionicons name="bag-handle-outline" size={30} color="#FF980060" />
                                 </View>
 
-                                {/* Content */}
                                 <View className="flex-1 justify-between relative z-10">
-                                    {/* Header with 3-dots Button */}
                                     <View className="flex-row items-center justify-between mb-2">
-                                        <Text className="text-sm font-medium text-gray-700">total sales</Text>
+                                        <Text className="text-sm font-medium text-gray-700">{tDashboard('totalSales')}</Text>
                                         <TouchableOpacity
                                             onPress={() => showPicker('sales')}
                                             className="p-1"
@@ -583,17 +564,14 @@ export default function FarmerDashboard() {
                                         </TouchableOpacity>
                                     </View>
 
-                                    {/* Main Value */}
                                     <Text className="text-2xl font-bold text-black" style={{ marginTop: 8 }}>
                                         {loadingSales ? "..." : stats.totalSales}
                                     </Text>
 
-                                    {/* Subtitle with period */}
                                     <Text className="text-xs text-gray-500" style={{ marginTop: 4 }}>
                                         {getSalesTimePeriodLabel()}
                                     </Text>
 
-                                    {/* Loading Indicator */}
                                     {loadingSales && (
                                         <View className="absolute top-2 right-8">
                                             <ActivityIndicator size={12} color="#FF9800" />
@@ -603,10 +581,8 @@ export default function FarmerDashboard() {
                             </View>
                         </View>
 
-                        {/* Revenue Card */}
                         <View className="flex-1">
                             <View className="bg-white rounded-xl p-4 border border-gray-200 relative" style={{ height: 120, overflow: 'hidden' }}>
-                                {/* Background Icon */}
                                 <View
                                     className="absolute rounded-full items-center justify-center"
                                     style={{
@@ -620,11 +596,9 @@ export default function FarmerDashboard() {
                                     <Ionicons name="trending-up-outline" size={30} color="#9C27B060" />
                                 </View>
 
-                                {/* Content */}
                                 <View className="flex-1 justify-between relative z-10">
-                                    {/* Header with 3-dots Button */}
                                     <View className="flex-row items-center justify-between mb-2">
-                                        <Text className="text-sm font-medium text-gray-700">revenue</Text>
+                                        <Text className="text-sm font-medium text-gray-700">{tDashboard('revenue')}</Text>
                                         <TouchableOpacity
                                             onPress={() => showPicker('revenue')}
                                             className="p-1"
@@ -639,24 +613,21 @@ export default function FarmerDashboard() {
                                         </TouchableOpacity>
                                     </View>
 
-                                    {/* Main Value */}
                                     <Text className="text-2xl font-bold text-black" style={{ marginTop: 8 }}>
-                                        {loadingRevenue ? "..." : `rs ${stats.netRevenue.toFixed(0)}`}
+                                        {loadingRevenue ? "..." : `${t('units.rs')} ${stats.netRevenue.toFixed(0)}`}
                                     </Text>
 
-                                    {/* Subtitle with period and gross revenue */}
                                     <View style={{ marginTop: 4 }}>
                                         <Text className="text-xs text-gray-500">
                                             {getRevenueTimePeriodLabel()}
                                         </Text>
                                         {!loadingRevenue && (
                                             <Text className="text-xs text-gray-400">
-                                                gross: rs {stats.grossRevenue.toFixed(0)}
+                                                {tDashboard('gross')}: {t('units.rs')} {stats.grossRevenue.toFixed(0)}
                                             </Text>
                                         )}
                                     </View>
 
-                                    {/* Loading Indicator */}
                                     {loadingRevenue && (
                                         <View className="absolute top-2 right-8">
                                             <ActivityIndicator size={12} color="#9C27B0" />
@@ -668,34 +639,32 @@ export default function FarmerDashboard() {
                     </View>
                 </View>
 
-                {/* Products Section */}
                 <View className="px-5">
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-lg font-medium text-black">
-                            my products
+                            {tDashboard('myProducts')}
                         </Text>
                         <Text className="text-sm text-gray-500">
-                            {filteredProducts.length} {activeTab === 'all' ? 'total' : activeTab}
+                            {filteredProducts.length} {activeTab === 'all' ? tDashboard('total') : tDashboard(activeTab)}
                         </Text>
                     </View>
 
-                    {/* Tab Navigation */}
                     <View className="flex-row mb-6 rounded-lg flex gap-2">
                         <TabButton
                             tab="all"
-                            title="all"
+                            title={tDashboard('total')}
                             isActive={activeTab === 'all'}
                             onPress={() => setActiveTab('all')}
                         />
                         <TabButton
                             tab="fruits"
-                            title="fruits"
+                            title={tDashboard('fruits')}
                             isActive={activeTab === 'fruits'}
                             onPress={() => setActiveTab('fruits')}
                         />
                         <TabButton
                             tab="vegetables"
-                            title="vegetables"
+                            title={tDashboard('vegetables')}
                             isActive={activeTab === 'vegetables'}
                             onPress={() => setActiveTab('vegetables')}
                         />
@@ -717,13 +686,11 @@ export default function FarmerDashboard() {
                 )}
             </ScrollView>
 
-            {/* Floating Action Button */}
             <FloatingActionButton
                 onPress={handleAddProduct}
                 icon="add"
             />
 
-            {/* Horizontal Slider Picker Modal */}
             <Modal
                 visible={activePicker !== null}
                 transparent={true}
@@ -743,7 +710,6 @@ export default function FarmerDashboard() {
                                 paddingTop: 20
                             }}
                         >
-                            {/* Handle Bar */}
                             <View className="items-center mb-4">
                                 <View
                                     className="bg-gray-300 rounded-full"
@@ -751,14 +717,12 @@ export default function FarmerDashboard() {
                                 />
                             </View>
 
-                            {/* Title */}
                             <View className="px-6 mb-6">
                                 <Text className="text-lg font-semibold text-black text-center">
-                                    select {activePicker === 'sales' ? 'sales' : 'revenue'} period
+                                    {activePicker === 'sales' ? tDashboard('selectSalesPeriod') : tDashboard('selectRevenuePeriod')}
                                 </Text>
                             </View>
 
-                            {/* Horizontal Options Slider */}
                             <ScrollView
                                 horizontal
                                 showsHorizontalScrollIndicator={false}
@@ -795,7 +759,6 @@ export default function FarmerDashboard() {
                                 })}
                             </ScrollView>
 
-                            {/* Close Button */}
                             <View className="px-6 mt-6">
                                 <TouchableOpacity
                                     onPress={hidePicker}
@@ -803,7 +766,7 @@ export default function FarmerDashboard() {
                                     activeOpacity={0.7}
                                 >
                                     <Text className="text-center font-medium text-gray-700">
-                                        close
+                                        {tDashboard('close')}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -812,7 +775,6 @@ export default function FarmerDashboard() {
                 </TouchableWithoutFeedback>
             </Modal>
 
-            {/* Custom Alert */}
             <CustomAlert
                 visible={alert.visible}
                 type={alert.type}

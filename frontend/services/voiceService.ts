@@ -1,8 +1,8 @@
-// services/voiceService.ts - Fixed with better error handling
 import Voice, { SpeechResultsEvent, SpeechErrorEvent } from '@react-native-voice/voice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/api';
 import { Platform } from 'react-native';
+import { translations, getNestedTranslation } from '@/constants/translations';
 
 interface VoiceCommand {
     action: 'search' | 'add' | 'checkout' | 'unknown';
@@ -42,7 +42,6 @@ class VoiceInputService {
     private recognizedText = '';
     private isInitialized = false;
 
-    // Common product mappings for Mauritian context
     private productMappings = new Map([
         ['tomato', ['tomato', 'tomate']],
         ['potato', ['potato', 'pomme de terre']],
@@ -81,7 +80,6 @@ class VoiceInputService {
         ['strawberry', ['strawberry', 'fraise']]
     ]);
 
-    // Unit mappings
     private unitMappings = new Map([
         ['kilogram', ['kg', 'kilo', 'kilogram', 'kilograms']],
         ['gram', ['g', 'gram', 'grams', 'gramme', 'grammes']],
@@ -91,7 +89,6 @@ class VoiceInputService {
         ['basket', ['basket', 'baskets', 'panier']]
     ]);
 
-    // Mauritian districts
     private districts = [
         'port louis', 'beau bassin-rose hill', 'vacoas-phoenix', 'curepipe', 'quatre bornes',
         'triolet', 'goodlands', 'centre de flacq', 'mahebourg', 'saint pierre', 'rose belle',
@@ -99,15 +96,33 @@ class VoiceInputService {
         'moka', 'plaines wilhems', 'riviere noire', 'savanne', 'flacq'
     ];
 
-    constructor() {
-        // Initialize but don't set up listeners immediately
+    constructor() {}
+
+    private getCurrentLanguage(): 'en' | 'fr' {
+        return 'en';
+    }
+
+    private t(key: string, params?: Record<string, string | number>): string {
+        const language = this.getCurrentLanguage();
+        const translation = getNestedTranslation(translations[language], key);
+
+        if (!params) {
+            return translation;
+        }
+
+        let result = translation;
+        Object.entries(params).forEach(([paramKey, paramValue]) => {
+            const placeholder = `{${paramKey}}`;
+            result = result.replace(new RegExp(placeholder, 'g'), String(paramValue));
+        });
+
+        return result;
     }
 
     private async initializeVoice() {
         if (this.isInitialized) return;
 
         try {
-            // Check if voice is available on this platform
             if (Platform.OS === 'web') {
                 console.warn('Voice recognition not available on web platform');
                 return;
@@ -123,7 +138,7 @@ class VoiceInputService {
             console.log('🎤 Voice service initialized successfully');
         } catch (error) {
             console.error('Voice initialization error:', error);
-            throw new Error('Voice recognition not available on this device');
+            throw new Error(this.t('voice.voiceNotAvailable'));
         }
     }
 
@@ -153,9 +168,6 @@ class VoiceInputService {
         }
     };
 
-    /**
-     * Start listening for voice input
-     */
     async startListening(): Promise<void> {
         try {
             await this.initializeVoice();
@@ -164,20 +176,16 @@ class VoiceInputService {
                 await this.stopListening();
             }
 
-            // Reset recognized text
             this.recognizedText = '';
 
             await Voice.start('en-US');
             this.isListening = true;
         } catch (error) {
             console.error('Error starting voice recognition:', error);
-            throw new Error('Failed to start voice recognition. Please check your microphone permissions.');
+            throw new Error(this.t('voice.failedToStart'));
         }
     }
 
-    /**
-     * Stop listening and return recognized text
-     */
     async stopListening(): Promise<string> {
         try {
             if (this.isListening) {
@@ -192,9 +200,6 @@ class VoiceInputService {
         }
     }
 
-    /**
-     * Process voice command and execute action
-     */
     async processVoiceCommand(
         recognizedText: string,
         customerType: 'individual' | 'business'
@@ -205,11 +210,11 @@ class VoiceInputService {
             if (!recognizedText || recognizedText.trim().length === 0) {
                 return {
                     success: false,
-                    message: "I didn't hear anything clearly. Please try speaking again.",
+                    message: this.t('voice.didntHear'),
                     suggestions: [
-                        "Make sure you're speaking clearly",
-                        "Check your microphone permissions",
-                        "Try again in a quieter environment"
+                        this.t('voice.makesSure'),
+                        this.t('voice.checkPermissions'),
+                        this.t('voice.tryQuieter')
                     ]
                 };
             }
@@ -220,12 +225,12 @@ class VoiceInputService {
             if (command.confidence < 0.3) {
                 return {
                     success: false,
-                    message: "I didn't understand that command.",
+                    message: this.t('voice.didntUnderstand'),
                     suggestions: [
-                        "Search for tomatoes",
-                        "Add 2 kg of potatoes to cart",
-                        "Find carrots from Curepipe",
-                        "Checkout my items"
+                        this.t('voice.searchForTomatoes'),
+                        this.t('voice.addToCart'),
+                        this.t('voice.findCarrots'),
+                        this.t('voice.checkoutItems')
                     ]
                 };
             }
@@ -240,11 +245,11 @@ class VoiceInputService {
                 default:
                     return {
                         success: false,
-                        message: "I understood your speech but couldn't determine the action. Try being more specific.",
+                        message: this.t('voice.understoodButNoAction'),
                         suggestions: [
-                            "Search for [product name]",
-                            "Add [quantity] [unit] of [product] to cart",
-                            "Checkout my items"
+                            this.t('voice.searchForProduct'),
+                            this.t('voice.addQuantityProduct'),
+                            this.t('voice.checkoutItems')
                         ]
                     };
             }
@@ -252,14 +257,11 @@ class VoiceInputService {
             console.error('Error processing voice command:', error);
             return {
                 success: false,
-                message: "Sorry, there was an error processing your command. Please try again."
+                message: this.t('voice.errorProcessing')
             };
         }
     }
 
-    /**
-     * Parse voice command using NLP techniques
-     */
     private parseVoiceCommand(text: string): VoiceCommand {
         const normalizedText = text.toLowerCase().trim();
         console.log('🔍 Parsing:', normalizedText);
@@ -269,7 +271,6 @@ class VoiceInputService {
             confidence: 0
         };
 
-        // Action detection with higher confidence scoring
         if (this.containsWords(normalizedText, ['search', 'find', 'look for', 'show me'])) {
             command.action = 'search';
             command.confidence += 0.4;
@@ -278,18 +279,16 @@ class VoiceInputService {
             command.confidence += 0.4;
         } else if (this.containsWords(normalizedText, ['checkout', 'check out', 'buy', 'purchase', 'order now'])) {
             command.action = 'checkout';
-            command.confidence += 0.8; // High confidence for checkout
-            return command; // Return early for checkout
+            command.confidence += 0.8;
+            return command;
         }
 
-        // Product detection
         const detectedProduct = this.detectProduct(normalizedText);
         if (detectedProduct) {
             command.product = detectedProduct;
             command.confidence += 0.3;
         }
 
-        // Quantity and unit detection
         const { quantity, unit } = this.detectQuantityAndUnit(normalizedText);
         if (quantity) {
             command.quantity = quantity;
@@ -300,7 +299,6 @@ class VoiceInputService {
             command.confidence += 0.1;
         }
 
-        // District detection
         const detectedDistrict = this.detectDistrict(normalizedText);
         if (detectedDistrict) {
             command.district = detectedDistrict;
@@ -311,14 +309,11 @@ class VoiceInputService {
         return command;
     }
 
-    /**
-     * Execute search command
-     */
     private async executeSearch(command: VoiceCommand, customerType: 'individual' | 'business'): Promise<VoiceResult> {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
-                return { success: false, message: "Please log in to search for products." };
+                return { success: false, message: this.t('voice.pleaseLoginSearch') };
             }
 
             const searchParams: any = { limit: 20 };
@@ -339,7 +334,6 @@ class VoiceInputService {
 
             const products = response.data.items || [];
 
-            // Filter products that have pricing for the customer type
             const filteredProducts = products.filter((product: any) =>
                 product.unit_prices.some((up: any) =>
                     up.customer_type === customerType && up.quantity_available > 0
@@ -347,29 +341,34 @@ class VoiceInputService {
             );
 
             if (filteredProducts.length === 0) {
-                let message = `No ${command.product || 'products'} found`;
+                let message = this.t('voice.noProductsFound', {
+                    product: command.product || this.t('common.products')
+                });
                 if (command.district) {
-                    message += ` from farmers in ${command.district}`;
+                    message += ` ${this.t('voice.fromFarmersIn', { district: command.district })}`;
                 }
-                message += ` for ${customerType} customers.`;
+                message += ` ${this.t('voice.forCustomerType', { customerType })}`;
 
                 return {
                     success: false,
                     message,
                     suggestions: [
-                        "Try searching without specifying a district",
-                        "Search for a different product",
-                        "Say 'search for vegetables' for broader results"
+                        this.t('voice.tryWithoutDistrict'),
+                        this.t('voice.searchDifferentProduct'),
+                        this.t('voice.searchVegetables')
                     ]
                 };
             }
 
             const productNames = filteredProducts.slice(0, 5).map((p: any) => p.item).join(', ');
-            let message = `Found ${filteredProducts.length} result${filteredProducts.length > 1 ? 's' : ''}`;
+            let message = this.t('voice.foundResults', {
+                count: filteredProducts.length,
+                plural: filteredProducts.length > 1 ? 's' : ''
+            });
             if (command.district) {
-                message += ` from ${command.district}`;
+                message += ` ${this.t('voice.fromDistrict', { district: command.district })}`;
             }
-            message += `: ${productNames}${filteredProducts.length > 5 ? ' and more' : ''}`;
+            message += `: ${productNames}${filteredProducts.length > 5 ? ` ${this.t('voice.andMore')}` : ''}`;
 
             return {
                 success: true,
@@ -381,29 +380,25 @@ class VoiceInputService {
             console.error('Search error:', error);
             return {
                 success: false,
-                message: "Sorry, there was an error searching for products. Please try again."
+                message: this.t('voice.searchError')
             };
         }
     }
 
-    /**
-     * Execute add to cart command with intelligent matching
-     */
     private async executeAddToCart(command: VoiceCommand, customerType: 'individual' | 'business'): Promise<VoiceResult> {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
-                return { success: false, message: "Please log in to add items to cart." };
+                return { success: false, message: this.t('voice.pleaseLoginCart') };
             }
 
             if (!command.product) {
                 return {
                     success: false,
-                    message: "Please specify which product you want to add. For example: 'Add 2 kg of tomatoes to cart'."
+                    message: this.t('voice.specifyProduct')
                 };
             }
 
-            // Search for the product
             const searchResponse = await api.get('/browse/products/search', {
                 params: { search: command.product, limit: 10 },
                 headers: { Authorization: `Bearer ${token}` }
@@ -411,7 +406,6 @@ class VoiceInputService {
 
             const products: ProductMatch[] = searchResponse.data.items || [];
 
-            // Filter and find best matches
             const suitableProducts = products.filter(product =>
                 product.unit_prices.some(up =>
                     up.customer_type === customerType && up.quantity_available > 0
@@ -421,44 +415,48 @@ class VoiceInputService {
             if (suitableProducts.length === 0) {
                 return {
                     success: false,
-                    message: `Sorry, ${command.product} is not available from any farmers for ${customerType} customers right now.`,
+                    message: this.t('voice.productNotAvailable', {
+                        product: command.product,
+                        customerType
+                    }),
                     suggestions: [
-                        "Try searching for the product first to see availability",
-                        "Search for similar products",
-                        "Try again later as farmers update their inventory regularly"
+                        this.t('voice.searchProductFirst'),
+                        this.t('voice.searchSimilarProducts'),
+                        this.t('voice.tryAgainLater')
                     ]
                 };
             }
 
-            // Intelligent product and unit price selection
             const bestMatch = this.findBestProductMatch(suitableProducts, command, customerType);
             if (!bestMatch) {
                 return {
                     success: false,
-                    message: `Found ${command.product} but couldn't match your requirements. Please try with different units or quantities.`
+                    message: this.t('voice.foundButCouldntMatch', { product: command.product })
                 };
             }
 
-            // Determine final quantity
             const finalQuantity = this.calculateFinalQuantity(
                 command.quantity || 1,
                 bestMatch.unitPrice.minimum_order,
                 customerType
             );
 
-            // Check availability
             if (finalQuantity > bestMatch.unitPrice.quantity_available) {
                 return {
                     success: false,
-                    message: `Sorry, only ${bestMatch.unitPrice.quantity_available} ${bestMatch.unitPrice.unit} of ${bestMatch.product.item} available from ${bestMatch.product.farmer_name}.`,
+                    message: this.t('voice.onlyAvailable', {
+                        available: bestMatch.unitPrice.quantity_available,
+                        unit: bestMatch.unitPrice.unit,
+                        product: bestMatch.product.item,
+                        farmer: bestMatch.product.farmer_name
+                    }),
                     suggestions: [
-                        "Try a smaller quantity",
-                        "Search for the same product from other farmers"
+                        this.t('voice.trySmallerQuantity'),
+                        this.t('voice.searchOtherFarmers')
                     ]
                 };
             }
 
-            // Add to cart
             await api.post('/orders/cart/items', {
                 farmer_product_id: bestMatch.product.id,
                 unit_price_id: bestMatch.unitPrice.id,
@@ -471,7 +469,13 @@ class VoiceInputService {
 
             return {
                 success: true,
-                message: `Added ${finalQuantity} ${bestMatch.unitPrice.unit} of ${bestMatch.product.item} from ${bestMatch.product.farmer_name} to your cart for Rs ${totalCost}.`,
+                message: this.t('voice.addedToCart', {
+                    quantity: finalQuantity,
+                    unit: bestMatch.unitPrice.unit,
+                    product: bestMatch.product.item,
+                    farmer: bestMatch.product.farmer_name,
+                    cost: totalCost
+                }),
                 data: {
                     product: bestMatch.product.item,
                     farmer: bestMatch.product.farmer_name,
@@ -487,28 +491,24 @@ class VoiceInputService {
             if (error.response?.status === 400) {
                 return {
                     success: false,
-                    message: error.response.data.detail || "Unable to add item to cart. Please check the quantity and try again."
+                    message: error.response.data.detail || this.t('voice.unableToAddItem')
                 };
             }
 
             return {
                 success: false,
-                message: "Sorry, there was an error adding the item to your cart. Please try again."
+                message: this.t('voice.errorAddingItem')
             };
         }
     }
 
-    /**
-     * Execute checkout command
-     */
     private async executeCheckout(): Promise<VoiceResult> {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
-                return { success: false, message: "Please log in to checkout." };
+                return { success: false, message: this.t('voice.pleaseLoginCheckout') };
             }
 
-            // Get current cart
             const cartResponse = await api.get('/orders/cart', {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -518,10 +518,10 @@ class VoiceInputService {
             if (!cart.farmer_groups || cart.farmer_groups.length === 0) {
                 return {
                     success: false,
-                    message: "Your cart is empty. Add some items before checkout.",
+                    message: this.t('voice.cartEmpty'),
                     suggestions: [
-                        "Say 'Add tomatoes to cart' to add items",
-                        "Say 'Search for vegetables' to browse products"
+                        this.t('voice.addTomatoesToCart'),
+                        this.t('voice.searchForVegetables')
                     ]
                 };
             }
@@ -532,7 +532,12 @@ class VoiceInputService {
 
             return {
                 success: true,
-                message: `Proceeding to checkout with ${itemCount} items from ${farmerCount} farmer${farmerCount > 1 ? 's' : ''} for Rs ${totalAmount.toFixed(2)}.`,
+                message: this.t('voice.proceedingToCheckout', {
+                    items: itemCount,
+                    farmers: farmerCount,
+                    plural: farmerCount > 1 ? 's' : '',
+                    amount: totalAmount.toFixed(2)
+                }),
                 data: {
                     action: 'navigate_to_checkout',
                     cart: cart
@@ -543,12 +548,11 @@ class VoiceInputService {
             console.error('Checkout error:', error);
             return {
                 success: false,
-                message: "Sorry, there was an error accessing your cart for checkout."
+                message: this.t('voice.checkoutError')
             };
         }
     }
 
-    // Helper methods
     private containsWords(text: string, words: string[]): boolean {
         return words.some(word => text.includes(word));
     }
@@ -563,7 +567,6 @@ class VoiceInputService {
     }
 
     private detectQuantityAndUnit(text: string): { quantity?: number; unit?: string } {
-        // Enhanced quantity detection with support for decimals and fractions
         const quantityRegex = /(\d+(?:\.\d+)?|\bhalf\b|\bone\b|\btwo\b|\bthree\b|\bfour\b|\bfive\b|\bsix\b|\bseven\b|\beight\b|\bnine\b|\bten\b)/i;
         const quantityMatch = text.match(quantityRegex);
 
@@ -584,7 +587,6 @@ class VoiceInputService {
             else quantity = parseFloat(quantityStr);
         }
 
-        // Unit detection
         let unit: string | undefined;
         for (const [standardUnit, variants] of this.unitMappings) {
             if (variants.some(variant => text.includes(variant))) {
@@ -614,7 +616,6 @@ class VoiceInputService {
                 up.customer_type === customerType && up.quantity_available > 0
             );
 
-            // If specific unit requested, try to match it
             if (command.unit) {
                 const matchingUnitPrice = suitableUnitPrices.find(up =>
                     up.unit.toLowerCase() === command.unit?.toLowerCase() ||
@@ -626,7 +627,6 @@ class VoiceInputService {
                 }
             }
 
-            // Otherwise, pick best available unit price (lowest price)
             if (suitableUnitPrices.length > 0) {
                 const bestUnitPrice = suitableUnitPrices.sort((a, b) => a.price_per_unit - b.price_per_unit)[0];
                 return { product, unitPrice: bestUnitPrice };
@@ -646,9 +646,6 @@ class VoiceInputService {
         return Math.max(requestedQuantity, adjustedMinimum);
     }
 
-    /**
-     * Check if microphone permission is available
-     */
     async checkPermissions(): Promise<boolean> {
         try {
             if (Platform.OS === 'web') {
@@ -657,7 +654,6 @@ class VoiceInputService {
 
             await this.initializeVoice();
             const available = await Voice.isAvailable();
-            // Voice.isAvailable() returns 1 for true, 0 for false
             return available === 1;
         } catch (error) {
             console.error('Permission check error:', error);
@@ -665,9 +661,6 @@ class VoiceInputService {
         }
     }
 
-    /**
-     * Clean up voice recognition resources
-     */
     async cleanup(): Promise<void> {
         try {
             if (this.isListening) {
@@ -683,9 +676,6 @@ class VoiceInputService {
         }
     }
 
-    /**
-     * Get current listening state
-     */
     getIsListening(): boolean {
         return this.isListening;
     }

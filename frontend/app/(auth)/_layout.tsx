@@ -7,7 +7,6 @@ export default function AuthLayout() {
 
     useEffect(() => {
         if (!user) {
-            // Redirect to unauth if no user
             router.replace('/intro');
         }
     }, [user]);

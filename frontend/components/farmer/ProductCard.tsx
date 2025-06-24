@@ -1,4 +1,3 @@
-// Farmer ProductCard
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, Image, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
@@ -9,6 +8,7 @@ import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getProductBackgroundColor} from "@/utils/products";
 import {UnitPrice} from "@/types";
+import { useTranslation } from '@/context/LanguageContext';
 
 interface ProductCardProps {
     product: {
@@ -49,7 +49,8 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
         buttons: []
     });
     const backgroundOpacity = useSharedValue(0);
-    const modalTranslateY = useSharedValue(1000); // Start off-screen
+    const modalTranslateY = useSharedValue(1000);
+    const { tCommon, tProducts, tAuth, tCustomer, t } = useTranslation();
 
     const showAlert = (
         type: 'success' | 'error' | 'warning' | 'info',
@@ -78,7 +79,6 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
         return item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
     };
 
-    // Helper functions for pricing calculations
     const getIndividualPrices = () => {
         return product.unit_prices.filter(up => up.customer_type === 'individual');
     };
@@ -95,7 +95,6 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
         return getBusinessPrices().reduce((total, up) => total + up.quantity_available, 0);
     };
 
-    // Group unit prices by unit for modal display
     const getGroupedPrices = () => {
         const grouped: { [unit: string]: { individual?: UnitPrice; business?: UnitPrice } } = {};
 
@@ -110,9 +109,9 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
     };
 
     const openModal = () => {
-        setCurrentProduct(product); // Update current product when opening modal
+        setCurrentProduct(product);
         setModalVisible(true);
-        setImageError(false); // Reset image error state
+        setImageError(false);
         backgroundOpacity.value = withTiming(1, { duration: 300 });
         modalTranslateY.value = withSpring(0, { damping: 20, stiffness: 100 });
     };
@@ -128,9 +127,9 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
             if (!token) {
                 showAlert(
                     'error',
-                    'error',
-                    'authentication required. please log in again.',
-                    [{ text: 'ok', onPress: () => {}, style: 'cancel' }]
+                    tCommon('error'),
+                    tProducts('authenticationRequired'),
+                    [{ text: tCommon('ok'), onPress: () => {}, style: 'cancel' }]
                 );
                 return;
             }
@@ -140,26 +139,24 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            // Update local state
             setCurrentProduct(prev => ({ ...prev, is_active: newStatus }));
 
-            // Call parent callback if provided
             onToggleStatus?.(currentProduct.id, newStatus);
 
             showAlert(
                 'success',
-                'success',
-                `product ${newStatus ? 'listed' : 'unlisted'} successfully`,
-                [{ text: 'ok', onPress: () => {}, style: 'cancel' }]
+                tCommon('success'),
+                newStatus ? tProducts('productListedSuccessfully') : tProducts('productUnlistedSuccessfully'),
+                [{ text: tCommon('ok'), onPress: () => {}, style: 'cancel' }]
             );
 
         } catch (error: any) {
-            console.error('Error updating product status:', error);
+            console.error(tProducts('errorUpdatingStatus'), error);
             showAlert(
                 'error',
-                'error',
-                'failed to update product status. please try again.',
-                [{ text: 'ok', onPress: () => {}, style: 'cancel' }]
+                tCommon('error'),
+                tProducts('failedToUpdateStatus'),
+                [{ text: tCommon('ok'), onPress: () => {}, style: 'cancel' }]
             );
         } finally {
             setLoading(false);
@@ -186,17 +183,15 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
 
     return (
         <>
-        {/* Main Product Card */}
             <TouchableOpacity
                 onPress={openModal}
                 className="bg-surface rounded-xl border border-gray-200 mb-4 p-4"
                 activeOpacity={0.7}
             >
-                {/* Product Image Container - square, half size of modal */}
                 <View className="w-1/2 aspect-square rounded-[40px] items-center justify-center mb-3 self-center">
                     {imageError ? (
                         <Text className="text-xs text-gray-500 text-center px-2">
-                            Image failed to load
+                            {tProducts('imageFailedToLoad')}
                         </Text>
                     ) : (
                         <Image
@@ -211,7 +206,6 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                     )}
                 </View>
 
-                {/* Product Name and Status */}
                 <View className="flex-row items-center justify-between mb-3">
                     <Text className="text-sm font-medium text-black flex-1">
                         {formatItemName(product.item)}
@@ -222,18 +216,16 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                         <Text className={`text-xs font-medium ${
                             product.is_active ? 'text-black' : 'text-white'
                         }`}>
-                            {product.is_active ? 'listed' : 'unlisted'}
+                            {product.is_active ? tProducts('listed') : tProducts('unlisted')}
                         </Text>
                     </View>
                 </View>
 
-                {/* Updated Price and Stock Info - Simplified */}
                 <Text className="text-xs text-gray-600">
-                    dual pricing • {getTotalIndividualQuantity() + getTotalBusinessQuantity()} in stock
+                    {tCustomer('dualPricing')} • {getTotalIndividualQuantity() + getTotalBusinessQuantity()} {tCustomer('inStock')}
                 </Text>
             </TouchableOpacity>
 
-        {/* Product Details Modal */}
             <Modal
                 animationType="none"
                 transparent={true}
@@ -270,20 +262,18 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                             modalStyle
                         ]}
                     >
-                        {/* Scrollable Content */}
                         <ScrollView
                             className="flex-1 p-3"
                             showsVerticalScrollIndicator={false}
                             contentContainerStyle={{ paddingBottom: 20 }}
                         >
-                            {/* Large Product Image */}
                             <View
                                 className="h-[24rem] rounded-[40px] w-full mb-6 items-center justify-center"
                                 style={{ backgroundColor: getProductBackgroundColor(product.item) }}
                             >
                                 {imageError ? (
                                     <Text className="text-sm text-gray-500 text-center px-4">
-                                        Image failed to load
+                                        {tProducts('imageFailedToLoad')}
                                     </Text>
                                 ) : (
                                     <Image
@@ -298,7 +288,6 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                 )}
                             </View>
 
-                            {/* Name and Status */}
                             <View className="flex-row items-center justify-between mb-4">
                                 <Text className="text-xl font-medium text-black flex-1">
                                     {formatItemName(currentProduct.item)}
@@ -307,17 +296,16 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                     currentProduct.is_active ? 'bg-light-100' : 'bg-gray-400'
                                 }`}>
                                     <Text className={`text-sm font-medium ${
-                                        currentProduct.is_active ? 'text-action-green' : 'text-white'
+                                        currentProduct.is_active ? 'text-black' : 'text-white'
                                     }`}>
-                                        {currentProduct.is_active ? 'listed' : 'unlisted'}
+                                        {currentProduct.is_active ? tProducts('listed') : tProducts('unlisted')}
                                     </Text>
                                 </View>
                             </View>
 
-                            {/* Updated Pricing & Stock */}
                             <View className="mb-6">
                                 <Text className="text-base font-medium text-black mb-3">
-                                    pricing & stock
+                                    {tProducts('pricingStock')}
                                 </Text>
 
                                 {Object.entries(getGroupedPrices()).map(([unit, prices]) => (
@@ -327,12 +315,11 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                         </Text>
 
                                         <View className="flex-row gap-3">
-                                            {/* Individual Pricing */}
                                             <View className="flex-1 p-3 bg-white rounded-lg border border-green-200">
                                                 <View className="flex-row items-center mb-2">
                                                     <Ionicons name="person" size={14} color="#10B981" />
                                                     <Text className="text-xs font-medium text-green-700 ml-1">
-                                                        Individual
+                                                        {tAuth('individual')}
                                                     </Text>
                                                 </View>
                                                 {prices.individual ? (
@@ -341,25 +328,24 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                                             rs {prices.individual.price_per_unit}
                                                         </Text>
                                                         <Text className="text-xs text-gray-600 mb-1">
-                                                            {prices.individual.quantity_available} available
+                                                            {prices.individual.quantity_available} {t('status.available')}
                                                         </Text>
                                                         <Text className="text-xs text-gray-500">
-                                                            min: {prices.individual.minimum_order}
+                                                            {t('customer.min')}: {prices.individual.minimum_order}
                                                         </Text>
                                                     </>
                                                 ) : (
                                                     <Text className="text-xs text-gray-500 italic">
-                                                        Not available
+                                                        {t('status.unavailable')}
                                                     </Text>
                                                 )}
                                             </View>
 
-                                            {/* Business Pricing */}
                                             <View className="flex-1 p-3 bg-white rounded-lg border border-blue-200">
                                                 <View className="flex-row items-center mb-2">
                                                     <Ionicons name="business" size={14} color="#3B82F6" />
                                                     <Text className="text-xs font-medium text-blue-700 ml-1">
-                                                        Business
+                                                        {tAuth('business')}
                                                     </Text>
                                                 </View>
                                                 {prices.business ? (
@@ -368,15 +354,15 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                                             rs {prices.business.price_per_unit}
                                                         </Text>
                                                         <Text className="text-xs text-gray-600 mb-1">
-                                                            {prices.business.quantity_available} available
+                                                            {prices.business.quantity_available} {t('status.available')}
                                                         </Text>
                                                         <Text className="text-xs text-gray-500">
-                                                            min: {prices.business.minimum_order}
+                                                            {t('customer.min')}: {prices.business.minimum_order}
                                                         </Text>
                                                     </>
                                                 ) : (
                                                     <Text className="text-xs text-gray-500 italic">
-                                                        Not available
+                                                        {t('status.unavailable')}
                                                     </Text>
                                                 )}
                                             </View>
@@ -385,11 +371,10 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                 ))}
                             </View>
 
-                            {/* Description */}
                             {currentProduct.description && (
                                 <View className="mb-6">
                                     <Text className="text-base font-medium text-black mb-2">
-                                        description
+                                        {tProducts('description')}
                                     </Text>
                                     <Text className="text-gray-600 text-sm">
                                         {currentProduct.description}
@@ -397,17 +382,15 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                 </View>
                             )}
 
-                            {/* Product Info */}
                             <View className="mb-6 p-3 bg-gray-50 rounded-xl">
                                 <Text className="text-xs text-gray-600 mb-1">
-                                    listed on: {new Date(currentProduct.created_at).toLocaleDateString()}
+                                    {tCustomer('listedOn')}: {new Date(currentProduct.created_at).toLocaleDateString()}
                                 </Text>
                                 <Text className="text-xs text-gray-600">
-                                    last updated: {new Date(currentProduct.updated_at).toLocaleDateString()}
+                                    {tCustomer('lastUpdated')}: {new Date(currentProduct.updated_at).toLocaleDateString()}
                                 </Text>
                             </View>
 
-                            {/* Action Buttons */}
                             <View className="flex-row justify-center gap-8 pb-4">
                                 <TouchableOpacity
                                     onPress={() => {
@@ -437,7 +420,6 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                     </Animated.View>
                 </View>
 
-                {/* Custom Alert */}
                 <CustomAlert
                     visible={alert.visible}
                     type={alert.type}

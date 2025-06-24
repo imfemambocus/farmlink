@@ -40,7 +40,6 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
 
     useEffect(() => {
         if (visible) {
-            // Slide up and fade in
             Animated.parallel([
                 Animated.timing(slideAnim, {
                     toValue: 0,
@@ -54,7 +53,6 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                 }),
             ]).start();
         } else {
-            // Slide down and fade out
             Animated.parallel([
                 Animated.timing(slideAnim, {
                     toValue: screenHeight,
@@ -90,12 +88,9 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
     };
 
     const handleButtonPress = (button: AlertButton) => {
-        // Only animate for cancel buttons, close immediately for others
         if (button.style === 'cancel') {
-            // Call the button's onPress immediately for cancel
             button.onPress();
 
-            // Start the slide-down animation for cancel buttons
             Animated.parallel([
                 Animated.timing(slideAnim, {
                     toValue: screenHeight,
@@ -109,14 +104,12 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                 }),
             ]).start();
 
-            // Use setTimeout to call onClose after animation
             setTimeout(() => {
                 if (onClose) {
                     onClose();
                 }
             }, 250);
         } else {
-            // For non-cancel buttons, slide down first, then execute action
             Animated.parallel([
                 Animated.timing(slideAnim, {
                     toValue: screenHeight,
@@ -130,15 +123,14 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                 }),
             ]).start();
 
-            // Close the current alert and then execute the button action
             setTimeout(() => {
                 if (onClose) {
                     onClose();
                 }
-                // Execute button action after current alert is closed
+
                 setTimeout(() => {
                     button.onPress();
-                }, 100); // Small delay to ensure the alert state is updated
+                }, 100);
             }, 250);
         }
     };
@@ -162,7 +154,6 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
             onRequestClose={onClose}
         >
             <View className="flex-1">
-                {/* Backdrop */}
                 <TouchableWithoutFeedback onPress={handleBackdropPress}>
                     <Animated.View
                         className="flex-1 bg-black"
@@ -172,7 +163,6 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                     />
                 </TouchableWithoutFeedback>
 
-                {/* Alert Container */}
                 <Animated.View
                     className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl"
                     style={{
@@ -180,9 +170,7 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                         minHeight: 200,
                     }}
                 >
-                    {/* Content */}
                     <View className="p-6 pb-8">
-                        {/* Icon */}
                         <View className="items-center mb-4">
                             <View className="w-16 h-16 bg-background rounded-full items-center justify-center">
                                 <Ionicons
@@ -193,17 +181,14 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                             </View>
                         </View>
 
-                        {/* Title */}
                         <Text className="text-xl font-semibold text-black text-center mb-3">
                             {title.toLowerCase()}
                         </Text>
 
-                        {/* Message */}
                         <Text className="text-base text-gray-600 text-center mb-6 leading-6">
                             {message.toLowerCase()}
                         </Text>
 
-                        {/* Buttons */}
                         <View className={`gap-3 ${buttons.length > 1 ? 'flex-row' : ''}`}>
                             {buttons.map((button, index) => (
                                 <TouchableOpacity
@@ -222,7 +207,6 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                         </View>
                     </View>
 
-                    {/* Bottom safe area */}
                     <View className="h-6" />
                 </Animated.View>
             </View>

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
@@ -44,6 +45,7 @@ export default function FarmerDetailScreen() {
     const router = useRouter();
     const { farmerId } = useLocalSearchParams();
     const { user } = useContext(AuthContext);
+    const { t, tCommon } = useTranslation();
     const [farmer, setFarmer] = useState<FarmerDetails | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -57,7 +59,6 @@ export default function FarmerDetailScreen() {
         buttons: []
     });
 
-    // Define which items are fruits vs vegetables
     const fruitItems = new Set([
         'apple', 'banana', 'orange', 'mango', 'pineapple', 'papaya',
         'guava', 'lychee', 'coconut', 'lemon', 'lime', 'watermelon',
@@ -100,7 +101,6 @@ export default function FarmerDetailScreen() {
 
         fetchFarmerDetails();
 
-        // Listen for screen dimension changes
         const subscription = Dimensions.addEventListener('change', ({ window }) => {
             setScreenWidth(window.width);
         });
@@ -126,9 +126,9 @@ export default function FarmerDetailScreen() {
             console.error('Error fetching farmer details:', error);
             showAlert(
                 'error',
-                'error',
-                'failed to load farmer details',
-                [{ text: 'ok', onPress: () => router.back(), style: 'cancel' }]
+                tCommon('error'),
+                t('farmers.failedToLoadFarmer'),
+                [{ text: tCommon('ok'), onPress: () => router.back(), style: 'cancel' }]
             );
         } finally {
             setLoading(false);
@@ -165,7 +165,6 @@ export default function FarmerDetailScreen() {
         const filteredProducts = getFilteredProducts();
         const isLastRow = Math.floor(index / numColumns) === Math.floor((filteredProducts.length - 1) / numColumns);
 
-        // Transform product to match expected interface
         const transformedProduct = {
             ...item,
             farmer_id: farmer!.id,
@@ -215,20 +214,20 @@ export default function FarmerDetailScreen() {
                 case 'fruits':
                     return {
                         emoji: '🍎',
-                        title: 'no fruits available',
-                        subtitle: `${farmer?.name} doesn't have any fruits listed currently`
+                        title: t('farmers.noFruitsAvailable'),
+                        subtitle: `${farmer?.name} ${t('farmers.noFruitsListed')}`
                     };
                 case 'vegetables':
                     return {
                         emoji: '🥕',
-                        title: 'no vegetables available',
-                        subtitle: `${farmer?.name} doesn't have any vegetables listed currently`
+                        title: t('farmers.noVegetablesAvailable'),
+                        subtitle: `${farmer?.name} ${t('farmers.noVegetablesListed')}`
                     };
                 default:
                     return {
                         emoji: '🌱',
-                        title: 'no products available',
-                        subtitle: `${farmer?.name} doesn't have any products listed currently`
+                        title: t('farmers.noProductsAvailable'),
+                        subtitle: `${farmer?.name} ${t('farmers.noProductsListed')}`
                     };
             }
         };
@@ -252,7 +251,7 @@ export default function FarmerDetailScreen() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title="farmer details"
+                    title={t('farmers.farmerDetails')}
                     showBackButton={true}
                     showCartButton={true}
                     showHomeButton={true}
@@ -260,7 +259,7 @@ export default function FarmerDetailScreen() {
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading farmer details...</Text>
+                    <Text className="text-gray-600 mt-4">{t('farmers.loadingFarmerDetails')}</Text>
                 </View>
             </View>
         );
@@ -270,7 +269,7 @@ export default function FarmerDetailScreen() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title="farmer details"
+                    title={t('farmers.farmerDetails')}
                     showBackButton={true}
                     showCartButton={true}
                     showHomeButton={true}
@@ -279,10 +278,10 @@ export default function FarmerDetailScreen() {
                 <View className="flex-1 justify-center items-center px-6">
                     <Text className="text-4xl mb-4">😞</Text>
                     <Text className="text-xl font-medium text-black mb-2 text-center">
-                        farmer not found
+                        {t('farmers.farmerNotFound')}
                     </Text>
                     <Text className="text-gray-600 text-center">
-                        the farmer you&#39;re looking for is not available
+                        {t('farmers.farmerNotAvailable')}
                     </Text>
                 </View>
             </View>
@@ -314,7 +313,6 @@ export default function FarmerDetailScreen() {
                 }
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {/* Farmer Profile Section */}
                 <View className="px-5 pt-6 pb-4">
                     <View className="bg-background rounded-xl p-6 flex-row justify-between">
                         <View className="flex-row items-center gap-2">
@@ -334,46 +332,43 @@ export default function FarmerDetailScreen() {
                         <View className="flex-row items-center gap-2">
                             <Ionicons name="leaf" size={18} color="#000000" />
                             <Text className="text-base text-gray-600">
-                                {farmer.product_count} products
+                                {farmer.product_count} {t('farmers.products')}
                             </Text>
                         </View>
                     </View>
                 </View>
 
-                {/* Products Section */}
                 <View className="px-5">
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-lg font-medium text-black">
-                            available products
+                            {t('farmers.availableProducts')}
                         </Text>
                         <Text className="text-sm text-gray-500">
-                            {filteredProducts.length} {activeTab === 'all' ? 'total' : activeTab}
+                            {filteredProducts.length} {activeTab === 'all' ? t('farmers.total') : t(`farmers.${activeTab}`)}
                         </Text>
                     </View>
 
-                    {/* Tab Navigation */}
                     <View className="flex-row mb-6 rounded-lg gap-2">
                         <TabButton
                             tab="all"
-                            title="all"
+                            title={t('farmers.all')}
                             isActive={activeTab === 'all'}
                             onPress={() => setActiveTab('all')}
                         />
                         <TabButton
                             tab="fruits"
-                            title="fruits"
+                            title={t('farmers.fruits')}
                             isActive={activeTab === 'fruits'}
                             onPress={() => setActiveTab('fruits')}
                         />
                         <TabButton
                             tab="vegetables"
-                            title="vegetables"
+                            title={t('farmers.vegetables')}
                             isActive={activeTab === 'vegetables'}
                             onPress={() => setActiveTab('vegetables')}
                         />
                     </View>
 
-                    {/* Products Grid */}
                     {filteredProducts.length === 0 ? (
                         <EmptyProductsComponent category={activeTab} />
                     ) : (
@@ -390,7 +385,6 @@ export default function FarmerDetailScreen() {
                 </View>
             </ScrollView>
 
-            {/* Custom Alert */}
             <CustomAlert
                 visible={alert.visible}
                 type={alert.type}

@@ -1,6 +1,6 @@
-// services/ruleBasedAIService.ts - Optimized with caching and reduced API calls
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/api';
+import { translations, getNestedTranslation } from '@/constants/translations';
 import {
     MAURITIAN_RECIPES,
     INGREDIENT_CATEGORIES,
@@ -42,16 +42,38 @@ class RuleBasedAIService {
     private ingredientCategories: Map<string, string[]> = new Map();
     private cuisineAffinities: Map<string, string[]> = new Map();
 
-    // CACHING: Reduce redundant API calls
     private productSearchCache: Map<string, CachedProductSearch> = new Map();
     private lastCartHash: string = '';
     private lastRecipesResult: Recipe[] = [];
-    private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-    private readonly CART_DEBOUNCE_TIME = 2000; // 2 seconds
+    private readonly CACHE_DURATION = 5 * 60 * 1000;
+    private readonly CART_DEBOUNCE_TIME = 2000;
     private cartUpdateTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
         this.initializeKnowledgeBase();
+    }
+
+    private getCurrentLanguage(): 'en' | 'fr' {
+        // In a real app, this would get the current language from AsyncStorage or context
+        // For now, defaulting to 'en' - you may need to adjust this based on your app structure
+        return 'en';
+    }
+
+    private t(key: string, params?: Record<string, string | number>): string {
+        const language = this.getCurrentLanguage();
+        const translation = getNestedTranslation(translations[language], key);
+
+        if (!params) {
+            return translation;
+        }
+
+        let result = translation;
+        Object.entries(params).forEach(([paramKey, paramValue]) => {
+            const placeholder = `{${paramKey}}`;
+            result = result.replace(new RegExp(placeholder, 'g'), String(paramValue));
+        });
+
+        return result;
     }
 
     private initializeKnowledgeBase() {
@@ -60,9 +82,6 @@ class RuleBasedAIService {
         this.cuisineAffinities = CUISINE_AFFINITIES;
     }
 
-    /**
-     * OPTIMIZED: Generate recipes with caching and debouncing
-     */
     async generatePersonalizedRecipes(
         cartItems: CartItem[],
         customerType: 'individual' | 'business',
@@ -74,16 +93,13 @@ class RuleBasedAIService {
     ): Promise<Recipe[]> {
         console.log('🤖 AI: Starting optimized recipe generation...');
 
-        // OPTIMIZATION 1: Create cart hash to detect changes
         const cartHash = this.createCartHash(cartItems, customerType);
 
-        // OPTIMIZATION 2: Return cached result if cart hasn't changed
         if (cartHash === this.lastCartHash && this.lastRecipesResult.length > 0) {
             console.log('🎯 AI: Returning cached recipes (cart unchanged)');
             return this.lastRecipesResult;
         }
 
-        // OPTIMIZATION 3: Debounce rapid cart changes
         if (this.cartUpdateTimer) {
             clearTimeout(this.cartUpdateTimer);
         }
@@ -96,10 +112,8 @@ class RuleBasedAIService {
                     const scoredRecipes = this.scoreAndRankRecipes(candidateRecipes, cartItems, customerType, userPreferences);
                     const topRecipes = scoredRecipes.slice(0, 3);
 
-                    // OPTIMIZATION 4: Batch process missing ingredients
                     const processedRecipes = await this.batchProcessMissingIngredients(topRecipes, cartItems, customerType);
 
-                    // Cache results
                     this.lastCartHash = cartHash;
                     this.lastRecipesResult = processedRecipes;
 
@@ -113,28 +127,21 @@ class RuleBasedAIService {
         });
     }
 
-    /**
-     * OPTIMIZATION: Create hash of cart contents to detect changes
-     */
     private createCartHash(cartItems: CartItem[], customerType: string): string {
         const cartString = cartItems
             .map(item => `${item.product_name}:${item.quantity}:${item.unit_name}`)
             .sort()
             .join('|') + `|${customerType}`;
 
-        // Simple hash function
         let hash = 0;
         for (let i = 0; i < cartString.length; i++) {
             const char = cartString.charCodeAt(i);
             hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32-bit integer
+            hash = hash & hash;
         }
         return hash.toString();
     }
 
-    /**
-     * OPTIMIZATION: Batch process missing ingredients to reduce API calls
-     */
     private async batchProcessMissingIngredients(
         recipes: Recipe[],
         cartItems: CartItem[],
@@ -142,7 +149,6 @@ class RuleBasedAIService {
     ): Promise<Recipe[]> {
         const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
 
-        // STEP 1: Collect ALL unique missing ingredients across all recipes
         const allMissingIngredients = new Set<string>();
         const recipeIngredientMap = new Map<string, { recipe: Recipe, ingredients: RecipeIngredient[] }>();
 
@@ -164,13 +170,11 @@ class RuleBasedAIService {
             recipeIngredientMap.set(recipe.id, { recipe, ingredients: missingIngredients });
         });
 
-        // STEP 2: Batch search for all missing ingredients (ONE API call per unique ingredient)
         const ingredientAvailabilityMap = await this.batchCheckIngredientsAvailability(
             Array.from(allMissingIngredients),
             customerType
         );
 
-        // STEP 3: Process each recipe using the batched results
         const processedRecipes: Recipe[] = [];
 
         for (const [recipeId, { recipe, ingredients: missingIngredients }] of recipeIngredientMap) {
@@ -194,9 +198,6 @@ class RuleBasedAIService {
         return processedRecipes;
     }
 
-    /**
-     * OPTIMIZATION: Batch check ingredient availability with caching
-     */
     private async batchCheckIngredientsAvailability(
         ingredientNames: string[],
         customerType: 'individual' | 'business'
@@ -204,13 +205,11 @@ class RuleBasedAIService {
         const availabilityMap = new Map<string, { products: any[], lowestPrice: number }>();
         const uncachedIngredients: string[] = [];
 
-        // STEP 1: Check cache first
         ingredientNames.forEach(ingredientName => {
             const cacheKey = `${ingredientName}:${customerType}`;
             const cached = this.productSearchCache.get(cacheKey);
 
             if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
-                // Use cached data
                 const suitableProducts = cached.products.filter(product =>
                     product.unit_prices.some((up: any) =>
                         up.customer_type === customerType && up.quantity_available > 0
@@ -226,7 +225,6 @@ class RuleBasedAIService {
             }
         });
 
-        // STEP 2: Batch search for uncached ingredients
         if (uncachedIngredients.length > 0) {
             console.log(`🔍 Batch searching for ${uncachedIngredients.length} ingredients`);
 
@@ -234,7 +232,6 @@ class RuleBasedAIService {
                 const token = await AsyncStorage.getItem('token');
                 if (!token) return availabilityMap;
 
-                // OPTIMIZATION: Search for multiple ingredients in fewer API calls
                 const searchPromises = uncachedIngredients.map(async (ingredientName) => {
                     try {
                         const searchResponse = await api.get(`/browse/products/search`, {
@@ -244,7 +241,6 @@ class RuleBasedAIService {
 
                         const products = searchResponse.data.items || [];
 
-                        // Cache the result
                         const cacheKey = `${ingredientName}:${customerType}`;
                         this.productSearchCache.set(cacheKey, {
                             products,
@@ -252,7 +248,6 @@ class RuleBasedAIService {
                             customerType
                         });
 
-                        // Check if available for this customer type
                         const suitableProducts = products.filter((product: any) =>
                             product.unit_prices.some((up: any) =>
                                 up.customer_type === customerType && up.quantity_available > 0
@@ -271,7 +266,6 @@ class RuleBasedAIService {
                     }
                 });
 
-                // Wait for all searches to complete
                 const results = await Promise.all(searchPromises);
 
                 results.forEach(result => {
@@ -292,9 +286,6 @@ class RuleBasedAIService {
         return availabilityMap;
     }
 
-    /**
-     * OPTIMIZATION: Find lowest price from cached data
-     */
     private findLowestPrice(products: any[], customerType: string): number {
         let lowestPrice = Infinity;
 
@@ -309,9 +300,6 @@ class RuleBasedAIService {
         return lowestPrice === Infinity ? 0 : lowestPrice;
     }
 
-    /**
-     * OPTIMIZATION: Estimate cost from availability map (no additional API calls)
-     */
     private estimateCostFromAvailabilityMap(
         ingredients: RecipeIngredient[],
         availabilityMap: Map<string, { products: any[], lowestPrice: number }>
@@ -328,14 +316,10 @@ class RuleBasedAIService {
         return totalCost;
     }
 
-    /**
-     * OPTIMIZATION: Improved product matching with caching
-     */
     async findBestProductMatch(ingredientName: string, customerType: 'individual' | 'business'): Promise<any> {
         try {
             console.log(`🔍 Finding best match for: ${ingredientName} (${customerType})`);
 
-            // Check cache first
             const cacheKey = `${ingredientName}:${customerType}`;
             const cached = this.productSearchCache.get(cacheKey);
             let products: any[] = [];
@@ -344,7 +328,6 @@ class RuleBasedAIService {
                 console.log(`📋 Using cached data for ${ingredientName}`);
                 products = cached.products;
             } else {
-                // Fetch from API
                 const token = await AsyncStorage.getItem('token');
                 const searchResponse = await api.get(`/browse/products/search`, {
                     params: { search: ingredientName, limit: 20 },
@@ -353,7 +336,6 @@ class RuleBasedAIService {
 
                 products = searchResponse.data.items || [];
 
-                // Cache the result
                 this.productSearchCache.set(cacheKey, {
                     products,
                     timestamp: Date.now(),
@@ -398,9 +380,6 @@ class RuleBasedAIService {
         }
     }
 
-    /**
-     * OPTIMIZATION: Clear cache when needed
-     */
     clearCache() {
         this.productSearchCache.clear();
         this.lastCartHash = '';
@@ -408,7 +387,6 @@ class RuleBasedAIService {
         console.log('🧹 AI: Cache cleared');
     }
 
-    // Keep all the other existing methods unchanged...
     private analyzeCartContents(cartItems: CartItem[]) {
         const analysis = {
             vegetableCount: 0,
@@ -569,7 +547,7 @@ class RuleBasedAIService {
             console.log(`🛒 Adding ${missingIngredients.length} missing ingredients to cart for ${customerType}`);
 
             const token = await AsyncStorage.getItem('token');
-            if (!token) throw new Error('No authentication token');
+            if (!token) throw new Error(this.t('common.noAuthToken'));
 
             const addedItems: any[] = [];
             const errors: string[] = [];
@@ -598,17 +576,24 @@ class RuleBasedAIService {
                             unit: bestMatch.unit
                         });
                     } else {
-                        errors.push(`Could not find ${ingredient.name} from any farmer`);
+                        errors.push(this.t('common.couldNotFind', { item: ingredient.name }));
                     }
                 } catch (itemError: any) {
-                    errors.push(`Failed to add ${ingredient.name}: ${itemError.response?.data?.detail || itemError.message}`);
+                    errors.push(this.t('common.failedToAdd', {
+                        item: ingredient.name,
+                        error: itemError.response?.data?.detail || itemError.message
+                    }));
                 }
             }
 
             return { success: addedItems.length > 0, addedItems, errors };
         } catch (error: any) {
             console.error('❌ Fatal error adding ingredients to cart:', error);
-            return { success: false, addedItems: [], errors: ['Failed to add ingredients to cart: ' + error.message] };
+            return {
+                success: false,
+                addedItems: [],
+                errors: [this.t('common.fatalErrorAdding', { error: error.message })]
+            };
         }
     }
 }

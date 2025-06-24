@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
@@ -54,6 +55,7 @@ const UNITS = ['kg', 'bunch', 'piece', 'dozen', 'basket'];
 
 export default function AddProduct() {
     const router = useRouter();
+    const { t, tProducts, tCommon } = useTranslation();
     const [availableItems, setAvailableItems] = useState<AvailableItems>({ fruits: [], vegetables: [] });
     const [selectedCategory, setSelectedCategory] = useState<'fruits' | 'vegetables'>('vegetables');
     const [selectedItem, setSelectedItem] = useState<string>('');
@@ -111,9 +113,9 @@ export default function AddProduct() {
             console.error('Error fetching items:', error);
             showAlert(
                 'error',
-                'Loading Failed',
-                'Failed to load available items. Please try again.',
-                [{ text: 'OK', onPress: () => {} }]
+                tProducts('loadingFailed'),
+                tProducts('failedToLoadItems'),
+                [{ text: tCommon('ok'), onPress: () => {} }]
             );
         } finally {
             setLoadingItems(false);
@@ -128,7 +130,7 @@ export default function AddProduct() {
         const newErrors: FormErrors = {};
 
         if (!selectedItem) {
-            newErrors.item = 'please select an item';
+            newErrors.item = tProducts('pleaseSelectItem');
         }
 
         const validUnitPricings = unitPricings.filter(up =>
@@ -137,46 +139,44 @@ export default function AddProduct() {
         );
 
         if (validUnitPricings.length === 0) {
-            newErrors.unitPricings = 'at least one complete unit pricing (both individual and business) is required';
+            newErrors.unitPricings = tProducts('atLeastOnePricing');
         }
 
         unitPricings.forEach((unitPricing, index) => {
-            // Validate individual pricing - MANDATORY
             if (!unitPricing.individual.price_per_unit.trim()) {
-                newErrors[`individual_price_${index}`] = 'individual price is required';
+                newErrors[`individual_price_${index}`] = tProducts('individualPriceRequired');
             } else if (isNaN(Number(unitPricing.individual.price_per_unit)) || Number(unitPricing.individual.price_per_unit) <= 0) {
-                newErrors[`individual_price_${index}`] = 'please enter a valid price';
+                newErrors[`individual_price_${index}`] = tProducts('enterValidPrice');
             }
 
             if (!unitPricing.individual.quantity_available.trim()) {
-                newErrors[`individual_quantity_${index}`] = 'individual quantity is required';
+                newErrors[`individual_quantity_${index}`] = tProducts('individualQuantityRequired');
             } else if (isNaN(Number(unitPricing.individual.quantity_available)) || Number(unitPricing.individual.quantity_available) <= 0) {
-                newErrors[`individual_quantity_${index}`] = 'please enter a valid quantity';
+                newErrors[`individual_quantity_${index}`] = tProducts('enterValidQuantity');
             }
 
             if (!unitPricing.individual.minimum_order.trim()) {
-                newErrors[`individual_minimum_${index}`] = 'individual minimum order is required';
+                newErrors[`individual_minimum_${index}`] = tProducts('individualMinimumRequired');
             } else if (isNaN(Number(unitPricing.individual.minimum_order)) || Number(unitPricing.individual.minimum_order) <= 0) {
-                newErrors[`individual_minimum_${index}`] = 'please enter a valid minimum order';
+                newErrors[`individual_minimum_${index}`] = tProducts('enterValidMinimum');
             }
 
-            // Validate business pricing - MANDATORY
             if (!unitPricing.business.price_per_unit.trim()) {
-                newErrors[`business_price_${index}`] = 'business price is required';
+                newErrors[`business_price_${index}`] = tProducts('businessPriceRequired');
             } else if (isNaN(Number(unitPricing.business.price_per_unit)) || Number(unitPricing.business.price_per_unit) <= 0) {
-                newErrors[`business_price_${index}`] = 'please enter a valid price';
+                newErrors[`business_price_${index}`] = tProducts('enterValidPrice');
             }
 
             if (!unitPricing.business.quantity_available.trim()) {
-                newErrors[`business_quantity_${index}`] = 'business quantity is required';
+                newErrors[`business_quantity_${index}`] = tProducts('businessQuantityRequired');
             } else if (isNaN(Number(unitPricing.business.quantity_available)) || Number(unitPricing.business.quantity_available) <= 0) {
-                newErrors[`business_quantity_${index}`] = 'please enter a valid quantity';
+                newErrors[`business_quantity_${index}`] = tProducts('enterValidQuantity');
             }
 
             if (!unitPricing.business.minimum_order.trim()) {
-                newErrors[`business_minimum_${index}`] = 'business minimum order is required';
+                newErrors[`business_minimum_${index}`] = tProducts('businessMinimumRequired');
             } else if (isNaN(Number(unitPricing.business.minimum_order)) || Number(unitPricing.business.minimum_order) <= 0) {
-                newErrors[`business_minimum_${index}`] = 'please enter a valid minimum order';
+                newErrors[`business_minimum_${index}`] = tProducts('enterValidMinimum');
             }
         });
 
@@ -196,9 +196,9 @@ export default function AddProduct() {
         if (unitPricings.length === 1) {
             showAlert(
                 'error',
-                'Cannot Remove',
-                'A product must have at least one unit pricing.',
-                [{ text: 'OK', onPress: () => {} }]
+                tProducts('cannotRemove'),
+                tProducts('mustHaveOnePricing'),
+                [{ text: tCommon('ok'), onPress: () => {} }]
             );
             return;
         }
@@ -216,7 +216,6 @@ export default function AddProduct() {
         }
         setUnitPricings(newUnitPricings);
 
-        // Clear related error
         const errorKey = `${customerType}_${field}_${index}`;
         if (errors[errorKey]) {
             setErrors({ ...errors, [errorKey]: '' });
@@ -236,11 +235,9 @@ export default function AddProduct() {
                 return;
             }
 
-            // Build unit_prices array for backend
             const unitPricesForBackend: any[] = [];
 
             unitPricings.forEach(unitPricing => {
-                // Add individual pricing (mandatory)
                 unitPricesForBackend.push({
                     unit: unitPricing.unit,
                     customer_type: 'individual',
@@ -249,7 +246,6 @@ export default function AddProduct() {
                     minimum_order: parseFloat(unitPricing.individual.minimum_order)
                 });
 
-                // Add business pricing (mandatory)
                 unitPricesForBackend.push({
                     unit: unitPricing.unit,
                     customer_type: 'business',
@@ -271,18 +267,18 @@ export default function AddProduct() {
 
             showAlert(
                 'success',
-                'Success!',
-                'Product added successfully with individual and business pricing!',
-                [{ text: 'OK', onPress: () => router.replace('/farmer/dashboard') }]
+                tCommon('success'),
+                tProducts('productAdded'),
+                [{ text: tCommon('ok'), onPress: () => router.replace('/farmer/dashboard') }]
             );
 
         } catch (error: any) {
             console.error('Error adding product:', error);
             showAlert(
                 'error',
-                'Add Failed',
-                error.response?.data?.detail || 'Failed to add product. Please try again.',
-                [{ text: 'OK', onPress: () => {} }]
+                tProducts('addFailed'),
+                error.response?.data?.detail || tProducts('failedToLoadItems'),
+                [{ text: tCommon('ok'), onPress: () => {} }]
             );
         } finally {
             setLoading(false);
@@ -298,10 +294,10 @@ export default function AddProduct() {
     if (loadingItems) {
         return (
             <View className="flex-1">
-                <Header title="add product" showBackButton={true} />
+                <Header title={tProducts('addProduct')} showBackButton={true} />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading items...</Text>
+                    <Text className="text-gray-600 mt-4">{tProducts('loadingItems')}</Text>
                 </View>
             </View>
         );
@@ -309,13 +305,12 @@ export default function AddProduct() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title="add product" showBackButton={true} />
+            <Header title={tProducts('addProduct')} showBackButton={true} />
 
             <ScrollView className="flex-1 bg-white px-6 pt-6" showsVerticalScrollIndicator={false}>
-                {/* Category Selection */}
                 <View className="mb-6">
                     <Text className="text-base font-medium mb-3 text-black">
-                        category
+                        {tProducts('category')}
                     </Text>
                     <View className="flex-row gap-3">
                         <Pressable
@@ -334,7 +329,7 @@ export default function AddProduct() {
                             <Text className={`font-medium text-sm ${
                                 selectedCategory === 'vegetables' ? 'text-black' : 'text-gray-600'
                             }`}>
-                                vegetables
+                                {t('dashboard.vegetables')}
                             </Text>
                         </Pressable>
 
@@ -354,16 +349,15 @@ export default function AddProduct() {
                             <Text className={`font-medium text-sm ${
                                 selectedCategory === 'fruits' ? 'text-gray-600' : 'text-gray-400'
                             }`}>
-                                fruits
+                                {t('dashboard.fruits')}
                             </Text>
                         </Pressable>
                     </View>
                 </View>
 
-                {/* Item Selection */}
                 <View className="mb-6">
                     <Text className="text-base font-medium mb-3 text-black">
-                        select item
+                        {tProducts('selectItem')}
                     </Text>
                     <View className="flex-row flex-wrap gap-2">
                         {availableItems[selectedCategory].map((item) => (
@@ -394,14 +388,13 @@ export default function AddProduct() {
                     )}
                 </View>
 
-                {/* Description */}
                 <View className="mb-6">
                     <Text className="text-base font-medium mb-3 text-black">
-                        description
+                        {tProducts('description')}
                     </Text>
                     <TextInput
                         className="border rounded-xl px-4 py-3 text-base bg-gray-50 border-gray-200 text-black"
-                        placeholder="e.g., organic, pesticide-free, locally grown..."
+                        placeholder={tProducts('organicExample')}
                         placeholderTextColor="#666666"
                         value={description}
                         onChangeText={setDescription}
@@ -411,11 +404,10 @@ export default function AddProduct() {
                     />
                 </View>
 
-                {/* Unit Prices */}
                 <View>
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-base font-medium text-black">
-                            pricing & stock
+                            {tProducts('pricingStock')}
                         </Text>
                         <TouchableOpacity
                             onPress={addUnitPricing}
@@ -424,18 +416,16 @@ export default function AddProduct() {
                         >
                             <Ionicons name="add" size={16} color="#10B981" />
                             <Text className="text-sm font-medium text-green-700 ml-1">
-                                add unit
+                                {tProducts('addUnit')}
                             </Text>
                         </TouchableOpacity>
                     </View>
-
-
 
                     {unitPricings.map((unitPricing, index) => (
                         <View key={index} className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
                             <View className="flex-row justify-between items-center mb-4">
                                 <Text className="text-sm font-medium text-black">
-                                    unit {index + 1}
+                                    {tProducts('unit')} {index + 1}
                                 </Text>
                                 {unitPricings.length > 1 && (
                                     <TouchableOpacity
@@ -448,9 +438,8 @@ export default function AddProduct() {
                                 )}
                             </View>
 
-                            {/* Unit Selection */}
                             <View className="mb-4">
-                                <Text className="text-sm font-medium mb-2 text-black">unit</Text>
+                                <Text className="text-sm font-medium mb-2 text-black">{tProducts('unit')}</Text>
                                 <View className="flex-row flex-wrap gap-2">
                                     {UNITS.map((unit) => (
                                         <Pressable
@@ -465,26 +454,25 @@ export default function AddProduct() {
                                             <Text className={`text-sm font-medium ${
                                                 unitPricing.unit === unit ? 'text-black' : 'text-gray-600'
                                             }`}>
-                                                {unit}
+                                                {t(`units.${unit}`)}
                                             </Text>
                                         </Pressable>
                                     ))}
                                 </View>
                             </View>
 
-                            {/* Individual Customer Pricing */}
                             <View className="mb-4 p-3 bg-white rounded-lg border border-green-200">
                                 <View className="flex-row items-center mb-3">
                                     <Ionicons name="person" size={16} color="#10B981" />
                                     <Text className="text-sm font-medium text-green-700 ml-2">
-                                        Individual Customer Pricing
+                                        {tProducts('individualPricing')}
                                     </Text>
                                 </View>
 
                                 <View className="flex-row gap-3">
                                     <View className="flex-1">
                                         <Text className="text-xs font-medium mb-1 text-black">
-                                            price (rs)
+                                            {tProducts('price')}
                                         </Text>
                                         <TextInput
                                             className={`border rounded-lg px-3 py-2 text-sm bg-white ${
@@ -505,7 +493,7 @@ export default function AddProduct() {
 
                                     <View className="flex-1">
                                         <Text className="text-xs font-medium mb-1 text-black">
-                                            quantity
+                                            {tProducts('quantity')}
                                         </Text>
                                         <TextInput
                                             className={`border rounded-lg px-3 py-2 text-sm bg-white ${
@@ -526,7 +514,7 @@ export default function AddProduct() {
 
                                     <View className="flex-1">
                                         <Text className="text-xs font-medium mb-1 text-black">
-                                            min. order
+                                            {tProducts('minOrder')}
                                         </Text>
                                         <TextInput
                                             className={`border rounded-lg px-3 py-2 text-sm bg-white ${
@@ -547,19 +535,18 @@ export default function AddProduct() {
                                 </View>
                             </View>
 
-                            {/* Business Customer Pricing */}
                             <View className="p-3 bg-white rounded-lg border border-blue-200">
                                 <View className="flex-row items-center mb-3">
                                     <Ionicons name="business" size={16} color="#3B82F6" />
                                     <Text className="text-sm font-medium text-blue-700 ml-2">
-                                        Business Customer Pricing (Bulk)
+                                        {tProducts('businessPricing')}
                                     </Text>
                                 </View>
 
                                 <View className="flex-row gap-3">
                                     <View className="flex-1">
                                         <Text className="text-xs font-medium mb-1 text-black">
-                                            price (rs)
+                                            {tProducts('price')}
                                         </Text>
                                         <TextInput
                                             className={`border rounded-lg px-3 py-2 text-sm bg-white ${
@@ -580,7 +567,7 @@ export default function AddProduct() {
 
                                     <View className="flex-1">
                                         <Text className="text-xs font-medium mb-1 text-black">
-                                            quantity
+                                            {tProducts('quantity')}
                                         </Text>
                                         <TextInput
                                             className={`border rounded-lg px-3 py-2 text-sm bg-white ${
@@ -601,7 +588,7 @@ export default function AddProduct() {
 
                                     <View className="flex-1">
                                         <Text className="text-xs font-medium mb-1 text-black">
-                                            min. order
+                                            {tProducts('minOrder')}
                                         </Text>
                                         <TextInput
                                             className={`border rounded-lg px-3 py-2 text-sm bg-white ${
@@ -631,7 +618,6 @@ export default function AddProduct() {
                     )}
                 </View>
 
-                {/* Action Button */}
                 <View className="mb-12 flex-row justify-center">
                     <TouchableOpacity
                         className="flex-1 items-center justify-center py-4"
@@ -648,7 +634,6 @@ export default function AddProduct() {
                 </View>
             </ScrollView>
 
-            {/* Custom Alert */}
             <CustomAlert
                 visible={alert.visible}
                 type={alert.type}

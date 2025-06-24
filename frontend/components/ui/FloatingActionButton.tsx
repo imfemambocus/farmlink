@@ -1,4 +1,3 @@
-// Updated FloatingActionButton with Voice Command for customers
 import { TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useContext } from 'react';
@@ -12,9 +11,9 @@ interface FloatingActionButtonProps {
     size?: number;
     backgroundColor?: string;
     iconColor?: string;
-    showVoice?: boolean; // NEW: Option to show voice instead of default action
-    onResult?: (data: any) => void; // NEW: Voice result handler
-    onError?: (error: string) => void; // NEW: Voice error handler
+    showVoice?: boolean;
+    onResult?: (data: any) => void;
+    onError?: (error: string) => void;
 }
 
 export default function FloatingActionButton({
@@ -30,14 +29,11 @@ export default function FloatingActionButton({
     const { user } = useContext(AuthContext);
     const router = useRouter();
 
-    // Check if should show voice button (only for customers)
     const isCustomer = user?.role === 'individual' || user?.role === 'business';
     const shouldShowVoice = showVoice && isCustomer;
 
-    // Default voice input handlers if not provided
     const handleVoiceResult = onResult || ((data: any) => {
         if (data?.products) {
-            // Navigate to products page with search results
             router.push({
                 pathname: '/(auth)/customer/products',
                 params: { searchTerm: data.searchTerm || '' }
@@ -50,7 +46,6 @@ export default function FloatingActionButton({
     });
 
     if (shouldShowVoice) {
-        // Return voice input component styled as floating button
         return (
             <VoiceInput
                 onResult={handleVoiceResult}
@@ -72,7 +67,6 @@ export default function FloatingActionButton({
         );
     }
 
-    // Default floating action button (for farmers or when voice is disabled)
     return (
         <TouchableOpacity
             onPress={onPress}

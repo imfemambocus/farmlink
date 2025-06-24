@@ -1,5 +1,4 @@
-// Updated Header component with notification badge + Voice Input REMOVED
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -7,7 +6,6 @@ import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useFarmerOrders } from '@/context/FarmerOrdersContext';
 import { useNotifications } from '@/context/NotificationContext';
-import { useCallback } from 'react';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -43,7 +41,6 @@ export default function Header({
     const { pendingOrdersCount, refreshPendingOrdersCount } = useFarmerOrders();
     const { unreadCount, refreshNotifications } = useNotifications();
 
-    // Animation values - ONLY for the cart badge
     const badgeScale = useSharedValue(1);
     const badgeBackgroundColor = useSharedValue(0);
 
@@ -69,10 +66,8 @@ export default function Header({
         }
     }
 
-    // Refresh counts when screen comes into focus
     useFocusEffect(
         useCallback(() => {
-            // Only refresh counts when on specific screens that need real-time updates
             const shouldRefreshFarmerOrders = user?.role === 'farmer' && showOrdersButton &&
                 (title === 'dashboard' || title === 'my orders');
 
@@ -86,10 +81,9 @@ export default function Header({
             if (shouldRefreshNotifications) {
                 refreshNotifications();
             }
-        }, [user?.role, showOrdersButton, showNotificationButton, title]) // Added title dependency
+        }, [user?.role, showOrdersButton, showNotificationButton, title])
     );
 
-    // Animated styles for cart badge ONLY
     const animatedBadgeStyle = useAnimatedStyle(() => {
         return {
             transform: [{ scale: badgeScale.value }],
@@ -97,7 +91,6 @@ export default function Header({
         };
     });
 
-    // Trigger flash animation when isFlashing changes
     useEffect(() => {
         if (isFlashing) {
             badgeScale.value = withSequence(
@@ -150,14 +143,13 @@ export default function Header({
                                     color="#000000"
                                 />
 
-                                {/* Notification Badge */}
                                 {unreadCount > 0 && (
                                     <View
                                         style={{
                                             position: 'absolute',
                                             top: -8,
                                             right: -8,
-                                            backgroundColor: '#ef4444', // red-500
+                                            backgroundColor: '#ef4444',
                                             borderRadius: 10,
                                             minWidth: 20,
                                             height: 20,
@@ -241,7 +233,7 @@ export default function Header({
                                             position: 'absolute',
                                             top: -8,
                                             right: -8,
-                                            backgroundColor: '#f59e0b', // amber-500
+                                            backgroundColor: '#f59e0b',
                                             borderRadius: 10,
                                             minWidth: 20,
                                             height: 20,

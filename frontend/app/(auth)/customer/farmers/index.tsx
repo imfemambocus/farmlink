@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import FarmerCard from '@/components/customer/FarmerCard';
 import CustomAlert from '@/components/ui/CustomAlert';
@@ -30,6 +31,7 @@ interface Farmer {
 export default function FarmersScreen() {
     const router = useRouter();
     const { user } = useContext(AuthContext);
+    const { t, tCommon } = useTranslation();
     const [farmers, setFarmers] = useState<Farmer[]>([]);
     const [filteredFarmers, setFilteredFarmers] = useState<Farmer[]>([]);
     const [loading, setLoading] = useState(true);
@@ -77,7 +79,6 @@ export default function FarmersScreen() {
 
         fetchFarmers();
 
-        // Listen for screen dimension changes
         const subscription = Dimensions.addEventListener('change', ({ window }) => {
             setScreenWidth(window.width);
         });
@@ -86,7 +87,6 @@ export default function FarmersScreen() {
     }, [user]);
 
     useEffect(() => {
-        // Filter farmers when search text or district changes
         filterFarmers();
     }, [searchText, selectedDistrict, farmers]);
 
@@ -98,14 +98,12 @@ export default function FarmersScreen() {
                 return;
             }
 
-            // Fetch all farmers (increased limit to get more farmers)
             const response = await api.get('/browse/farmers?limit=50', {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             setFarmers(response.data);
 
-            // Extract unique districts for filtering
             const uniqueDistricts = [...new Set(response.data.map((farmer: Farmer) => farmer.district))];
             // @ts-ignore
             setDistricts(uniqueDistricts.sort());
@@ -114,9 +112,9 @@ export default function FarmersScreen() {
             console.error('Error fetching farmers:', error);
             showAlert(
                 'error',
-                'error',
-                'failed to load farmers',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
+                tCommon('error'),
+                t('farmers.failedToLoadFarmers'),
+                [{ text: tCommon('ok'), onPress: hideAlert, style: 'cancel' }]
             );
         } finally {
             setLoading(false);
@@ -127,7 +125,6 @@ export default function FarmersScreen() {
     const filterFarmers = () => {
         let filtered = farmers;
 
-        // Filter by search text (name or district)
         if (searchText.trim()) {
             const searchLower = searchText.toLowerCase();
             filtered = filtered.filter(farmer =>
@@ -136,7 +133,6 @@ export default function FarmersScreen() {
             );
         }
 
-        // Filter by selected district
         if (selectedDistrict) {
             filtered = filtered.filter(farmer => farmer.district === selectedDistrict);
         }
@@ -205,7 +201,7 @@ export default function FarmersScreen() {
                 <Text className={`text-sm font-medium ${
                     selectedDistrict === '' ? 'text-black' : 'text-gray-600'
                 }`}>
-                    all districts
+                    {t('farmers.allDistricts')}
                 </Text>
             </TouchableOpacity>
 
@@ -233,22 +229,22 @@ export default function FarmersScreen() {
     const EmptyFarmersComponent = () => (
         <View className="flex-1 justify-center items-center px-6 py-20">
             <Text className="text-xl font-medium text-black mb-2 text-center">
-                no farmers found
+                {t('farmers.noFarmersFound')}
             </Text>
             <Text className="text-gray-600 text-center mb-6">
                 {searchText || selectedDistrict
-                    ? 'try adjusting your search or filters'
-                    : 'no farmers are currently available in your area'
+                    ? t('farmers.adjustSearchFilters')
+                    : t('farmers.noFarmersAvailable')
                 }
             </Text>
             {(searchText || selectedDistrict) && (
                 <TouchableOpacity
                     onPress={handleClearFilters}
-                    className="bg-action-green px-6 py-3 rounded-xl"
+                    className="bg-black px-6 py-3 rounded-xl"
                     activeOpacity={0.7}
                 >
                     <Text className="text-white font-medium">
-                        clear filters
+                        {t('farmers.clearFilters')}
                     </Text>
                 </TouchableOpacity>
             )}
@@ -259,7 +255,7 @@ export default function FarmersScreen() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title="farmers"
+                    title={t('farmers.farmersTitle')}
                     showBackButton={true}
                     showCartButton={true}
                     showOrdersButton={true}
@@ -267,7 +263,7 @@ export default function FarmersScreen() {
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading farmers...</Text>
+                    <Text className="text-gray-600 mt-4">{t('farmers.loadingFarmers')}</Text>
                 </View>
             </View>
         );
@@ -276,7 +272,7 @@ export default function FarmersScreen() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="farmers"
+                title={t('farmers.farmersTitle')}
                 showBackButton={true}
                 showCartButton={true}
                 showOrdersButton={true}
@@ -295,7 +291,6 @@ export default function FarmersScreen() {
                 }
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {/* Search Bar */}
                 <View className="px-5 pt-6 pb-4">
                     <View className="mb-4">
                         <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
@@ -303,7 +298,7 @@ export default function FarmersScreen() {
                             <TextInput
                                 value={searchText}
                                 onChangeText={setSearchText}
-                                placeholder="search farmers or districts..."
+                                placeholder={t('farmers.searchFarmersDistricts')}
                                 className="flex-1 ml-3 text-base text-black"
                                 style={{ textAlignVertical: 'center' }}
                                 autoCorrect={false}
@@ -321,17 +316,14 @@ export default function FarmersScreen() {
                         </View>
                     </View>
 
-                    {/* Results Summary */}
                     <Text className="text-sm text-gray-600">
-                        {filteredFarmers.length} farmer{filteredFarmers.length !== 1 ? 's' : ''} found
-                        {selectedDistrict && ` in ${selectedDistrict}`}
+                        {filteredFarmers.length} {filteredFarmers.length === 1 ? t('farmers.farmerFound') : t('farmers.farmersFound')}
+                        {selectedDistrict && ` ${t('farmers.inDistrict', { district: selectedDistrict })}`}
                     </Text>
                 </View>
 
-                {/* District Filter */}
                 <DistrictFilter />
 
-                {/* Farmers Grid */}
                 <View className="px-5">
                     {filteredFarmers.length === 0 ? (
                         <EmptyFarmersComponent />
@@ -349,7 +341,6 @@ export default function FarmersScreen() {
                 </View>
             </ScrollView>
 
-            {/* Custom Alert */}
             <CustomAlert
                 visible={alert.visible}
                 type={alert.type}

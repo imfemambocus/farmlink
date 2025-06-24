@@ -1,4 +1,3 @@
-// Updated app/(auth)/customer/homepage.tsx with Voice FloatingActionButton
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -12,11 +11,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import FarmerCard from '@/components/customer/FarmerCard';
 import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
-import FloatingActionButton from '@/components/ui/FloatingActionButton'; // Updated with voice
+import FloatingActionButton from '@/components/ui/FloatingActionButton';
 import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -64,6 +64,7 @@ interface AlertState {
 export default function CustomerHomePage() {
     const router = useRouter();
     const { user } = useContext(AuthContext);
+    const { t, tCustomer, tCommon } = useTranslation();
     const [farmers, setFarmers] = useState<Farmer[]>([]);
     const [latestProducts, setLatestProducts] = useState<Product[]>([]);
     const [recommendations, setRecommendations] = useState<RecommendationData>({
@@ -106,10 +107,8 @@ export default function CustomerHomePage() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
-    // Voice input handlers
     const handleVoiceResult = (data: any) => {
         if (data?.products) {
-            // Navigate to products page with search results
             router.push({
                 pathname: '/(auth)/customer/products',
                 params: { searchTerm: data.searchTerm || '' }
@@ -124,7 +123,6 @@ export default function CustomerHomePage() {
         }
         fetchHomeData();
 
-        // Listen for screen dimension changes
         const subscription = Dimensions.addEventListener('change', ({ window }) => {
             setScreenWidth(window.width);
         });
@@ -140,7 +138,6 @@ export default function CustomerHomePage() {
                 return;
             }
 
-            // Fetch farmers, latest products, and recommendations in parallel
             const [farmersResponse, productsResponse, recommendationsResponse] = await Promise.all([
                 api.get('/browse/farmers?limit=10', {
                     headers: { Authorization: `Bearer ${token}` }
@@ -155,7 +152,6 @@ export default function CustomerHomePage() {
 
             setFarmers(farmersResponse.data);
 
-            // Filter products that have pricing for the current user type
             const userRole = user?.role || 'individual';
             const filteredProducts = productsResponse.data.filter((product: Product) => {
                 const customerType = userRole as 'individual' | 'business';
@@ -169,9 +165,9 @@ export default function CustomerHomePage() {
             console.error('Error fetching home data:', error);
             showAlert(
                 'error',
-                'error',
-                'failed to load homepage data',
-                [{ text: 'ok', onPress: hideAlert, style: 'cancel' }]
+                tCommon('error'),
+                tCommon('failedLoadHomepage'),
+                [{ text: tCommon('ok'), onPress: hideAlert, style: 'cancel' }]
             );
         } finally {
             setLoading(false);
@@ -233,12 +229,12 @@ export default function CustomerHomePage() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title="farmlink"
+                    title={tCustomer('homepage')}
                     showCartButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading homepage...</Text>
+                    <Text className="text-gray-600 mt-4">{tCommon('loadingHomepage')}</Text>
                 </View>
             </View>
         );
@@ -247,7 +243,7 @@ export default function CustomerHomePage() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="farmlink"
+                title={tCustomer('homepage')}
                 showCartButton={true}
                 showSettingsButton={true}
                 showOrdersButton={true}
@@ -266,25 +262,23 @@ export default function CustomerHomePage() {
                 }
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
-                {/* Welcome Section */}
                 <View className="px-5 pt-6 pb-4">
                     <Text className="text-xl font-semibold text-black mb-2">
-                        welcome back, {user?.individual_profile?.first_name?.toLowerCase() ||
-                        user?.business_profile?.contact_name?.toLowerCase() || 'there'}!
+                        {tCustomer('welcomeBack')}, {user?.individual_profile?.first_name?.toLowerCase() ||
+                        user?.business_profile?.contact_name?.toLowerCase() || tCustomer('thereGeneric')}!
                     </Text>
                     <Text className="text-base text-gray-600">
-                        discover fresh produce from local farmers
-                        {user?.role === 'business' && ' with bulk pricing'}
+                        {tCustomer('discoverProduce')}
+                        {user?.role === 'business' && tCustomer('withBulkPricing')}
                     </Text>
                 </View>
 
-                {/* Suggested For You Section */}
                 <View className="mb-8">
                     <View className="flex-row justify-between items-center px-5 mb-4">
                         <View className="flex-row items-center">
                             <Ionicons name="sparkles" size={20} color="#4CAF50" />
                             <Text className="text-lg font-medium text-black ml-2">
-                                suggested for you
+                                {tCustomer('suggestedForYou')}
                             </Text>
                         </View>
                         {recommendations.has_purchase_history && recommendations.recommendations.length > 0 && (
@@ -292,8 +286,8 @@ export default function CustomerHomePage() {
                                 onPress={handleViewAllProducts}
                                 activeOpacity={0.7}
                             >
-                                <Text className="text-sm text-action-green font-medium">
-                                    explore more
+                                <Text className="text-sm text-black font-medium">
+                                    {tCustomer('exploreMore')}
                                 </Text>
                             </TouchableOpacity>
                         )}
@@ -306,18 +300,18 @@ export default function CustomerHomePage() {
                                     <Ionicons name="bulb" size={32} color="#4CAF50" />
                                 </View>
                                 <Text className="text-base font-medium text-black mb-2 text-center">
-                                    your personalized picks await
+                                    {tCustomer('personalizedPicksAwait')}
                                 </Text>
                                 <Text className="text-sm text-gray-600 text-center leading-5">
                                     {recommendations.message}
                                 </Text>
                                 <TouchableOpacity
                                     onPress={handleViewAllProducts}
-                                    className="bg-action-green px-6 py-3 rounded-xl mt-4"
+                                    className="bg-background px-6 py-3 rounded-xl mt-4"
                                     activeOpacity={0.7}
                                 >
-                                    <Text className="text-white font-medium">
-                                        start exploring
+                                    <Text className="text-black font-medium">
+                                        {tCustomer('startExploring')}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -343,18 +337,17 @@ export default function CustomerHomePage() {
                     )}
                 </View>
 
-                {/* Featured Farmers Section */}
                 <View className="mb-8">
                     <View className="flex-row justify-between items-center px-5 mb-4">
                         <Text className="text-lg font-medium text-black">
-                            featured farmers
+                            {tCustomer('featuredFarmers')}
                         </Text>
                         <TouchableOpacity
                             onPress={() => router.push('/customer/farmers')}
                             activeOpacity={0.7}
                         >
-                            <Text className="text-sm text-action-green font-medium">
-                                view all
+                            <Text className="text-sm text-black font-medium">
+                                {tCommon('viewAll')}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -363,10 +356,10 @@ export default function CustomerHomePage() {
                         <View className="bg-surface rounded-xl p-8 items-center mx-6">
                             <Text className="text-4xl mb-4">👨‍🌾</Text>
                             <Text className="text-lg font-medium text-black mb-2">
-                                no farmers available
+                                {tCustomer('noFarmersAvailable')}
                             </Text>
                             <Text className="text-gray-600 text-center">
-                                check back later for featured farmers in your area
+                                {tCustomer('checkBackLater')}
                             </Text>
                         </View>
                     ) : (
@@ -382,18 +375,17 @@ export default function CustomerHomePage() {
                     )}
                 </View>
 
-                {/* Fresh Arrivals Section */}
                 <View className="px-5">
                     <View className="flex-row justify-between items-center mb-4">
                         <Text className="text-lg font-medium text-black">
-                            fresh arrivals
+                            {tCustomer('freshArrivals')}
                         </Text>
                         <TouchableOpacity
                             onPress={handleViewAllProducts}
                             activeOpacity={0.7}
                         >
-                            <Text className="text-sm text-action-green font-medium">
-                                view all
+                            <Text className="text-sm text-black font-medium">
+                                {tCommon('viewAll')}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -402,14 +394,14 @@ export default function CustomerHomePage() {
                         <View className="bg-surface rounded-xl p-8 items-center">
                             <Text className="text-lg font-medium text-black mb-2">
                                 {user?.role === 'business'
-                                    ? 'no bulk products available'
-                                    : 'no products available'
+                                    ? tCustomer('noBulkProductsAvailable')
+                                    : tCustomer('noProductsAvailable')
                                 }
                             </Text>
                             <Text className="text-gray-600 text-center">
                                 {user?.role === 'business'
-                                    ? 'farmers are working to add bulk pricing options soon'
-                                    : 'farmers are working hard to bring fresh produce soon'
+                                    ? tCustomer('farmersWorkingBulk')
+                                    : tCustomer('farmersWorkingHard')
                                 }
                             </Text>
                         </View>
@@ -427,13 +419,11 @@ export default function CustomerHomePage() {
                 </View>
             </ScrollView>
 
-            {/* Voice Command Floating Action Button */}
             <FloatingActionButton
                 showVoice={true}
                 onResult={handleVoiceResult}
             />
 
-            {/* Custom Alert */}
             <CustomAlert
                 visible={alert.visible}
                 type={alert.type}

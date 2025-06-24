@@ -1,4 +1,3 @@
-// Updated app/(auth)/customer/orders.tsx - Smart status display for multi vs single farmer orders
 import { useEffect, useState, useContext } from 'react';
 import {
     View,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
+import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
@@ -75,6 +75,7 @@ interface FarmerStatuses {
 export default function OrdersScreen() {
     const { user } = useContext(AuthContext);
     const router = useRouter();
+    const { t, tOrders } = useTranslation();
     const [orders, setOrders] = useState<Order[]>([]);
     const [orderDetails, setOrderDetails] = useState<{ [key: number]: OrderDetails }>({});
     const [farmerStatuses, setFarmerStatuses] = useState<{ [key: number]: FarmerStatuses }>({});
@@ -126,7 +127,6 @@ export default function OrdersScreen() {
         try {
             const token = await AsyncStorage.getItem('token');
 
-            // Fetch order details
             const orderResponse = await api.get(`/orders/${orderId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -136,7 +136,6 @@ export default function OrdersScreen() {
                 [orderId]: orderResponse.data
             }));
 
-            // Fetch farmer statuses for this order
             try {
                 const statusResponse = await api.get(`/notification/order/${orderId}/farmer-statuses`, {
                     headers: { Authorization: `Bearer ${token}` }
@@ -183,7 +182,6 @@ export default function OrdersScreen() {
         const animationValue = getAnimationValue(orderId);
 
         if (newExpanded.has(orderId)) {
-            // Collapse
             Animated.timing(animationValue, {
                 toValue: 0,
                 duration: 300,
@@ -193,7 +191,6 @@ export default function OrdersScreen() {
                 setExpandedOrders(new Set(newExpanded));
             });
         } else {
-            // Expand
             newExpanded.add(orderId);
             setExpandedOrders(new Set(newExpanded));
             fetchOrderDetails(orderId);
@@ -209,35 +206,22 @@ export default function OrdersScreen() {
     const getStatusColor = (status: OrderStatus): string => {
         switch (status) {
             case 'confirmed':
-                return '#3b82f6'; // blue
+                return '#3b82f6';
             case 'processing':
-                return '#f59e0b'; // amber
+                return '#f59e0b';
             case 'out_for_delivery':
-                return '#8b5cf6'; // purple
+                return '#8b5cf6';
             case 'delivered':
-                return '#10b981'; // green
+                return '#10b981';
             case 'cancelled':
-                return '#ef4444'; // red
+                return '#ef4444';
             default:
-                return '#6b7280'; // gray
+                return '#6b7280';
         }
     };
 
     const getStatusText = (status: OrderStatus): string => {
-        switch (status) {
-            case 'confirmed':
-                return 'confirmed';
-            case 'processing':
-                return 'processing';
-            case 'out_for_delivery':
-                return 'out for delivery';
-            case 'delivered':
-                return 'delivered';
-            case 'cancelled':
-                return 'cancelled';
-            default:
-                return status;
-        }
+        return tOrders(status);
     };
 
     const formatPrice = (price: number | string | undefined): string => {
@@ -261,7 +245,6 @@ export default function OrdersScreen() {
 
         return (
             <View key={item.id} className="flex-row items-center py-3 border-b border-gray-100 last:border-b-0">
-                {/* Product Image */}
                 <View
                     className="w-10 h-10 rounded-lg items-center justify-center mr-3"
                     style={{ backgroundColor: getProductBackgroundColor(item.item_name.toLowerCase() || '') }}
@@ -276,17 +259,15 @@ export default function OrdersScreen() {
                     />
                 </View>
 
-                {/* Product Info */}
                 <View className="flex-1">
                     <Text className="text-sm font-medium text-black">
-                        {item.item_name.toLowerCase() || 'unknown product'}
+                        {item.item_name.toLowerCase() || tOrders('unknownProduct')}
                     </Text>
                     <Text className="text-xs text-gray-600">
                         {item.quantity} {item.unit} × rs {formatPrice(item.unit_price)}
                     </Text>
                 </View>
 
-                {/* Total Price */}
                 <Text className="text-sm font-semibold text-black">
                     rs {formatPrice(item.total_price)}
                 </Text>
@@ -294,7 +275,6 @@ export default function OrdersScreen() {
         );
     };
 
-    // Group items by farmer for display
     const groupItemsByFarmer = (items: OrderItem[], orderId: number) => {
         const grouped: { [key: number]: { farmer_id: number; items: OrderItem[]; total: number } } = {};
 
@@ -314,14 +294,13 @@ export default function OrdersScreen() {
             const farmerStatus = farmerStatuses[orderId]?.[group.farmer_id];
             return {
                 ...group,
-                farmer_name: farmerStatus?.farmer_name || 'Unknown Farmer',
-                farmer_district: farmerStatus?.farmer_district || 'Unknown District',
+                farmer_name: farmerStatus?.farmer_name || tOrders('unknownFarmer'),
+                farmer_district: farmerStatus?.farmer_district || tOrders('unknownDistrict'),
                 status: farmerStatus?.status || 'confirmed'
             };
         });
     };
 
-    // Helper function to determine if order has multiple farmers
     const getOrderType = (order: Order) => {
         const details = orderDetails[order.id];
         if (!details) return { isMultiFarmer: false, farmerCount: order.farmer_count || 1 };
@@ -333,7 +312,6 @@ export default function OrdersScreen() {
         };
     };
 
-    // Get the single farmer's status for single-farmer orders
     const getSingleFarmerStatus = (order: Order): OrderStatus => {
         const details = orderDetails[order.id];
         if (!details) return order.status;
@@ -357,7 +335,6 @@ export default function OrdersScreen() {
 
         return (
             <View key={order.id} className="bg-white rounded-xl mb-4 overflow-hidden border border-gray-200">
-                {/* Order Header - Clickable */}
                 <TouchableOpacity
                     onPress={() => toggleOrderExpansion(order.id)}
                     className="p-4"
@@ -374,13 +351,11 @@ export default function OrdersScreen() {
                         </View>
 
                         <View className="items-end">
-                            {/* Smart Status Display */}
                             {farmerCount > 1 ? (
-                                // Multi-farmer: Show "Expand" text
                                 <View className="px-3 py-1 rounded-full mb-1 bg-gray-100">
                                     <View className="flex-row items-center">
                                         <Text className="text-xs font-medium text-gray-500 mr-1">
-                                            expand
+                                            {tOrders('expand')}
                                         </Text>
                                         <Ionicons
                                             name={isExpanded ? "chevron-up" : "chevron-down"}
@@ -390,7 +365,6 @@ export default function OrdersScreen() {
                                     </View>
                                 </View>
                             ) : (
-                                // Single farmer: Show farmer's actual status
                                 <View
                                     className="px-3 py-1 rounded-full mb-1"
                                     style={{ backgroundColor: getStatusColor(displayStatus) + '20' }}
@@ -410,18 +384,16 @@ export default function OrdersScreen() {
                         </View>
                     </View>
 
-                    {/* Order Summary Info */}
                     <View className="flex-row items-center justify-between">
                         <Text className="text-sm text-gray-600">
-                            {order.item_count} item{order.item_count !== 1 ? 's' : ''}
+                            {order.item_count} {order.item_count !== 1 ? tOrders('items') : tOrders('item')}
                         </Text>
                         <Text className="text-sm text-gray-600">
-                            {farmerCount} farmer{farmerCount !== 1 ? 's' : ''}
+                            {farmerCount} {farmerCount !== 1 ? tOrders('farmers') : tOrders('farmer')}
                         </Text>
                     </View>
                 </TouchableOpacity>
 
-                {/* Animated Expanded Order Details */}
                 {isExpanded && (
                     <Animated.View
                         style={{
@@ -436,30 +408,27 @@ export default function OrdersScreen() {
                         {isLoadingDetails ? (
                             <View className="p-4 items-center">
                                 <ActivityIndicator size="small" color="#4CAF50" />
-                                <Text className="text-gray-600 mt-2 text-sm">loading order details...</Text>
+                                <Text className="text-gray-600 mt-2 text-sm">{tOrders('loadingOrderDetails')}</Text>
                             </View>
                         ) : details ? (
                             <View className="p-4">
-                                {/* Delivery Address */}
                                 <View className="mb-4">
-                                    <Text className="text-sm font-medium text-black mb-2">delivery address</Text>
+                                    <Text className="text-sm font-medium text-black mb-2">{tOrders('deliveryAddress')}</Text>
                                     <Text className="text-sm text-gray-600">{details.delivery_address}</Text>
                                     {details.delivery_notes && (
                                         <Text className="text-sm text-gray-500 mt-1">
-                                            note: {details.delivery_notes}
+                                            {tOrders('note')}: {details.delivery_notes}
                                         </Text>
                                     )}
                                 </View>
 
-                                {/* Items grouped by farmer with smart status display */}
                                 <View className="mb-4">
                                     <Text className="text-sm font-medium text-black mb-3">
-                                        {isMultiFarmer ? 'order items by farmer' : 'order items'}
+                                        {isMultiFarmer ? tOrders('orderItemsByFarmer') : tOrders('orderItems')}
                                     </Text>
 
                                     {groupItemsByFarmer(details.items, order.id).map((farmerGroup, index) => (
                                         <View key={farmerGroup.farmer_id} className="mb-4 last:mb-0">
-                                            {/* Farmer Header with Smart Status */}
                                             <View className="bg-gray-50 rounded-lg p-3 mb-2">
                                                 <View className="flex-row items-center justify-between mb-2">
                                                     <View className="flex-1">
@@ -474,7 +443,6 @@ export default function OrdersScreen() {
                                                         </View>
                                                     </View>
 
-                                                    {/* Status only for multi-farmer orders */}
                                                     <View className="items-end">
                                                         {isMultiFarmer && (
                                                             <View
@@ -496,7 +464,6 @@ export default function OrdersScreen() {
                                                 </View>
                                             </View>
 
-                                            {/* Farmer's Items */}
                                             <View className="bg-white border border-gray-100 rounded-lg p-3">
                                                 {farmerGroup.items.map(renderOrderItem)}
                                             </View>
@@ -504,25 +471,24 @@ export default function OrdersScreen() {
                                     ))}
                                 </View>
 
-                                {/* Order Total Breakdown */}
                                 <View className="bg-gray-50 rounded-lg p-3">
                                     <View className="flex-row justify-between items-center mb-2">
-                                        <Text className="text-sm text-gray-600">subtotal</Text>
+                                        <Text className="text-sm text-gray-600">{tOrders('subtotal')}</Text>
                                         <Text className="text-sm text-black">rs {formatPrice(details.total_amount)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center mb-2">
-                                        <Text className="text-sm text-gray-600">delivery fee</Text>
+                                        <Text className="text-sm text-gray-600">{tOrders('deliveryFee')}</Text>
                                         <Text className="text-sm text-black">rs {formatPrice(details.delivery_fee)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center pt-2 border-t border-gray-200">
-                                        <Text className="text-base font-semibold text-black">total</Text>
+                                        <Text className="text-base font-semibold text-black">{tOrders('total')}</Text>
                                         <Text className="text-base font-bold text-black">rs {formatPrice(details.final_amount)}</Text>
                                     </View>
                                 </View>
                             </View>
                         ) : (
                             <View className="p-4">
-                                <Text className="text-gray-500 text-sm text-center">failed to load order details</Text>
+                                <Text className="text-gray-500 text-sm text-center">{tOrders('failedToLoadDetails')}</Text>
                             </View>
                         )}
                     </Animated.View>
@@ -535,7 +501,7 @@ export default function OrdersScreen() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title="my orders"
+                    title={tOrders('myOrders')}
                     showBackButton={true}
                     showNotificationButton={true}
                     showHomeButton={true}
@@ -543,7 +509,7 @@ export default function OrdersScreen() {
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
-                    <Text className="text-gray-600 mt-4">loading orders...</Text>
+                    <Text className="text-gray-600 mt-4">{tOrders('loadingOrders')}</Text>
                 </View>
             </View>
         );
@@ -552,7 +518,7 @@ export default function OrdersScreen() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title="my orders"
+                title={tOrders('myOrders')}
                 showBackButton={true}
                 showNotificationButton={true}
                 showHomeButton={true}
@@ -562,19 +528,19 @@ export default function OrdersScreen() {
             {orders.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-6">
                     <Ionicons name="receipt-outline" size={64} color="#d1d5db" />
-                    <Text className="text-xl font-medium text-black mt-4 mb-2">
-                        no orders yet
+                    <Text className="text-lg font-medium text-black mt-4 mb-2">
+                        {tOrders('noOrdersYet')}
                     </Text>
-                    <Text className="text-gray-600 text-center mb-8">
-                        when you place your first order, it will appear here
+                    <Text className="text-gray-600 text-center mb-8 text-sm">
+                        {tOrders('firstOrderAppear')}
                     </Text>
                     <TouchableOpacity
                         onPress={() => router.push('/(auth)/customer/products')}
-                        className="bg-action-green px-8 py-4 rounded-xl"
+                        className="bg-background px-8 py-4 rounded-xl"
                         activeOpacity={0.7}
                     >
-                        <Text className="text-white font-medium text-lg">
-                            browse products
+                        <Text className="text-black font-medium text-sm">
+                            {tOrders('browseProducts')}
                         </Text>
                     </TouchableOpacity>
                 </View>

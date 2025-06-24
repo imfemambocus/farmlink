@@ -23,7 +23,6 @@ export default function StatCard({
             className="bg-white rounded-xl p-4 border border-gray-200 flex-1 mx-1 relative overflow-hidden"
             style={{ height: 120 }}
         >
-            {/* Background Icon - Top Right */}
             <View
                 className="absolute -bottom-3 -right-3 rounded-full items-center justify-center"
                 style={{
@@ -39,9 +38,7 @@ export default function StatCard({
                 />
             </View>
 
-            {/* Content - Left Side */}
             <View className="flex-1 justify-between">
-                {/* Header with Loading */}
                 <View className="flex-row items-center justify-between">
                     <Text className="text-sm font-medium text-gray-700">
                         {title}
@@ -51,12 +48,10 @@ export default function StatCard({
                     )}
                 </View>
 
-                {/* Main Value */}
                 <Text className="text-2xl font-bold text-black" style={{ marginTop: 8 }}>
                     {loading ? "..." : value}
                 </Text>
 
-                {/* Subtitle */}
                 {subtitle && (
                     <Text className="text-xs text-gray-500" numberOfLines={1} style={{ marginTop: 4 }}>
                         {subtitle}
