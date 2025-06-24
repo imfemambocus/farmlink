@@ -1,3 +1,4 @@
+// Customer ProductCard
 import { useState, useContext } from 'react';
 import { View, Text, TouchableOpacity, Image, Modal } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
