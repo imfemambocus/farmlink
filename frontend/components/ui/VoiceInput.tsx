@@ -27,13 +27,13 @@ interface VoiceInputProps {
 }
 
 export default function VoiceInput({
-                                       onResult,
-                                       onError,
-                                       disabled = false,
-                                       style,
-                                       iconSize = 20,
-                                       iconColor = "black"
-                                   }: VoiceInputProps) {
+   onResult,
+   onError,
+   disabled = false,
+   style,
+   iconSize = 20,
+   iconColor = "black"
+}: VoiceInputProps) {
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
@@ -242,11 +242,12 @@ export default function VoiceInput({
                     alignItems: 'center'
                 }}
                 activeOpacity={0.7}
+                className="shadow-lg elevation-8"
             >
                 <Ionicons
                     name="mic"
                     size={iconSize}
-                    color={disabled ? "#999" : iconColor}
+                    color={disabled ? "red" : iconColor}
                 />
             </TouchableOpacity>
 

@@ -57,7 +57,7 @@ export default function FloatingActionButton({
                 onError={handleVoiceError}
                 style={{
                     position: 'absolute',
-                    bottom: 24,
+                    bottom: 48,
                     right: 24,
                     width: size,
                     height: size,
@@ -65,11 +65,6 @@ export default function FloatingActionButton({
                     backgroundColor: '#EAF3D0',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 3.84,
-                    elevation: 5,
                 }}
                 iconSize={size * 0.4}
                 iconColor="black"
@@ -81,7 +76,7 @@ export default function FloatingActionButton({
     return (
         <TouchableOpacity
             onPress={onPress}
-            className="absolute bottom-6 right-6 rounded-full shadow-lg elevation-8"
+            className="absolute bottom-12 right-6 rounded-full shadow-lg elevation-8"
             style={{
                 width: size,
                 height: size,
