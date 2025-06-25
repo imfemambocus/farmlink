@@ -1,7 +1,7 @@
 # Farmlink
 
 <div align="center">
-  <h2>🌱 Connecting Farmers Directly with Consumers & Businesses</h2>
+  <h2>🌱 Connecting Farmers Directly with Consumers & Businesses 🌱</h2>
   
   <p>
     <em>Revolutionizing agriculture in Mauritius through digital innovation</em>
@@ -121,7 +121,7 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    cd backend
    
    # Create virtual environment
-   python -m venv venv
+   python -m venv venv OR python3 -m venv venv
    
    # Activate virtual environment
    # On Windows:
