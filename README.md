@@ -4,7 +4,7 @@
   <h2>🌱 Connecting Farmers Directly with Consumers & Businesses 🌱</h2>
   
   <p>
-    <em>Revolutionizing agriculture in Mauritius through digital innovation</em>
+    <em>Revolutionising agriculture in Mauritius through digital innovation</em>
   </p>
 
   <p>
@@ -26,7 +26,7 @@
 
 ## About Farmlink
 
-Farmlink is a comprehensive mobile application that bridges the gap between Mauritian farmers and their customers - whether individual households or businesses like restaurants and hotels. By eliminating traditional market inefficiencies, Farmlink empowers farmers with direct market access while providing consumers with fresh, local produce at competitive prices.
+Farmlink is a comprehensive mobile application that bridges the gap between Mauritian farmers and their customers - whether individual households or businesses like restaurants and hotels. By eliminating traditional market inefficiencies, Farmlink empowers farmers with direct market access whilst providing consumers with fresh, local produce at competitive prices.
 
 ### Problem Statement
 
@@ -112,8 +112,8 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/efahiim/Farmlink.git
-   cd Farmlink
+   git clone https://github.com/efahiim/farmlink.git
+   cd farmlink
    ```
 
 2. **Set up the Backend**
@@ -121,7 +121,9 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    cd backend
    
    # Create virtual environment
-   python -m venv venv OR python3 -m venv venv
+   python -m venv venv
+   # If the above doesn't work, try:
+   # python3 -m venv venv
    
    # Activate virtual environment
    # On Windows:
@@ -131,6 +133,9 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    
    # Install dependencies
    pip install -r requirements.txt
+   
+   # (Optional) Populate database with test data
+   python seed_data.py
    
    # Set up environment variables (optional - defaults are provided)
    cp .env.example .env
@@ -156,11 +161,19 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    # Activate virtual environment if not already active
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    
+   # (Optional) Seed database with test users and products
+   python seed_data.py
+   
    # Run the FastAPI server
    uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
    
    Backend will be available at: `http://localhost:8000`
+   
+   **Test Users** (if seeded):
+   - **Individual**: user@test.com (password: testing)
+   - **Business**: biz@test.com (password: testing)  
+   - **Farmer**: farm@test.com (password: testing)
 
 2. **Start the Frontend App**
    ```bash
@@ -212,7 +225,7 @@ Once the backend is running, access the interactive API documentation:
 ## Project Structure
 
 ```
-Farmlink/
+farmlink/
 ├── frontend/                   # React Native Expo app
 │   ├── app/                    # Expo Router pages
 │   ├── assets/                 # Static assets
@@ -256,7 +269,7 @@ npx expo build:android
 npx expo build:ios
 ```
 
-**Note**: iOS deployment requires a paid Apple Developer account, while Android deployment is free.
+**Note**: iOS deployment requires a paid Apple Developer account, whilst Android deployment is free.
 
 ---
 
