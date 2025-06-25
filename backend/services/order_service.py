@@ -1,11 +1,10 @@
-# services/order_service.py - UNIFIED SYSTEM ONLY
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, text
-from models.order import Cart, CartItem, UnifiedOrder, UnifiedOrderItem, UnifiedPayment, OrderStatusEnum, FarmerPayment
+from models.order import Cart, CartItem, UnifiedOrder, UnifiedOrderItem, OrderStatusEnum, FarmerPayment
 from models.product import FarmerProduct, ProductUnitPrice
 from models.user import User
 from schemas.order import CartItemCreate, CartItemUpdate
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict
 from decimal import Decimal
 from datetime import datetime, timedelta
 from services.notification_service import PushNotificationService
@@ -16,12 +15,8 @@ class OrderService:
         self.db = db
         self.notification_service = PushNotificationService(db)
 
-    # ==========================================
-    # CART MANAGEMENT
-    # ==========================================
 
     def get_or_create_cart(self, user_id: int) -> Cart:
-        """Get existing cart or create new one for user"""
         cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
         if not cart:
             cart = Cart(user_id=user_id)
@@ -30,11 +25,10 @@ class OrderService:
             self.db.refresh(cart)
         return cart
 
+
     def add_to_cart(self, user_id: int, item_data: CartItemCreate) -> CartItem:
-        """Add item to cart or update quantity if already exists"""
         cart = self.get_or_create_cart(user_id)
 
-        # Validate product and unit price
         unit_price = (
             self.db.query(ProductUnitPrice)
             .join(FarmerProduct)
@@ -61,10 +55,8 @@ class OrderService:
         )
 
         if existing_item:
-            # Update quantity
             new_quantity = existing_item.quantity + item_data.quantity
 
-            # Check availability
             if new_quantity > unit_price.quantity_available:
                 raise ValueError(f"Not enough stock. Available: {unit_price.quantity_available}")
 
@@ -74,15 +66,12 @@ class OrderService:
             self.db.refresh(existing_item)
             return existing_item
         else:
-            # Check availability
             if item_data.quantity > unit_price.quantity_available:
                 raise ValueError(f"Not enough stock. Available: {unit_price.quantity_available}")
 
-            # Check minimum order
             if item_data.quantity < unit_price.minimum_order:
                 raise ValueError(f"Minimum order quantity is {unit_price.minimum_order}")
 
-            # Create new cart item
             cart_item = CartItem(
                 cart_id=cart.id,
                 farmer_product_id=item_data.farmer_product_id,
@@ -95,8 +84,8 @@ class OrderService:
             self.db.refresh(cart_item)
             return cart_item
 
+
     def update_cart_item(self, user_id: int, cart_item_id: int, update_data: CartItemUpdate) -> CartItem:
-        """Update cart item quantity"""
         cart_item = (
             self.db.query(CartItem)
             .join(Cart)
@@ -111,7 +100,6 @@ class OrderService:
             raise ValueError("Cart item not found")
 
         if update_data.quantity is not None:
-            # Validate availability
             unit_price = self.db.query(ProductUnitPrice).get(cart_item.unit_price_id)
             if update_data.quantity > unit_price.quantity_available:
                 raise ValueError(f"Not enough stock. Available: {unit_price.quantity_available}")
@@ -120,14 +108,14 @@ class OrderService:
                 raise ValueError(f"Minimum order quantity is {unit_price.minimum_order}")
 
             cart_item.quantity = update_data.quantity
-            cart_item.unit_price_snapshot = unit_price.price_per_unit  # Update price
+            cart_item.unit_price_snapshot = unit_price.price_per_unit
 
         self.db.commit()
         self.db.refresh(cart_item)
         return cart_item
 
+
     def remove_from_cart(self, user_id: int, cart_item_id: int) -> bool:
-        """Remove item from cart"""
         cart_item = (
             self.db.query(CartItem)
             .join(Cart)
@@ -145,8 +133,8 @@ class OrderService:
         self.db.commit()
         return True
 
+
     def get_cart(self, user_id: int) -> Dict:
-        """Get user's cart with all items grouped by farmer"""
         cart = (
             self.db.query(Cart)
             .options(
@@ -188,7 +176,6 @@ class OrderService:
                     "subtotal": Decimal('0')
                 }
 
-            # Add product info to item
             item.product_name = item.farmer_product.item.value.replace('_', ' ').title()
             item.unit_name = item.unit_price.unit.value
             item.farmer_name = farmer_groups[farmer_id]["farmer_name"]
@@ -206,8 +193,8 @@ class OrderService:
             "updated_at": cart.updated_at
         }
 
+
     def clear_cart(self, user_id: int) -> bool:
-        """Clear all items from cart"""
         cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
         if not cart:
             return False
@@ -216,13 +203,12 @@ class OrderService:
         self.db.commit()
         return True
 
+
     def clear_farmer_items_from_cart(self, user_id: int, farmer_id: int) -> bool:
-        """Clear items for specific farmer from cart"""
         cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
         if not cart:
             return False
 
-        # Delete cart items for specific farmer
         self.db.query(CartItem).filter(
             CartItem.cart_id == cart.id,
             CartItem.farmer_product.has(FarmerProduct.farmer_id == farmer_id)
@@ -230,12 +216,8 @@ class OrderService:
         self.db.commit()
         return True
 
-    # ==========================================
-    # UNIFIED ORDER MANAGEMENT
-    # ==========================================
 
     def get_customer_orders(self, user_id: int, status: Optional[str] = None) -> List[UnifiedOrder]:
-        """Get unified orders for customer"""
         query = (
             self.db.query(UnifiedOrder)
             .options(
@@ -250,8 +232,8 @@ class OrderService:
 
         return query.order_by(desc(UnifiedOrder.created_at)).all()
 
+
     def get_farmer_orders(self, farmer_id: int, status: Optional[str] = None) -> List[UnifiedOrder]:
-        """Get unified orders that contain items from this farmer"""
         query = (
             self.db.query(UnifiedOrder)
             .join(UnifiedOrderItem)
@@ -267,9 +249,8 @@ class OrderService:
 
         return query.order_by(desc(UnifiedOrder.created_at)).all()
 
+
     def get_order_by_id(self, order_id: int, user_id: int) -> Optional[UnifiedOrder]:
-        """Get unified order by ID (customer or farmer can access)"""
-        # Check if user is customer
         order = (
             self.db.query(UnifiedOrder)
             .options(
@@ -287,7 +268,6 @@ class OrderService:
         if order:
             return order
 
-        # Check if user is farmer with items in this order
         order = (
             self.db.query(UnifiedOrder)
             .join(UnifiedOrderItem)
@@ -305,8 +285,8 @@ class OrderService:
 
         return order
 
+
     def update_order_status(self, order_id: int, user_id: int, new_status: str) -> UnifiedOrder:
-        """Update unified order status with notifications"""
         order = (
             self.db.query(UnifiedOrder)
             .filter(UnifiedOrder.id == order_id)
@@ -318,7 +298,6 @@ class OrderService:
 
         old_status = order.status
 
-        # Update status and timestamps
         order.status = new_status
 
         if new_status == "delivered" and not order.delivered_at:
@@ -332,7 +311,6 @@ class OrderService:
         self.db.refresh(order)
 
         # Send notification to customer about farmer's status change
-        # Check if the user updating is a farmer
         user = self.db.query(User).get(user_id)
         if user and user.role == 'farmer':
             # Check if farmer has items in this order
@@ -347,10 +325,8 @@ class OrderService:
 
         return order
 
-    def get_farmer_order_summary(self, farmer_id: int) -> Dict:
-        """Get order summary for farmer dashboard - SQLite optimized with zero handling"""
 
-        # Initialize with zeros
+    def get_farmer_order_summary(self, farmer_id: int) -> Dict:
         result = {
             'total_orders': 0,
             'confirmed_orders': 0,
@@ -364,7 +340,6 @@ class OrderService:
         }
 
         try:
-            # Get farmer payment records with simple SQLite query
             farmer_payments = (
                 self.db.query(FarmerPayment, UnifiedOrder.status)
                 .join(UnifiedOrder, FarmerPayment.order_id == UnifiedOrder.id)
@@ -372,7 +347,6 @@ class OrderService:
                 .all()
             )
 
-            # Process results in Python (SQLite-friendly)
             for payment, status in farmer_payments:
                 result['total_orders'] += 1
 
@@ -399,18 +373,14 @@ class OrderService:
 
         except Exception as e:
             print(f"Error in get_farmer_order_summary: {e}")
-            # Return zeros on error
 
         return result
 
-    def get_farmer_sales_for_period(self, farmer_id: int, period: str) -> Dict:
-        """Get farmer sales count for specific time period - SQLite optimized"""
 
+    def get_farmer_sales_for_period(self, farmer_id: int, period: str) -> Dict:
         try:
-            # Get current date for filtering
             now = datetime.now()
 
-            # SQLite-friendly date filtering using string comparison
             if period == 'this_week':
                 start_date = (now - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
                 date_filter = UnifiedOrder.created_at >= start_date
@@ -422,10 +392,9 @@ class OrderService:
                     '%Y-%m-%d %H:%M:%S')
                 date_filter = UnifiedOrder.created_at >= start_date
             elif period == 'all_time':
-                date_filter = text('1=1')  # SQLite-friendly always true
+                date_filter = text('1=1')
             elif period in ['january', 'february', 'march', 'april', 'may', 'june',
                             'july', 'august', 'september', 'october', 'november', 'december']:
-                # Specific month using SQLite strftime
                 month_mapping = {
                     'january': '01', 'february': '02', 'march': '03', 'april': '04',
                     'may': '05', 'june': '06', 'july': '07', 'august': '08',
@@ -434,15 +403,12 @@ class OrderService:
                 target_month = month_mapping[period]
                 current_year = str(now.year)
 
-                # Use SQLite strftime function
                 date_filter = text(
                     f"strftime('%Y', unified_orders.created_at) = '{current_year}' AND strftime('%m', unified_orders.created_at) = '{target_month}'")
             else:
-                # Default to this month
                 start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
                 date_filter = UnifiedOrder.created_at >= start_date
 
-            # Simple SQLite-friendly query
             if period == 'all_time':
                 sales_count = (
                     self.db.query(UnifiedOrder.id)
@@ -452,7 +418,6 @@ class OrderService:
                 )
             elif period in ['january', 'february', 'march', 'april', 'may', 'june',
                             'july', 'august', 'september', 'october', 'november', 'december']:
-                # For month filtering, get all orders and filter in Python (SQLite-friendly)
                 orders = (
                     self.db.query(UnifiedOrder.created_at)
                     .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
@@ -474,7 +439,6 @@ class OrderService:
                     if order_date.year == current_year and order_date.month == target_month:
                         sales_count += 1
             else:
-                # For other periods, use simple date comparison
                 sales_count = (
                     self.db.query(UnifiedOrder.id)
                     .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
@@ -491,14 +455,11 @@ class OrderService:
             print(f"Error getting farmer sales for period {period}: {e}")
             return {'total_sales': 0}
 
-    def get_farmer_revenue_for_period(self, farmer_id: int, period: str) -> Dict:
-        """Get farmer revenue for specific time period - SQLite optimized"""
 
+    def get_farmer_revenue_for_period(self, farmer_id: int, period: str) -> Dict:
         try:
-            # Get current date for filtering
             now = datetime.now()
 
-            # Get all farmer payments first (SQLite-friendly approach)
             all_payments = (
                 self.db.query(FarmerPayment, UnifiedOrder.created_at)
                 .join(UnifiedOrder, FarmerPayment.order_id == UnifiedOrder.id)
@@ -506,7 +467,6 @@ class OrderService:
                 .all()
             )
 
-            # Filter in Python (more reliable for SQLite)
             filtered_payments = []
 
             if period == 'this_week':
@@ -534,11 +494,9 @@ class OrderService:
                     if created_at.year == current_year and created_at.month == target_month
                 ]
             else:
-                # Default to this month
                 start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
                 filtered_payments = [p for p, created_at in all_payments if created_at >= start_date]
 
-            # Calculate totals in Python
             gross_revenue = sum(float(p.gross_amount or 0) for p in filtered_payments)
             net_revenue = sum(float(p.net_amount or 0) for p in filtered_payments)
 

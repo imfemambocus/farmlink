@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_
 from models.product import FarmerProduct, ProductUnitPrice, ItemEnum, CategoryEnum, get_item_category
 from models.user import User
 from schemas.product import FarmerProductCreate, FarmerProductUpdate, ProductUnitPriceCreate, ProductUnitPriceUpdate
@@ -7,7 +6,6 @@ from typing import List, Optional, Dict
 
 
 def get_available_items() -> Dict[str, List[ItemEnum]]:
-    """Get all available items grouped by category"""
     fruits = [item for item in ItemEnum if get_item_category(item) == CategoryEnum.FRUITS]
     vegetables = [item for item in ItemEnum if get_item_category(item) == CategoryEnum.VEGETABLES]
 
@@ -18,7 +16,6 @@ def get_available_items() -> Dict[str, List[ItemEnum]]:
 
 
 def create_farmer_product(db: Session, farmer_id: int, product_data: FarmerProductCreate) -> FarmerProduct:
-    # Check if farmer already has this item
     existing = db.query(FarmerProduct).filter(
         FarmerProduct.farmer_id == farmer_id,
         FarmerProduct.item == product_data.item
@@ -27,7 +24,6 @@ def create_farmer_product(db: Session, farmer_id: int, product_data: FarmerProdu
     if existing:
         raise Exception(f"You already have {product_data.item.value} listed. Please update the existing product.")
 
-    # Create the main product
     db_product = FarmerProduct(
         farmer_id=farmer_id,
         item=product_data.item,
@@ -36,14 +32,13 @@ def create_farmer_product(db: Session, farmer_id: int, product_data: FarmerProdu
         expiry_date=product_data.expiry_date
     )
     db.add(db_product)
-    db.flush()  # Get the ID without committing
+    db.flush()
 
-    # Add unit prices - explicitly handle the new customer_type field
     for unit_price_data in product_data.unit_prices:
         db_unit_price = ProductUnitPrice(
             farmer_product_id=db_product.id,
             unit=unit_price_data.unit,
-            customer_type=unit_price_data.customer_type,  # NEW: Explicitly include customer_type
+            customer_type=unit_price_data.customer_type,
             price_per_unit=unit_price_data.price_per_unit,
             quantity_available=unit_price_data.quantity_available,
             minimum_order=unit_price_data.minimum_order
@@ -85,7 +80,6 @@ def update_farmer_product(db: Session, product_id: int, farmer_id: int,
 
 
 def delete_farmer_product(db: Session, product_id: int, farmer_id: int) -> bool:
-    """Delete a farmer's product and all associated unit prices"""
     product = db.query(FarmerProduct).filter(
         FarmerProduct.id == product_id,
         FarmerProduct.farmer_id == farmer_id
@@ -94,7 +88,6 @@ def delete_farmer_product(db: Session, product_id: int, farmer_id: int) -> bool:
     if not product:
         return False
 
-    # The unit prices will be automatically deleted due to cascade="all, delete-orphan"
     db.delete(product)
     db.commit()
     return True
@@ -102,7 +95,6 @@ def delete_farmer_product(db: Session, product_id: int, farmer_id: int) -> bool:
 
 def add_unit_price(db: Session, product_id: int, farmer_id: int,
                    unit_price_data: ProductUnitPriceCreate) -> ProductUnitPrice:
-    # Verify product belongs to farmer
     product = db.query(FarmerProduct).filter(
         FarmerProduct.id == product_id,
         FarmerProduct.farmer_id == farmer_id
@@ -111,11 +103,10 @@ def add_unit_price(db: Session, product_id: int, farmer_id: int,
     if not product:
         raise Exception("Product not found")
 
-    # Check if unit price already exists for this unit AND customer type
     existing = db.query(ProductUnitPrice).filter(
         ProductUnitPrice.farmer_product_id == product_id,
         ProductUnitPrice.unit == unit_price_data.unit,
-        ProductUnitPrice.customer_type == unit_price_data.customer_type  # NEW: Include customer_type in check
+        ProductUnitPrice.customer_type == unit_price_data.customer_type
     ).first()
 
     if existing:
@@ -124,7 +115,7 @@ def add_unit_price(db: Session, product_id: int, farmer_id: int,
     db_unit_price = ProductUnitPrice(
         farmer_product_id=product_id,
         unit=unit_price_data.unit,
-        customer_type=unit_price_data.customer_type,  # NEW: Explicitly include customer_type
+        customer_type=unit_price_data.customer_type,
         price_per_unit=unit_price_data.price_per_unit,
         quantity_available=unit_price_data.quantity_available,
         minimum_order=unit_price_data.minimum_order
@@ -132,6 +123,7 @@ def add_unit_price(db: Session, product_id: int, farmer_id: int,
     db.add(db_unit_price)
     db.commit()
     db.refresh(db_unit_price)
+
     return db_unit_price
 
 

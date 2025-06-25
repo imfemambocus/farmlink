@@ -1,8 +1,6 @@
-# routes/orders.py - UNIFIED SYSTEM ONLY
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-
 from models.notification import UnifiedOrderFarmerStatus
 from models.user import FarmerProfile, User
 from schemas.order import (
@@ -14,12 +12,9 @@ from services.order_service import OrderService
 from core.security import get_current_user, get_db
 from models.order import OrderStatusEnum, UnifiedOrder, UnifiedOrderItem
 
+
 router = APIRouter()
 
-
-# ==========================================
-# CART ENDPOINTS
-# ==========================================
 
 @router.post("/cart/items", response_model=CartItemResponse)
 def add_to_cart(
@@ -27,7 +22,6 @@ def add_to_cart(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Add item to cart"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can add items to cart")
 
@@ -46,7 +40,6 @@ def get_cart(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get user's cart"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can access cart")
 
@@ -61,7 +54,6 @@ def update_cart_item(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Update cart item quantity"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can update cart")
 
@@ -79,7 +71,6 @@ def remove_from_cart(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Remove item from cart"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can modify cart")
 
@@ -97,7 +88,6 @@ def clear_cart(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Clear all items from cart"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can clear cart")
 
@@ -106,17 +96,12 @@ def clear_cart(
     return {"message": "Cart cleared successfully"}
 
 
-# ==========================================
-# UNIFIED ORDER ENDPOINTS
-# ==========================================
-
 @router.get("", response_model=List[UnifiedOrderListItem])
 def get_my_orders(
         status: Optional[OrderStatusEnum] = Query(None, description="Filter by order status"),
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get user's unified orders (customers see their orders, farmers see orders containing their items)"""
     service = OrderService(db)
 
     if current_user.role == 'farmer':
@@ -126,7 +111,6 @@ def get_my_orders(
     else:
         raise HTTPException(status_code=403, detail="Invalid user role")
 
-    # Convert to list items format
     result = []
     for order in orders:
         if current_user.role == 'farmer':
@@ -136,12 +120,11 @@ def get_my_orders(
                 id=order.id,
                 order_number=order.order_number,
                 status=order.status,
-                final_amount=sum(item.total_price for item in farmer_items),  # Only farmer's portion
+                final_amount=sum(item.total_price for item in farmer_items),
                 item_count=len(farmer_items),
                 created_at=order.created_at
             ))
         else:
-            # For customer view
             farmer_ids = set(item.farmer_id for item in order.items)
             result.append(UnifiedOrderListItem(
                 id=order.id,
@@ -162,7 +145,6 @@ def get_order(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get unified order details"""
     service = OrderService(db)
     order = service.get_order_by_id(order_id, current_user.id)
 
@@ -171,17 +153,15 @@ def get_order(
 
     # For farmers, filter items to show only their products
     items = order.items
-    farmer_total_amount = order.total_amount  # Default to full amount
-    farmer_final_amount = order.final_amount  # Default to full amount
+    farmer_total_amount = order.total_amount
+    farmer_final_amount = order.final_amount
 
     if current_user.role == 'farmer':
-        # Filter items for this farmer only
         items = [item for item in order.items if item.farmer_id == current_user.id]
 
         # Calculate farmer-specific totals
         farmer_total_amount = sum(item.total_price for item in items)
 
-        # For final amount, we don't add delivery fee since that's shared
         # The farmer only gets paid for their items
         farmer_final_amount = farmer_total_amount
 
@@ -189,9 +169,9 @@ def get_order(
         id=order.id,
         order_number=order.order_number,
         status=order.status,
-        total_amount=farmer_total_amount,  # Farmer's items only
-        delivery_fee=0,  # Delivery fee is handled by platform
-        final_amount=farmer_final_amount,  # Farmer's portion only
+        total_amount=farmer_total_amount,
+        delivery_fee=0,
+        final_amount=farmer_final_amount,
         customer_name=order.customer_name,
         customer_phone=order.customer_phone,
         customer_email=order.customer_email,
@@ -210,35 +190,27 @@ def get_order_farmers(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get farmer information for an order (SQLite-optimized)"""
-
-    # First, get the order and check permissions
     order = db.query(UnifiedOrder).filter(UnifiedOrder.id == order_id).first()
 
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Get order items separately
     order_items = (
         db.query(UnifiedOrderItem)
         .filter(UnifiedOrderItem.order_id == order_id)
         .all()
     )
 
-    # Check permissions
     farmer_ids_in_order = set(item.farmer_id for item in order_items)
 
     if current_user.id != order.customer_id and current_user.id not in farmer_ids_in_order:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Get farmer info separately for each farmer
     farmers_info = {}
     for farmer_id in farmer_ids_in_order:
-        # Query farmer and profile separately to avoid SQLite join issues
         farmer = db.query(User).filter(User.id == farmer_id).first()
 
         if farmer:
-            # Get farmer profile separately
             farmer_profile = (
                 db.query(FarmerProfile)
                 .filter(FarmerProfile.user_id == farmer_id)
@@ -255,7 +227,6 @@ def get_order_farmers(
             farmer_name = f"Farmer {farmer_id}"
             farmer_district = "Unknown District"
 
-        # Check for farmer status (if notification system is working)
         farmer_status = (
             db.query(UnifiedOrderFarmerStatus)
             .filter(
@@ -283,32 +254,25 @@ def update_order_status(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Update unified order status - farmers can update orders containing their products"""
     service = OrderService(db)
 
-    # Get the order first to check permissions
     order = service.get_order_by_id(order_id, current_user.id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Permission checks based on user role
     if current_user.role == 'farmer':
-        # Check if farmer has items in this order
         farmer_items = [item for item in order.items if item.farmer_id == current_user.id]
         if not farmer_items:
             raise HTTPException(status_code=403, detail="You can only update orders containing your products")
 
-        # Define which statuses farmers can set
         allowed_statuses = ['processing', 'out_for_delivery', 'delivered', 'cancelled']
         if update_data.status not in allowed_statuses:
             raise HTTPException(status_code=403, detail=f"Farmers cannot set status to {update_data.status}")
 
-        # Prevent farmers from changing delivered/cancelled orders
         if order.status in ['delivered', 'cancelled']:
             raise HTTPException(status_code=403, detail="Cannot modify delivered or cancelled orders")
 
     elif current_user.role in ['admin', 'system']:
-        # Admins can change any order to any status
         pass
     else:
         raise HTTPException(status_code=403, detail="Not authorized to update order status")
@@ -316,7 +280,6 @@ def update_order_status(
     try:
         updated_order = service.update_order_status(order_id, current_user.id, update_data.status)
 
-        # For farmers, filter items to show only their products in response
         items = updated_order.items
         if current_user.role == 'farmer':
             items = [item for item in updated_order.items if item.farmer_id == current_user.id]
@@ -342,16 +305,11 @@ def update_order_status(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-# ==========================================
-# FARMER-SPECIFIC ENDPOINTS
-# ==========================================
-
 @router.get("/farmer/orders/summary", response_model=FarmerOrderSummary)
 def get_farmer_order_summary(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get order summary for farmer dashboard"""
     if current_user.role != 'farmer':
         raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
 
@@ -364,11 +322,9 @@ def get_farmer_earnings(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get detailed farmer earnings (uses Stripe service for detailed breakdown)"""
     if current_user.role != 'farmer':
         raise HTTPException(status_code=403, detail="Only farmers can view earnings")
 
-    # Import here to avoid circular imports
     from services.stripe_service import StripePaymentService
 
     service = StripePaymentService(db)
@@ -381,7 +337,6 @@ def get_farmer_sales_for_period(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get farmer sales count for specific time period"""
     if current_user.role != 'farmer':
         raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
 
@@ -395,7 +350,6 @@ def get_farmer_revenue_for_period(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get farmer revenue for specific time period"""
     if current_user.role != 'farmer':
         raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
 

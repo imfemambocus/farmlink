@@ -1,4 +1,3 @@
-# seed_data.py - UPDATED FOR ML TESTING
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from core.database import SessionLocal, engine
@@ -6,18 +5,15 @@ from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
 from models.product import FarmerProduct, ProductUnitPrice, ItemEnum, UnitEnum, CustomerTypeEnum
 from core.security import get_password_hash
 from datetime import datetime, timedelta
-from decimal import Decimal
 
 # Password: test (for all test users)
 DEFAULT_PASSWORD = "testing"
 
 
 def reset_database(db: Session):
-    """Reset database and create all tables with updated schema"""
     print("🗑️  Resetting database...")
 
     try:
-        # Import Base to access metadata
         from core.database import Base
 
         # STEP 1: Get all existing tables from database
@@ -78,8 +74,6 @@ def reset_database(db: Session):
 
 
 def create_test_users(db: Session):
-    """Create simple test users for ML testing"""
-
     # Test Individual User
     individual_user = User(
         email="user@test.com",
@@ -146,9 +140,6 @@ def create_test_users(db: Session):
 
 
 def create_all_products(db: Session, farmer_id: int):
-    """Create ALL fruits and vegetables for the test farmer"""
-
-    # Define realistic pricing for all items
     product_pricing = {
         # FRUITS
         ItemEnum.APPLE: {"individual": 450.0, "business": 400.0, "unit": UnitEnum.KG, "stock": 100},
@@ -222,8 +213,8 @@ def create_all_products(db: Session, farmer_id: int):
             unit=pricing["unit"],
             customer_type=CustomerTypeEnum.BUSINESS,
             price_per_unit=pricing["business"],
-            quantity_available=pricing["stock"] * 2,  # More stock for business
-            minimum_order=25 if pricing["unit"] != UnitEnum.PIECE else 10  # Bulk minimum
+            quantity_available=pricing["stock"] * 2,
+            minimum_order=25 if pricing["unit"] != UnitEnum.PIECE else 10
         )
         db.add(business_unit_price)
 
@@ -232,7 +223,6 @@ def create_all_products(db: Session, farmer_id: int):
 
 
 def seed_database():
-    """Main seeding function for ML testing"""
     print("=" * 60)
     print("🧪 Starting FarmLink ML Testing Database Setup...")
     print("=" * 60)
@@ -248,8 +238,6 @@ def seed_database():
 
         print(f"\n🥕 Creating ALL products for test farmer (ID: {farmer_id})...")
         create_all_products(db, farmer_id)
-
-        # NO carts, NO orders - clean slate for ML testing
 
         db.commit()
         print("\n" + "=" * 60)

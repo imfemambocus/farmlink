@@ -8,7 +8,9 @@ from services.auth_service import create_user_with_profile, authenticate_user
 from core.security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user, get_db
 from datetime import timedelta
 
+
 router = APIRouter()
+
 
 @router.post("/register", response_model=UserResponse)
 def register(user_data: dict, db: Session = Depends(get_db)):
@@ -16,7 +18,6 @@ def register(user_data: dict, db: Session = Depends(get_db)):
     if not role:
         raise HTTPException(status_code=400, detail="Role is required")
 
-    # Validate and parse input based on role
     if role == 'farmer':
         user_create = FarmerCreate(**user_data)
     elif role == 'individual':
@@ -33,6 +34,7 @@ def register(user_data: dict, db: Session = Depends(get_db)):
 
     return db_user
 
+
 @router.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = authenticate_user(db, user.email, user.password)
@@ -45,14 +47,15 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     )
     return {"access_token": token, "token_type": "bearer"}
 
+
 @router.get("/profile", response_model=UserResponse)
 def get_my_profile(current_user=Depends(get_current_user)):
     return current_user
 
+
 @router.put("/profile", response_model=UserResponse)
 def update_profile(profile_data: dict, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
     try:
-        # Validate and parse input based on user role
         if current_user.role == 'farmer':
             update_data = FarmerProfileUpdate(**profile_data)
             profile = current_user.farmer_profile
@@ -71,7 +74,7 @@ def update_profile(profile_data: dict, current_user=Depends(get_current_user), d
         # Update only provided fields
         update_dict = update_data.dict(exclude_unset=True)
         for field, value in update_dict.items():
-            if value is not None:  # Only update non-None values
+            if value is not None:
                 setattr(profile, field, value)
 
         db.commit()

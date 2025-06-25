@@ -3,8 +3,8 @@ from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
 from core.security import get_password_hash
 from schemas.user import FarmerCreate, IndividualCreate, BusinessCreate
 
+
 def create_user_with_profile(db: Session, user_create):
-    # Hash the password
     hashed_pw = get_password_hash(user_create.password)
     user = User(email=user_create.email, hashed_password=hashed_pw, role=user_create.role)
     db.add(user)

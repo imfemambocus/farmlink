@@ -1,19 +1,18 @@
-# routes/payments.py - UNIFIED SYSTEM ONLY
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel
 from services.stripe_service import StripePaymentService, handle_stripe_webhook
 from core.security import get_current_user, get_db
-from models.order import UnifiedOrder, UnifiedPayment
+from models.order import UnifiedOrder
 import json
+
 
 router = APIRouter()
 
 
-# Request/Response Models
 class PaymentIntentRequest(BaseModel):
-    amount: int  # Amount in cents
+    amount: int
     currency: str = "mur"
     cart_id: int
     delivery_info: dict
@@ -36,7 +35,6 @@ def create_payment_intent(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Create a Stripe payment intent for checkout"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can create payments")
 
@@ -63,7 +61,6 @@ def confirm_payment(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Confirm payment and create unified order after successful Stripe payment"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can confirm payments")
 
@@ -87,7 +84,6 @@ def get_unified_order(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get unified order details"""
     order = (
         db.query(UnifiedOrder)
         .filter(
@@ -152,7 +148,6 @@ def get_customer_orders(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get customer's unified orders"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can view orders")
 
@@ -186,7 +181,6 @@ def get_farmer_earnings(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get farmer earnings summary"""
     if current_user.role != 'farmer':
         raise HTTPException(status_code=403, detail="Only farmers can view earnings")
 
@@ -194,6 +188,7 @@ def get_farmer_earnings(
     return service.get_farmer_earnings_summary(current_user.id)
 
 
+# To set up when this app goes to production
 @router.post("/refund/{order_id}")
 def process_refund(
         order_id: int,
@@ -201,8 +196,6 @@ def process_refund(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Process refund for an order (admin only in production)"""
-    # In production, add proper admin role check
     try:
         service = StripePaymentService(db)
         result = service.process_refund(order_id, amount_cents)
@@ -211,12 +204,12 @@ def process_refund(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# To set up for Stripe testing
 @router.post("/webhook")
 async def stripe_webhook(
         request: Request,
         stripe_signature: str = Header(None, alias="stripe-signature")
 ):
-    """Handle Stripe webhook events"""
     try:
         payload = await request.body()
         event_data = json.loads(payload)

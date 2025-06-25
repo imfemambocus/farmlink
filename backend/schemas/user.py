@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 
-# Base response schema for User
+
 class UserResponseBase(BaseModel):
     id: int
     email: EmailStr
@@ -10,7 +10,7 @@ class UserResponseBase(BaseModel):
     class Config:
         from_attributes = True
 
-# Profile details for responses
+
 class FarmerProfileResponse(BaseModel):
     first_name: str
     last_name: str
@@ -19,6 +19,7 @@ class FarmerProfileResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class IndividualProfileResponse(BaseModel):
     first_name: str
@@ -32,6 +33,7 @@ class IndividualProfileResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class BusinessProfileResponse(BaseModel):
     business_name: str
     contact_name: str
@@ -43,27 +45,23 @@ class BusinessProfileResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# Full user response including profile info
+
 class UserResponse(UserResponseBase):
     farmer_profile: Optional[FarmerProfileResponse]
     individual_profile: Optional[IndividualProfileResponse]
     business_profile: Optional[BusinessProfileResponse]
 
 
-# Login schema
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
 
-# Base user create with role
 class UserCreateBase(BaseModel):
     email: EmailStr
     password: str
-    role: str  # 'farmer', 'individual', 'business'
+    role: str
 
-
-# Specific registration schemas per role
 
 class FarmerCreate(UserCreateBase):
     first_name: str
@@ -81,6 +79,7 @@ class IndividualCreate(UserCreateBase):
     city_town: str
     post_code: str
 
+
 class BusinessCreate(UserCreateBase):
     business_name: str
     contact_name: str
@@ -89,11 +88,13 @@ class BusinessCreate(UserCreateBase):
     city_town: str
     post_code: str
 
+
 class FarmerProfileUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone_number: Optional[str] = None
     district: Optional[str] = None
+
 
 class IndividualProfileUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -103,6 +104,7 @@ class IndividualProfileUpdate(BaseModel):
     street: Optional[str] = None
     city_town: Optional[str] = None
     post_code: Optional[str] = None
+
 
 class BusinessProfileUpdate(BaseModel):
     business_name: Optional[str] = None

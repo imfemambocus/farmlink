@@ -1,14 +1,9 @@
-# schemas/order.py - UNIFIED SYSTEM ONLY
 from pydantic import BaseModel, validator
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
 from models.order import OrderStatusEnum, PaymentStatusEnum, PaymentMethodEnum
 
-
-# ==========================================
-# CART SCHEMAS
-# ==========================================
 
 class CartItemBase(BaseModel):
     farmer_product_id: int
@@ -42,7 +37,6 @@ class CartItemResponse(CartItemBase):
     total_price: Decimal
     created_at: datetime
 
-    # Product information (added dynamically by OrderService)
     product_name: Optional[str] = None
     unit_name: Optional[str] = None
     farmer_name: Optional[str] = None
@@ -70,10 +64,6 @@ class CartResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
-# ==========================================
-# UNIFIED ORDER SCHEMAS
-# ==========================================
 
 class UnifiedOrderItemResponse(BaseModel):
     id: int
@@ -120,7 +110,7 @@ class UnifiedOrderListItem(BaseModel):
     order_number: str
     status: OrderStatusEnum
     final_amount: Decimal
-    farmer_count: Optional[int] = None  # For customer view
+    farmer_count: Optional[int] = None
     item_count: int
     created_at: datetime
 
@@ -131,10 +121,6 @@ class UnifiedOrderListItem(BaseModel):
 class UnifiedOrderUpdateRequest(BaseModel):
     status: OrderStatusEnum
 
-
-# ==========================================
-# PAYMENT SCHEMAS
-# ==========================================
 
 class UnifiedPaymentResponse(BaseModel):
     id: int
@@ -149,10 +135,6 @@ class UnifiedPaymentResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
-# ==========================================
-# FARMER PAYMENT SCHEMAS
-# ==========================================
 
 class FarmerPaymentResponse(BaseModel):
     id: int
@@ -169,10 +151,6 @@ class FarmerPaymentResponse(BaseModel):
         from_attributes = True
 
 
-# ==========================================
-# FARMER DASHBOARD SCHEMAS
-# ==========================================
-
 class FarmerOrderSummary(BaseModel):
     total_orders: int
     confirmed_orders: int
@@ -184,13 +162,8 @@ class FarmerOrderSummary(BaseModel):
     pending_revenue: float
 
 
-# ==========================================
-# LEGACY COMPATIBILITY (if needed for migration)
-# ==========================================
-
-# You can add these if you need backwards compatibility during migration
+# Legacy order create - before unified orders - might be put to use later
 class OrderCreateRequest(BaseModel):
-    """Legacy order create - now redirects to cart-based checkout"""
     farmer_id: int
     delivery_address: str
     delivery_notes: Optional[str] = None

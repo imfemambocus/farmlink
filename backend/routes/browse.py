@@ -1,10 +1,10 @@
-# routes/browse.py - Updated with ML Recommendations endpoint
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Optional
 from services.browse_service import BrowseService
 from core.security import get_current_user, get_db
 from models.product import CategoryEnum
+
 
 router = APIRouter()
 
@@ -16,7 +16,6 @@ def browse_farmers(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Browse farmers with active products (for homepage)"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can browse farmers")
 
@@ -29,7 +28,6 @@ def get_personalized_recommendations(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get personalized product recommendations using ML"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can get recommendations")
 
@@ -43,7 +41,6 @@ def browse_latest_products(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Browse latest products from all farmers (for homepage)"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can browse products")
 
@@ -63,7 +60,6 @@ def search_products(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Search and filter products"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can search products")
 
@@ -85,7 +81,6 @@ def get_farmer_details(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get farmer details with all their products"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can view farmer details")
 
@@ -103,7 +98,6 @@ def get_categories(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get product categories with counts"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can browse categories")
 
@@ -116,7 +110,6 @@ def get_districts(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get districts with farmer and product counts"""
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can browse districts")
 

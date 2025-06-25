@@ -1,10 +1,8 @@
-# services/browse_service.py - Updated with ML Recommendations
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, distinct, desc, and_
+from sqlalchemy import func, distinct, desc
 from models.user import User, FarmerProfile
 from models.product import FarmerProduct, ProductUnitPrice, CategoryEnum, ItemEnum, get_item_category
 from typing import List, Optional, Dict
-from decimal import Decimal
 from services.recommendation_service import MLRecommendationService
 
 
@@ -13,8 +11,8 @@ class BrowseService:
         self.db = db
         self.recommendation_service = MLRecommendationService(db)
 
+
     def get_featured_farmers(self, district: Optional[str] = None, limit: int = 10) -> List[Dict]:
-        """Get featured farmers with most products for homepage"""
         query = (
             self.db.query(
                 User.id,
@@ -50,8 +48,8 @@ class BrowseService:
 
         return result
 
+
     def get_latest_products(self, limit: int = 20) -> List[Dict]:
-        """Get latest products from all farmers"""
         products = (
             self.db.query(FarmerProduct)
             .options(
@@ -69,13 +67,12 @@ class BrowseService:
             farmer_name = f"{product.farmer.farmer_profile.first_name} {product.farmer.farmer_profile.last_name}"
             farmer_district = product.farmer.farmer_profile.district
 
-            # Get lowest price
             lowest_price = min(up.price_per_unit for up in product.unit_prices) if product.unit_prices else 0
 
             result.append({
                 'id': product.id,
-                'item': product.item.value,  # Convert enum to string
-                'category': get_item_category(product.item).value,  # Convert enum to string
+                'item': product.item.value,
+                'category': get_item_category(product.item).value,
                 'description': product.description,
                 'farmer_id': product.farmer_id,
                 'farmer_name': farmer_name,
@@ -84,34 +81,24 @@ class BrowseService:
                 'unit_prices': [
                     {
                         'id': up.id,
-                        'unit': up.unit.value,  # Convert enum to string
-                        'customer_type': up.customer_type.value,  # ADDED: Include customer_type
+                        'unit': up.unit.value,
+                        'customer_type': up.customer_type.value,
                         'price_per_unit': float(up.price_per_unit),
                         'quantity_available': up.quantity_available,
                         'minimum_order': up.minimum_order
                     }
                     for up in product.unit_prices
                 ],
-                'created_at': product.created_at.isoformat()  # Convert to string
+                'created_at': product.created_at.isoformat()
             })
 
         return result
 
+
     def get_personalized_recommendations(self, user_id: int, customer_type: str) -> Dict:
-        """
-        Get personalized product recommendations using ML
-
-        Args:
-            user_id: The customer's user ID
-            customer_type: 'individual' or 'business'
-
-        Returns:
-            Dict with recommendations and metadata
-        """
         try:
             recommendations = self.recommendation_service.get_recommendations_for_user(user_id, customer_type)
 
-            # Check if user has purchase history for messaging
             from models.order import UnifiedOrder
             user_orders = (
                 self.db.query(UnifiedOrder)
@@ -140,8 +127,8 @@ class BrowseService:
                 'message': self._get_recommendation_message(False, customer_type)
             }
 
+
     def _get_recommendation_message(self, has_purchase_history: bool, customer_type: str) -> str:
-        """Get appropriate message for recommendation section"""
         if not has_purchase_history:
             if customer_type == 'business':
                 return "Start ordering to see personalized business recommendations that match your purchasing patterns and help streamline your supply chain."
@@ -153,6 +140,7 @@ class BrowseService:
             else:
                 return "Based on your purchase history and taste preferences, here are fresh products you might enjoy."
 
+
     def search_products(
             self,
             search_term: Optional[str] = None,
@@ -163,7 +151,6 @@ class BrowseService:
             limit: int = 50,
             offset: int = 0
     ) -> Dict:
-        """Search and filter products"""
         query = (
             self.db.query(FarmerProduct)
             .options(
@@ -173,9 +160,7 @@ class BrowseService:
             .filter(FarmerProduct.is_active == True)
         )
 
-        # Apply filters
         if search_term:
-            # Search in item name and description
             search_filter = f"%{search_term.lower()}%"
             query = query.filter(
                 FarmerProduct.item.like(search_filter) |
@@ -191,7 +176,6 @@ class BrowseService:
             query = query.join(FarmerProfile, User.id == FarmerProfile.user_id)
             query = query.filter(FarmerProfile.district.ilike(f"%{district}%"))
 
-        # For price filtering, we need to join with unit prices
         if min_price is not None or max_price is not None:
             query = query.join(ProductUnitPrice)
             if min_price is not None:
@@ -199,10 +183,8 @@ class BrowseService:
             if max_price is not None:
                 query = query.filter(ProductUnitPrice.price_per_unit <= max_price)
 
-        # Get total count for pagination
         total = query.count()
 
-        # Apply pagination and ordering
         products = (
             query.distinct(FarmerProduct.id)
             .order_by(FarmerProduct.created_at.desc())
@@ -211,19 +193,17 @@ class BrowseService:
             .all()
         )
 
-        # Format results
         items = []
         for product in products:
             farmer_name = f"{product.farmer.farmer_profile.first_name} {product.farmer.farmer_profile.last_name}"
             farmer_district = product.farmer.farmer_profile.district
 
-            # Get lowest price
             lowest_price = min(up.price_per_unit for up in product.unit_prices) if product.unit_prices else 0
 
             items.append({
                 'id': product.id,
-                'item': product.item.value,  # Convert enum to string
-                'category': get_item_category(product.item).value,  # Convert enum to string
+                'item': product.item.value,
+                'category': get_item_category(product.item).value,
                 'description': product.description,
                 'farmer_id': product.farmer_id,
                 'farmer_name': farmer_name,
@@ -232,15 +212,15 @@ class BrowseService:
                 'unit_prices': [
                     {
                         'id': up.id,
-                        'unit': up.unit.value,  # Convert enum to string
-                        'customer_type': up.customer_type.value,  # ADDED: Include customer_type
+                        'unit': up.unit.value,
+                        'customer_type': up.customer_type.value,
                         'price_per_unit': float(up.price_per_unit),
                         'quantity_available': up.quantity_available,
                         'minimum_order': up.minimum_order
                     }
                     for up in product.unit_prices
                 ],
-                'created_at': product.created_at.isoformat()  # Convert to string
+                'created_at': product.created_at.isoformat()
             })
 
         return {
@@ -252,8 +232,8 @@ class BrowseService:
             'has_prev': offset > 0
         }
 
+
     def get_farmer_details_with_products(self, farmer_id: int) -> Optional[Dict]:
-        """Get farmer details with all their products"""
         farmer = (
             self.db.query(User)
             .options(joinedload(User.farmer_profile))
@@ -264,7 +244,6 @@ class BrowseService:
         if not farmer:
             return None
 
-        # Get farmer's active products
         products = (
             self.db.query(FarmerProduct)
             .options(joinedload(FarmerProduct.unit_prices))
@@ -280,21 +259,21 @@ class BrowseService:
         for product in products:
             product_list.append({
                 'id': product.id,
-                'item': product.item.value,  # Convert enum to string
-                'category': get_item_category(product.item).value,  # Convert enum to string
+                'item': product.item.value,
+                'category': get_item_category(product.item).value,
                 'description': product.description,
                 'unit_prices': [
                     {
                         'id': up.id,
-                        'unit': up.unit.value,  # Convert enum to string
-                        'customer_type': up.customer_type.value,  # ADDED: Include customer_type
+                        'unit': up.unit.value,
+                        'customer_type': up.customer_type.value,
                         'price_per_unit': float(up.price_per_unit),
                         'quantity_available': up.quantity_available,
                         'minimum_order': up.minimum_order
                     }
                     for up in product.unit_prices
                 ],
-                'created_at': product.created_at.isoformat()  # Convert to string
+                'created_at': product.created_at.isoformat()
             })
 
         return {
@@ -307,9 +286,8 @@ class BrowseService:
             'product_count': len(product_list)
         }
 
+
     def get_categories_with_counts(self) -> List[Dict]:
-        """Get product categories with item counts"""
-        # Get all active products grouped by category
         products = (
             self.db.query(FarmerProduct.item, func.count(FarmerProduct.id).label('count'))
             .filter(FarmerProduct.is_active == True)
@@ -317,27 +295,26 @@ class BrowseService:
             .all()
         )
 
-        # Group by category
         categories = {}
         for item, count in products:
             category = get_item_category(item)
             if category not in categories:
                 categories[category] = {
-                    'name': category.value,  # Convert enum to string
+                    'name': category.value,
                     'total_products': 0,
                     'items': []
                 }
 
             categories[category]['total_products'] += count
             categories[category]['items'].append({
-                'item': item.value,  # Convert enum to string
+                'item': item.value,
                 'count': count
             })
 
         return list(categories.values())
 
+
     def get_districts_with_counts(self) -> List[Dict]:
-        """Get districts with farmer counts"""
         districts = (
             self.db.query(
                 FarmerProfile.district,

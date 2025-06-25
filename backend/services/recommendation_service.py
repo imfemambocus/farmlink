@@ -1,15 +1,10 @@
-# services/recommendation_service.py
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc, and_, distinct
-from models.user import User, FarmerProfile
-from models.product import FarmerProduct, ProductUnitPrice, CategoryEnum, ItemEnum, get_item_category
+from sqlalchemy import func, desc, distinct
+from models.user import User
+from models.product import FarmerProduct, CategoryEnum, ItemEnum, get_item_category
 from models.order import UnifiedOrder, UnifiedOrderItem
-from typing import List, Dict, Optional, Tuple
-from decimal import Decimal
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
+from typing import List, Dict, Tuple
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.decomposition import TruncatedSVD
 from collections import defaultdict, Counter
 import pandas as pd
 
@@ -20,9 +15,7 @@ class MLRecommendationService:
         self.n_recommendations = 6  # Number of products to recommend
 
     def get_recommendations_for_user(self, user_id: int, customer_type: str) -> List[Dict]:
-        """
-        Get personalized recommendations using hybrid approach
-        """
+        # Get personalized recommendations using hybrid approach
         try:
             # Get user's purchase history
             user_purchases = self._get_user_purchase_history(user_id)
@@ -30,7 +23,6 @@ class MLRecommendationService:
             if len(user_purchases) < 2:  # New user with minimal history
                 return self._get_new_user_recommendations(customer_type)
 
-            # Get recommendations using hybrid approach
             collaborative_recs = self._collaborative_filtering(user_id, customer_type)
             content_recs = self._content_based_filtering(user_id, customer_type)
 
@@ -40,7 +32,6 @@ class MLRecommendationService:
                 collaborative_weight=0.6, content_weight=0.4
             )
 
-            # Convert to product details and return
             return self._get_product_details(hybrid_recs, customer_type)
 
         except Exception as e:
@@ -48,8 +39,8 @@ class MLRecommendationService:
             # Fallback to popular products
             return self._get_popular_products(customer_type)
 
+
     def _get_user_purchase_history(self, user_id: int) -> List[Dict]:
-        """Get user's purchase history with product details"""
         orders = (
             self.db.query(UnifiedOrderItem)
             .join(UnifiedOrder)
@@ -72,10 +63,9 @@ class MLRecommendationService:
 
         return purchases
 
+
     def _collaborative_filtering(self, user_id: int, customer_type: str) -> List[Tuple[int, float]]:
-        """
-        Collaborative filtering: Find similar users and recommend their purchases
-        """
+        # Collaborative filtering: Find similar users and recommend their purchases
         try:
             # Get all users of the same type with their purchases
             user_item_matrix = self._create_user_item_matrix(customer_type)
@@ -118,10 +108,9 @@ class MLRecommendationService:
             print(f"Collaborative filtering error: {e}")
             return []
 
+
     def _content_based_filtering(self, user_id: int, customer_type: str) -> List[Tuple[int, float]]:
-        """
-        Content-based filtering: Recommend products similar to user's purchase patterns
-        """
+        # Recommend products similar to user's purchase patterns
         try:
             # Get user's purchase patterns
             user_purchases = self._get_user_purchase_history(user_id)
@@ -198,8 +187,9 @@ class MLRecommendationService:
             print(f"Content-based filtering error: {e}")
             return []
 
+
     def _create_user_item_matrix(self, customer_type: str) -> pd.DataFrame:
-        """Create user-item interaction matrix for collaborative filtering"""
+        # Create user-item interaction matrix for collaborative filtering
         # Get all users of the same type
         role_filter = ['individual'] if customer_type == 'individual' else ['business']
 
@@ -237,6 +227,7 @@ class MLRecommendationService:
 
         return user_item_matrix
 
+
     def _combine_recommendations(
             self,
             collaborative: List[Tuple[int, float]],
@@ -244,7 +235,7 @@ class MLRecommendationService:
             collaborative_weight: float = 0.6,
             content_weight: float = 0.4
     ) -> List[Tuple[int, float]]:
-        """Combine collaborative and content-based recommendations"""
+        # Combine collaborative and content-based recommendations
 
         combined_scores = defaultdict(float)
 
@@ -260,8 +251,8 @@ class MLRecommendationService:
         sorted_combined = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
         return sorted_combined[:self.n_recommendations]
 
+
     def _get_product_details(self, recommended_products: List[Tuple[int, float]], customer_type: str) -> List[Dict]:
-        """Convert product IDs to detailed product information"""
         if not recommended_products:
             return []
 
@@ -322,15 +313,15 @@ class MLRecommendationService:
 
         return result
 
+
     def _get_new_user_recommendations(self, customer_type: str) -> List[Dict]:
-        """Get recommendations for users with no purchase history"""
-        # Return empty list - the frontend will show the instructional message
+        # Get recommendations for users with no purchase history
+        # Return empty list - the frontend shows the instructional message
         return []
 
+
     def _get_popular_products(self, customer_type: str) -> List[Dict]:
-        """Fallback: Get popular products based on sales volume"""
         try:
-            # Get products ordered most frequently by users of the same type
             role_filter = ['individual'] if customer_type == 'individual' else ['business']
 
             popular_products = (

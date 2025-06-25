@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List
 from datetime import datetime
 from models.product import CategoryEnum, UnitEnum, ItemEnum, CustomerTypeEnum
 
@@ -20,7 +20,6 @@ class ProductUnitPriceUpdate(BaseModel):
     price_per_unit: Optional[float] = None
     quantity_available: Optional[float] = None
     minimum_order: Optional[float] = None
-    # Note: customer_type should not be updatable after creation
 
 
 class ProductUnitPriceResponse(ProductUnitPriceBase):
@@ -38,7 +37,7 @@ class FarmerProductBase(BaseModel):
 
 
 class FarmerProductCreate(FarmerProductBase):
-    unit_prices: List[ProductUnitPriceCreate]  # At least one unit price required
+    unit_prices: List[ProductUnitPriceCreate]
 
 
 class FarmerProductUpdate(BaseModel):
@@ -55,7 +54,7 @@ class FarmerProductResponse(FarmerProductBase):
     created_at: datetime
     updated_at: datetime
     unit_prices: List[ProductUnitPriceResponse]
-    category: Optional[CategoryEnum] = None  # Make it optional
+    category: Optional[CategoryEnum] = None
 
     class Config:
         from_attributes = True
@@ -78,7 +77,6 @@ class AvailableItemsResponse(BaseModel):
     vegetables: List[ItemEnum]
 
 
-# For browsing/filtering
 class ProductListItem(BaseModel):
     id: int
     item: ItemEnum

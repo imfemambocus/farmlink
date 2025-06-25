@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, ForeignKey, Enum, UniqueConstraint
+from sqlalchemy import Column, Integer, Float, Boolean, DateTime, Text, ForeignKey, Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from core.database import Base
@@ -64,7 +64,6 @@ class ItemEnum(str, enum.Enum):
     GARLIC = "garlic"
 
 
-# Helper function to get category from item
 def get_item_category(item: ItemEnum) -> CategoryEnum:
     fruits = {
         ItemEnum.APPLE, ItemEnum.BANANA, ItemEnum.ORANGE, ItemEnum.MANGO,
@@ -84,15 +83,13 @@ class FarmerProduct(Base):
 
     # Product status and description
     is_active = Column(Boolean, default=True)
-    description = Column(Text)  # e.g., "Organic, pesticide-free"
+    description = Column(Text)
     harvest_date = Column(DateTime)
     expiry_date = Column(DateTime)
 
-    # Timestamps
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    # Relationships
     farmer = relationship("User", foreign_keys=[farmer_id])
     unit_prices = relationship("ProductUnitPrice", back_populates="farmer_product", cascade="all, delete-orphan")
 
@@ -103,12 +100,11 @@ class ProductUnitPrice(Base):
     id = Column(Integer, primary_key=True, index=True)
     farmer_product_id = Column(Integer, ForeignKey("farmer_products.id"), nullable=False)
     unit = Column(Enum(UnitEnum), nullable=False)
-    customer_type = Column(Enum(CustomerTypeEnum), nullable=False)  # NEW: individual or business
+    customer_type = Column(Enum(CustomerTypeEnum), nullable=False)
     price_per_unit = Column(Float, nullable=False)
     quantity_available = Column(Float, nullable=False)
     minimum_order = Column(Float, default=1.0)
 
-    # Relationships
     farmer_product = relationship("FarmerProduct", back_populates="unit_prices")
 
     # Ensure farmer can't have duplicate unit prices for same product, unit, and customer type

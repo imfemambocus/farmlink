@@ -1,10 +1,8 @@
-# services/stripe_service.py
 import stripe
 from sqlalchemy.orm import Session
-from models.order import UnifiedOrder, UnifiedOrderItem, UnifiedPayment, FarmerPayment, PaymentMethodEnum, \
-    PaymentStatusEnum
-from models.product import FarmerProduct, ProductUnitPrice
-from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
+from models.order import UnifiedOrder, UnifiedOrderItem, UnifiedPayment, FarmerPayment, PaymentMethodEnum, PaymentStatusEnum
+from models.product import ProductUnitPrice
+from models.user import User
 from models.order import Cart, CartItem
 from typing import Dict, List, Optional
 from decimal import Decimal
@@ -15,15 +13,15 @@ import json
 from services.notification_service import PushNotificationService
 
 
-# Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_51RbVKCR2koWNU5mYSnmPAflOWt81mMJWmDDZyh7u6OE6ene713vJjY1nEoaSGaQgcqfgUmaTqwraPYHnSXXlvAvA00nUOCyvoS")
 
 
 class StripePaymentService:
     def __init__(self, db: Session):
         self.db = db
-        self.platform_fee_percentage = 10.0  # 10% commission for FarmLink
+        self.platform_fee_percentage = 10.0  # 10% commission for Farmlink (Can use env)
         self.notification_service = PushNotificationService(db)
+
 
     def create_payment_intent(
             self,
@@ -32,14 +30,13 @@ class StripePaymentService:
             delivery_info: Dict,
             amount_cents: int
     ) -> Dict:
-        """Create a Stripe payment intent for the cart"""
+        # Create Stripe payment intent for the cart
         try:
             # Get cart and validate
             cart = self.get_cart_with_items(user_id, cart_id)
-            if not cart or not cart.get('farmer_groups'):  # Fixed: Use dict access instead of attribute
+            if not cart or not cart.get('farmer_groups'):
                 raise ValueError("Cart is empty or not found")
 
-            # Create payment intent with Stripe
             payment_intent = stripe.PaymentIntent.create(
                 amount=amount_cents,
                 currency='mur',  # Mauritian Rupees
@@ -51,14 +48,13 @@ class StripePaymentService:
                     'cart_id': str(cart_id),
                     'platform': 'farmlink_mobile'
                 },
-                description=f"FarmLink Order - {len(cart.get('farmer_groups', []))} farmers, {cart.get('total_items', 0)} items"
+                description=f"Farmlink Order - {len(cart.get('farmer_groups', []))} farmers, {cart.get('total_items', 0)} items"
             )
 
-            # Store payment intent info temporarily (you might want to use Redis for this)
-            # For now, we'll store it in the database
+            # Store payment intent info temporarily in the database (Can use Redis later)
             temp_payment = UnifiedPayment(
-                order_id=0,  # Will be updated when order is created
-                payment_method=PaymentMethodEnum.STRIPE_CARD,  # Default, will be updated
+                order_id=0,
+                payment_method=PaymentMethodEnum.STRIPE_CARD,
                 amount=Decimal(str(amount_cents / 100)),
                 stripe_payment_intent_id=payment_intent.id,
                 gateway_response=json.dumps({
@@ -76,6 +72,7 @@ class StripePaymentService:
         except Exception as e:
             raise Exception(f"Failed to create payment intent: {str(e)}")
 
+
     def confirm_payment_and_create_order(
             self,
             user_id: int,
@@ -83,22 +80,19 @@ class StripePaymentService:
             delivery_info: Dict,
             payment_method_type: str = "stripe_card"
     ) -> Dict:
-        """Confirm payment and create unified order with notifications"""
         try:
-            # Retrieve payment intent from Stripe with expanded charges
             payment_intent = stripe.PaymentIntent.retrieve(
                 payment_intent_id,
-                expand=['charges']  # Expand charges to access charge data
+                expand=['charges']
             )
 
             if payment_intent.status != 'succeeded':
                 raise Exception(f"Payment not successful. Status: {payment_intent.status}")
 
-            # Get cart from metadata
             cart_id = int(payment_intent.metadata.get('cart_id'))
             cart = self.get_cart_with_items(user_id, cart_id)
 
-            if not cart or not cart.get('farmer_groups'):  # Fixed: Use dict access
+            if not cart or not cart.get('farmer_groups'):
                 raise ValueError("Cart is empty or not found")
 
             # Get user profile
@@ -108,9 +102,9 @@ class StripePaymentService:
             # Generate order number
             order_number = f"FL-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
 
-            # Calculate totals - Fixed: Use dict access
+            # Calculate totals
             total_amount = sum(Decimal(str(group['subtotal'])) for group in cart.get('farmer_groups', []))
-            delivery_fee = Decimal('50.00')  # Fixed delivery fee
+            delivery_fee = Decimal('50.00') # Need to change to a more dynamic approach later
             final_amount = total_amount + delivery_fee
 
             # Create unified order
@@ -128,7 +122,7 @@ class StripePaymentService:
             )
 
             self.db.add(order)
-            self.db.flush()  # Get order ID
+            self.db.flush()
 
             # Create order items and farmer payments
             farmer_totals = {}
@@ -138,14 +132,12 @@ class StripePaymentService:
                 farmer_total = Decimal('0')
 
                 for item in group.get('items', []):
-                    # Handle SQLAlchemy objects - use attribute access
-                    # Items from OrderService.get_cart() are SQLAlchemy CartItem objects
                     order_item = UnifiedOrderItem(
                         order_id=order.id,
                         farmer_id=farmer_id,
                         farmer_product_id=item.farmer_product_id,
-                        item_name=item.product_name,  # This is added by OrderService
-                        unit=item.unit_name,  # This is added by OrderService
+                        item_name=item.product_name,
+                        unit=item.unit_name,
                         unit_price=Decimal(str(item.unit_price_snapshot)),
                         quantity=item.quantity,
                         total_price=Decimal(str(item.total_price)),
@@ -177,7 +169,6 @@ class StripePaymentService:
                 )
                 self.db.add(farmer_payment)
 
-            # Create payment record
             payment_method_map = {
                 'stripe_card': PaymentMethodEnum.STRIPE_CARD,
                 'stripe_apple_pay': PaymentMethodEnum.STRIPE_APPLE_PAY,
@@ -192,7 +183,6 @@ class StripePaymentService:
                 elif hasattr(payment_intent, 'latest_charge') and payment_intent.latest_charge:
                     stripe_charge_id = payment_intent.latest_charge
             except (AttributeError, IndexError, KeyError):
-                # If we can't get the charge ID, that's okay - we'll leave it as None
                 pass
 
             payment = UnifiedPayment(
@@ -217,7 +207,7 @@ class StripePaymentService:
 
             self.db.commit()
 
-            # Now send notifications (this will handle its own commit)
+            # Send notifications
             self.notification_service.notify_new_order_to_farmers(order)
 
             return {
@@ -231,14 +221,14 @@ class StripePaymentService:
             self.db.rollback()
             raise Exception(f"Failed to create order: {str(e)}")
 
+
     def get_cart_with_items(self, user_id: int, cart_id: int) -> Optional[Dict]:
-        """Get cart with items grouped by farmer"""
         from services.order_service import OrderService
         order_service = OrderService(self.db)
         return order_service.get_cart(user_id)
 
+
     def get_customer_info(self, user: User) -> tuple:
-        """Get customer name and phone from user profile"""
         if user.role == "individual" and user.individual_profile:
             name = f"{user.individual_profile.first_name} {user.individual_profile.last_name}"
             phone = user.individual_profile.phone_number
@@ -251,15 +241,12 @@ class StripePaymentService:
 
         return name, phone
 
+
     def clear_cart_items(self, cart_id: int):
-        """Clear all items from cart after successful order"""
         self.db.query(CartItem).filter(CartItem.cart_id == cart_id).delete()
 
-    def get_farmer_earnings_summary(self, farmer_id: int) -> Dict:
-        """Get earnings summary for farmer dashboard"""
-        from sqlalchemy import func, desc
 
-        # Get farmer payments
+    def get_farmer_earnings_summary(self, farmer_id: int) -> Dict:
         payments = (
             self.db.query(FarmerPayment)
             .filter(FarmerPayment.farmer_id == farmer_id)
@@ -293,8 +280,9 @@ class StripePaymentService:
             ]
         }
 
+
+    # To be used for production ready app
     def process_refund(self, order_id: int, amount_cents: Optional[int] = None) -> Dict:
-        """Process refund for an order"""
         try:
             order = self.db.query(UnifiedOrder).get(order_id)
             if not order or not order.payment:
@@ -339,9 +327,8 @@ class StripePaymentService:
             raise Exception(f"Failed to process refund: {str(e)}")
 
 
-# Webhook handler for Stripe events
+# Webhook handler for Stripe events to be used later for testing
 def handle_stripe_webhook(event_data: Dict, signature: str) -> Dict:
-    """Handle Stripe webhook events"""
     try:
         # Verify webhook signature
         endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -353,12 +340,10 @@ def handle_stripe_webhook(event_data: Dict, signature: str) -> Dict:
         event_type = event_data['type']
 
         if event_type == 'payment_intent.succeeded':
-            # Payment successful - could trigger notifications
             payment_intent = event_data['data']['object']
             print(f"Payment succeeded: {payment_intent['id']}")
 
         elif event_type == 'payment_intent.payment_failed':
-            # Payment failed - could update order status
             payment_intent = event_data['data']['object']
             print(f"Payment failed: {payment_intent['id']}")
 

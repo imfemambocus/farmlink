@@ -1,9 +1,7 @@
-# routes/notifications.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-
 from models.order import UnifiedOrder, UnifiedOrderItem
 from models.user import FarmerProfile
 from services.notification_service import PushNotificationService
@@ -11,14 +9,14 @@ from core.security import get_current_user, get_db
 from models.notification import NotificationTypeEnum, UnifiedOrderFarmerStatus
 import json
 
+
 router = APIRouter()
 
 
-# Schemas
 class DeviceTokenRegister(BaseModel):
     expo_push_token: str
     device_id: str
-    platform: str  # 'ios' or 'android'
+    platform: str  # iOS or Android
 
 
 class NotificationResponse(BaseModel):
@@ -52,7 +50,6 @@ def register_device_token(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Register device token for push notifications"""
     service = PushNotificationService(db)
 
     device_token = service.register_device_token(
@@ -76,11 +73,10 @@ def get_notifications(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get user notifications"""
     service = PushNotificationService(db)
 
     notifications = service.get_user_notifications(current_user.id, limit, offset)
-    total = len(notifications)  # You might want to implement a proper count query
+    total = len(notifications)
     unread_count = service.get_unread_count(current_user.id)
 
     # Format notifications
@@ -109,7 +105,7 @@ def get_notifications(
         notifications=formatted_notifications,
         total=total,
         unread_count=unread_count,
-        has_next=len(notifications) == limit  # Simple check for pagination
+        has_next=len(notifications) == limit
     )
 
 
@@ -120,7 +116,6 @@ def mark_notification_read(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Mark notification as read"""
     service = PushNotificationService(db)
 
     success = service.mark_notification_as_read(notification_id, current_user.id)
@@ -137,7 +132,6 @@ def mark_all_notifications_read(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Mark all notifications as read"""
     service = PushNotificationService(db)
 
     updated_count = service.mark_all_notifications_as_read(current_user.id)
@@ -154,7 +148,6 @@ def get_unread_count(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get count of unread notifications"""
     service = PushNotificationService(db)
 
     unread_count = service.get_unread_count(current_user.id)
@@ -169,15 +162,11 @@ def get_order_farmer_statuses(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Get farmer statuses for a unified order - SQLite optimized"""
-
-    # Get the order first
     order = db.query(UnifiedOrder).filter(UnifiedOrder.id == order_id).first()
 
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Get order items to find farmer IDs
     order_items = (
         db.query(UnifiedOrderItem)
         .filter(UnifiedOrderItem.order_id == order_id)
@@ -186,11 +175,9 @@ def get_order_farmer_statuses(
 
     farmer_ids_in_order = set(item.farmer_id for item in order_items)
 
-    # Check permissions
     if current_user.id != order.customer_id and current_user.id not in farmer_ids_in_order:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Get farmer statuses
     farmer_statuses_records = (
         db.query(UnifiedOrderFarmerStatus)
         .filter(UnifiedOrderFarmerStatus.order_id == order_id)
@@ -199,10 +186,8 @@ def get_order_farmer_statuses(
 
     farmer_statuses = {fs.farmer_id: fs.status for fs in farmer_statuses_records}
 
-    # Get farmer information separately (SQLite-friendly)
     result = {}
     for farmer_id in farmer_ids_in_order:
-        # Get farmer profile separately
         farmer_profile = (
             db.query(FarmerProfile)
             .filter(FarmerProfile.user_id == farmer_id)
