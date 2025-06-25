@@ -10,5 +10,4 @@ email-validator
 stripe
 dotenv
 pandas
-numpy
 scikit-learn
