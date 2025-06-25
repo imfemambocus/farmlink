@@ -14,8 +14,8 @@ export default {
       infoPlist: {
         UIBackgroundModes: ["remote-notification"],
         ITSAppUsesNonExemptEncryption: false,
-        NSMicrophoneUsageDescription: "FarmLink needs microphone access for voice commands to search products and add items to cart",
-        NSSpeechRecognitionUsageDescription: "FarmLink uses speech recognition to process your voice commands for easier shopping"
+        NSMicrophoneUsageDescription: "Farmlink needs microphone access for voice commands to search products and add items to cart",
+        NSSpeechRecognitionUsageDescription: "Farmlink uses speech recognition to process your voice commands for easier shopping"
       }
     },
     android: {
@@ -70,8 +70,18 @@ export default {
       [
         "@react-native-voice/voice",
         {
-          microphonePermission: "CUSTOM: FarmLink needs microphone access for voice commands to search products and add items to cart.",
-          speechRecognitionPermission: "CUSTOM: FarmLink uses speech recognition to process your voice commands for easier shopping."
+          microphonePermission: "CUSTOM: Farmlink needs microphone access for voice commands to search products and add items to cart.",
+          speechRecognitionPermission: "CUSTOM: Farmlink uses speech recognition to process your voice commands for easier shopping."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          android: {
+            compileSdkVersion: 35,
+            targetSdkVersion: 35,
+            buildToolsVersion: "35.0.0"
+          }
         }
       ]
     ],
