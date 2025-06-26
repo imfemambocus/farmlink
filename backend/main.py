@@ -10,11 +10,21 @@ from dotenv import load_dotenv
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    print("🚀 FastAPI lifespan startup beginning...")
+
     Base.metadata.create_all(bind=engine)
 
-    # Check if we need to seed the database (for prototype testing purposes
+    # Force seeding with environment variable or always seed in development
+    force_seed = os.getenv("FORCE_SEED", "false").lower() == "true"
     db_file = "./farmlink.db"
-    if not os.path.exists(db_file) or os.path.getsize(db_file) < 1024:
+
+    should_seed = (
+            force_seed or
+            not os.path.exists(db_file) or
+            os.path.getsize(db_file) < 1024
+    )
+
+    if should_seed:
         print("🌱 Seeding database...")
         seed_database()
         print("✅ Database seeded successfully!")
