@@ -6,6 +6,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import api from '@/services/api';
 import { useLanguage } from '@/context/LanguageContext';
+import Constants from 'expo-constants';
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -79,12 +80,15 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     const [unreadCount, setUnreadCount] = useState(0);
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
-    const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
+
+    // Fixed: Use EventSubscription type
+    const notificationListener = useRef<Notifications.EventSubscription | undefined>(undefined);
+    const responseListener = useRef<Notifications.EventSubscription | undefined>(undefined);
 
     const registerForPushNotifications = async () => {
         try {
             if (!Device.isDevice) {
+                console.log('Push notifications only work on physical devices');
                 return;
             }
 
@@ -97,18 +101,36 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             }
 
             if (finalStatus !== 'granted') {
-                console.log(t('notifications.permissionNotGranted'));
+                console.log('Push notification permissions not granted');
                 return;
             }
 
+            const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+
+            console.log(projectId)
+
             const token = await Notifications.getExpoPushTokenAsync({
-                projectId: process.env.EXPO_PROJECT_ID,
+                projectId: projectId,
             });
 
+            console.log('Expo Push Token obtained:', token.data);
+
+            // Set up Android notification channel
             if (Platform.OS === 'android') {
-                Notifications.setNotificationChannelAsync('default', {
-                    name: 'default',
+                await Notifications.setNotificationChannelAsync('default', {
+                    name: 'Default',
                     importance: Notifications.AndroidImportance.MAX,
+                    vibrationPattern: [0, 250, 250, 250],
+                    lightColor: '#4CAF50',
+                    sound: 'default',
+                    enableVibrate: true,
+                    showBadge: true,
+                });
+
+                // Create additional channels for different notification types
+                await Notifications.setNotificationChannelAsync('orders', {
+                    name: 'Order Updates',
+                    importance: Notifications.AndroidImportance.HIGH,
                     vibrationPattern: [0, 250, 250, 250],
                     lightColor: '#4CAF50',
                 });
@@ -119,7 +141,8 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             }
 
         } catch (error) {
-            console.error(t('notifications.errorRegisteringPush'), error);
+            console.error('Error registering for push notifications:', error);
+            // Continue without crashing - local notifications will still work
         }
     };
 
@@ -128,7 +151,8 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             const authToken = await AsyncStorage.getItem('token');
             if (!authToken) return;
 
-            const deviceId = await Device.deviceName + '_' + Date.now();
+            const deviceName = await Device.deviceName;
+            const deviceId = `${deviceName}_${Date.now()}`;
 
             await api.post('/notification/device-token', {
                 expo_push_token: expoPushToken,
@@ -138,9 +162,9 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 
-            console.log(t('notifications.deviceTokenRegistered'));
+            console.log('Device token registered successfully');
         } catch (error) {
-            console.error(t('notifications.errorRegisteringToken'), error);
+            console.error('Error registering device token:', error);
         }
     };
 
@@ -160,7 +184,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             setUnreadCount(response.data.unread_count || 0);
 
         } catch (error) {
-            console.error(t('notifications.errorFetchingNotifications'), error);
+            console.error('Error fetching notifications:', error);
         } finally {
             setIsLoading(false);
         }
@@ -185,7 +209,7 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             setUnreadCount(prev => Math.max(0, prev - 1));
 
         } catch (error) {
-            console.error(t('notifications.errorMarkingRead'), error);
+            console.error('Error marking notification as read:', error);
         }
     };
 
@@ -208,28 +232,30 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             setUnreadCount(0);
 
         } catch (error) {
-            console.error(t('notifications.errorMarkingAllRead'), error);
+            console.error('Error marking all notifications as read:', error);
         }
     };
 
     const handleNotificationReceived = (notification: Notifications.Notification) => {
-        console.log(t('notifications.notificationReceived'), notification);
+        console.log('Notification received:', notification);
         refreshNotifications();
 
         const data = notification.request.content.data as NotificationData;
         if (data?.type === 'order_created') {
-            console.log(t('notifications.newOrderReceived'));
+            console.log('New order notification received');
         } else if (data?.type === 'order_status_changed') {
-            console.log(t('notifications.statusChangeReceived'));
+            console.log('Order status change notification received');
         }
     };
 
     const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
-        console.log(t('notifications.notificationTapped'), response);
+        console.log('Notification tapped:', response);
         const data = response.notification.request.content.data as NotificationData;
 
         if (data?.order_id) {
-            console.log(t('notifications.navigateToOrder'), data.order_id);
+            console.log('Should navigate to order:', data.order_id);
+            // TODO: Navigate to order details screen
+            // navigation.navigate('OrderDetails', { orderId: data.order_id });
         }
     };
 
@@ -238,17 +264,16 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             registerForPushNotifications();
             refreshNotifications();
 
-            const notifSub = Notifications.addNotificationReceivedListener(handleNotificationReceived);
-            const responseSub = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
-
-            notificationListener.current = notifSub;
-            responseListener.current = responseSub;
+            // Set up notification listeners
+            notificationListener.current = Notifications.addNotificationReceivedListener(handleNotificationReceived);
+            responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
             return () => {
-                notifSub.remove();
-                responseSub.remove();
+                notificationListener.current?.remove();
+                responseListener.current?.remove();
             };
         } else {
+            // Clear notifications when user logs out
             setNotifications([]);
             setUnreadCount(0);
         }

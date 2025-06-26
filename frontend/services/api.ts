@@ -1,8 +1,9 @@
 import axios from 'axios';
-import Constants from 'expo-constants';
+
+const API_BASE_URL = "https://farmlink-bmiy.onrender.com";
 
 const api = axios.create({
-    baseURL: Constants.expoConfig?.extra?.API_BASE_URL
+    baseURL: API_BASE_URL
 });
 
 export default api;

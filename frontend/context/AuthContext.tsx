@@ -13,13 +13,17 @@ export const AuthContext = createContext<AuthContextType>({
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
     const login = async (email: string, password: string) => {
         try {
+            console.log('=== LOGIN ATTEMPT ===');
             const res = await api.post('/auth/login', { email, password });
             const token = res.data.access_token;
+
             await AsyncStorage.setItem('token', token);
+            console.log('Token saved to AsyncStorage');
 
             const profileRes = await api.get<User>('/auth/profile', {
                 headers: {
@@ -28,6 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
 
             setUser(profileRes.data);
+            console.log('User logged in:', profileRes.data.email);
             router.replace('/(auth)/customer/homepage');
         } catch (error: any) {
             console.error('Login failed:', error.response?.data || error.message);
@@ -36,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const logout = async () => {
+        console.log('=== LOGOUT ===');
         await AsyncStorage.removeItem('token');
         setUser(null);
         router.replace('/intro');
@@ -62,22 +68,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const checkLogin = async () => {
-        const token = await AsyncStorage.getItem('token');
-        if (token) {
-            try {
-                const res = await api.get<User>('/auth/profile', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setUser(res.data);
-            } catch {
-                logout();
+        try {
+            const token = await AsyncStorage.getItem('token');
+
+            if (token) {
+                try {
+                    const res = await api.get<User>('/auth/profile', {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    setUser(res.data);
+                } catch (error) {
+                    console.log('Token invalid, removing from storage');
+                    await AsyncStorage.removeItem('token');
+                    setUser(null);
+                }
+            } else {
+                console.log('No token found');
+                setUser(null);
             }
+        } catch (error) {
+            console.error('Error checking login:', error);
+            setUser(null);
+        } finally {
+            setIsLoading(false);
         }
     };
 
     useEffect(() => {
         checkLogin();
     }, []);
+
+    if (isLoading) {
+        return null;
+    }
 
     return (
         <AuthContext.Provider value={{ user, login, logout, updateProfile }}>

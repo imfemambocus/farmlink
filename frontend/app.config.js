@@ -34,6 +34,7 @@ export default {
       ],
       usesCleartextTraffic: true,
       edgeToEdgeEnabled: true,
+      googleServicesFile: undefined,
     },
     web: {
       bundler: "metro",
@@ -64,7 +65,11 @@ export default {
           icon: "./assets/icons/notification.png",
           color: "#4CAF50",
           // sounds: ["./assets/notification.wav"],
-          mode: "development" // or "production"
+          mode: "development", // or "production"
+          useExpoPushService: true,
+          android: {
+            useFirebaseMessaging: false
+          }
         }
       ],
       [
