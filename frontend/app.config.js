@@ -34,7 +34,7 @@ export default {
       ],
       usesCleartextTraffic: true,
       edgeToEdgeEnabled: true,
-      googleServicesFile: undefined,
+      googleServicesFile: "./google-services.json",
     },
     web: {
       bundler: "metro",
@@ -66,10 +66,6 @@ export default {
           color: "#4CAF50",
           // sounds: ["./assets/notification.wav"],
           mode: "development", // or "production"
-          useExpoPushService: true,
-          android: {
-            useFirebaseMessaging: false
-          }
         }
       ],
       [

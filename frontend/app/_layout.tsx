@@ -8,6 +8,8 @@ import { CartProvider } from "@/context/CartContext";
 import { FarmerOrdersProvider } from "@/context/FarmerOrdersContext";
 import {NotificationProvider} from "@/context/NotificationContext";
 import {LanguageProvider} from "@/context/LanguageContext";
+import {Platform} from "react-native";
+import * as NavigationBar from "expo-navigation-bar";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -16,6 +18,12 @@ export default function RootLayout() {
         'Poppins-SemiBold': require('../assets/fonts/Poppins-SemiBold.ttf'),
         'Poppins-Bold': require('../assets/fonts/Poppins-Bold.ttf'),
     });
+
+    useEffect(() => {
+        if (Platform.OS === 'android') {
+            NavigationBar.setVisibilityAsync('hidden');
+        }
+    }, []);
 
     useEffect(() => {
         if (fontsLoaded) {

@@ -14,6 +14,7 @@ import { useTranslation } from '@/context/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/ui/Header';
 import LanguageSelector from '@/components/ui/LanguageSelector';
+import {KeyboardAwareScrollView} from "react-native-keyboard-aware-scroll-view";
 
 interface FormErrors {
     [key: string]: string;
@@ -231,7 +232,17 @@ export default function ProfileEditScreen() {
                 showLogoutButton={true}
             />
 
-            <ScrollView className="flex-1 px-6 pt-6" showsVerticalScrollIndicator={false}>
+            <KeyboardAwareScrollView
+                className="flex-1 px-6 pt-6"
+                showsVerticalScrollIndicator={false}
+                enableOnAndroid={true}
+                enableAutomaticScroll={true}
+                extraScrollHeight={150}
+                keyboardShouldPersistTaps="handled"
+                scrollEventThrottle={10}
+                enableResetScrollToCoords={false}
+                keyboardOpeningTime={250}
+            >
                 <View className="pb-6">
                     <View className="mb-4 pb-4 flex-row justify-between items-center">
                         <View className="flex-row items-center">
@@ -297,7 +308,7 @@ export default function ProfileEditScreen() {
 
                     <TouchableOpacity
                         className={`
-              rounded-xl py-4 px-6 mt-6 flex-row justify-center items-center
+              rounded-xl py-4 px-6 mt-6 mb-4 flex-row justify-center items-center
               ${loading ? 'bg-gray-400' : 'bg-black'}
             `}
                         onPress={handleSubmit}
@@ -318,7 +329,7 @@ export default function ProfileEditScreen() {
                         )}
                     </TouchableOpacity>
                 </View>
-            </ScrollView>
+            </KeyboardAwareScrollView>
         </View>
     );
 }

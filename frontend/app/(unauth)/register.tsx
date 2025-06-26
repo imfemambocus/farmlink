@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/ui/Header';
 import api from '@/services/api';
 import { useTranslation } from '@/context/LanguageContext';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 interface FormErrors {
     [key: string]: string;
@@ -244,7 +245,17 @@ export default function Register() {
                 showLogoutButton={false}
             />
 
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+            <KeyboardAwareScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                enableOnAndroid={true}
+                enableAutomaticScroll={true}
+                extraScrollHeight={150}
+                keyboardShouldPersistTaps="handled"
+                scrollEventThrottle={10}
+                enableResetScrollToCoords={false}
+                keyboardOpeningTime={250}
+            >
                 <View className="px-6 pt-6 pb-8">
                     <View className="mb-8">
                         <Text className="text-lg text-gray-600 font-sans">
@@ -353,7 +364,7 @@ export default function Register() {
                         </Text>
                     </View>
                 </View>
-            </ScrollView>
+            </KeyboardAwareScrollView>
         </View>
     );
 }

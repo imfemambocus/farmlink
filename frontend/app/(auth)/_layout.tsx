@@ -1,6 +1,7 @@
 import { useContext, useEffect } from 'react';
 import { Stack, router } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
+import { StatusBar } from 'expo-status-bar';
 
 export default function AuthLayout() {
     const { user } = useContext(AuthContext);
@@ -16,9 +17,10 @@ export default function AuthLayout() {
     }
 
     return (
-        <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="profile/index" />
-        </Stack>
+        <>
+            <StatusBar style="dark" />
+
+            <Stack screenOptions={{ headerShown: false }} />
+        </>
     );
 }

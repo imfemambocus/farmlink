@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import api from '@/services/api';
 import { useLanguage } from '@/context/LanguageContext';
 import Constants from 'expo-constants';
+import {router} from "expo-router";
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -81,7 +82,6 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Fixed: Use EventSubscription type
     const notificationListener = useRef<Notifications.EventSubscription | undefined>(undefined);
     const responseListener = useRef<Notifications.EventSubscription | undefined>(undefined);
 
@@ -252,10 +252,19 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
         console.log('Notification tapped:', response);
         const data = response.notification.request.content.data as NotificationData;
 
-        if (data?.order_id) {
-            console.log('Should navigate to order:', data.order_id);
-            // TODO: Navigate to order details screen
-            // navigation.navigate('OrderDetails', { orderId: data.order_id });
+        if (data?.type === 'order_created' && data?.order_id) {
+            router.push('/(auth)/farmer/orders');
+        } else if (data?.type === 'order_status_changed' && data?.order_id) {
+            router.push('/(auth)/customer/orders');
+        } else if (data?.order_id) {
+            // Fallback based on user role
+            if (user?.role === 'farmer') {
+                router.push('/(auth)/farmer/orders');
+            } else {
+                router.push('/(auth)/customer/orders');
+            }
+        } else {
+            console.log('Notification has no actionable data');
         }
     };
 
