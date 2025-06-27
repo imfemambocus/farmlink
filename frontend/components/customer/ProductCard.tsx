@@ -413,7 +413,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                                         color={quantity <= Math.max(
                                                             Math.ceil(selectedUnitPrice.minimum_order / quantityStep) * quantityStep,
                                                             quantityStep
-                                                        ) ? "#ccc" : "#000"}
+                                                        ) ? "red" : "#000"}
                                                     />
                                                 </TouchableOpacity>
 

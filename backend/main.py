@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import os
 from core.database import Base, engine, SessionLocal
-from routes import auth, product, order, browse, payment, notification
+from routes import auth, product, order, browse, payment, notification, admin
 from seed_data import seed_database
 from dotenv import load_dotenv
 from sqlalchemy import text
@@ -65,3 +65,4 @@ app.include_router(order.router, prefix="/orders", tags=["Orders"])
 app.include_router(browse.router, prefix="/browse", tags=["Browse"])
 app.include_router(payment.router, prefix="/payment", tags=["Payment"])
 app.include_router(notification.router, prefix="/notification", tags=["Notification"])
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])
