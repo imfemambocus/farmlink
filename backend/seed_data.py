@@ -11,10 +11,8 @@ from datetime import datetime, timedelta
 import random
 import json
 
-
 # Password: testing (for all test users)
 DEFAULT_PASSWORD = "testing"
-
 
 # Mauritius data
 MAURITIUS_LOCATIONS = [
@@ -35,11 +33,34 @@ MAURITIUS_LOCATIONS = [
     {"street": "Sir Arthur Raman Street", "city": "Triolet", "post_code": "21201"},
 ]
 
-
 MAURITIUS_DISTRICTS = [
     "Port Louis", "Black River", "Flacq", "Grand Port", "Moka",
     "Pamplemousses", "Plaines Wilhems", "Rivière du Rempart", "Savanne"
 ]
+
+UNIT_ESTIMATES = {
+    UnitEnum.KG: 1.0,  # Base unit
+    UnitEnum.PIECE: {
+        # Estimated kg per piece for different items
+        ItemEnum.APPLE: 0.2, ItemEnum.ORANGE: 0.25, ItemEnum.MANGO: 0.4,
+        ItemEnum.PINEAPPLE: 1.5, ItemEnum.PAPAYA: 0.8, ItemEnum.COCONUT: 1.2,
+        ItemEnum.LEMON: 0.1, ItemEnum.LIME: 0.08, ItemEnum.WATERMELON: 3.0,
+        ItemEnum.MELON: 1.5, ItemEnum.CABBAGE: 1.0, ItemEnum.LETTUCE: 0.3,
+        ItemEnum.CAULIFLOWER: 0.8, ItemEnum.EGGPLANT: 0.3, ItemEnum.PUMPKIN: 2.0,
+    },
+    UnitEnum.BUNCH: 0.3,  # Average bunch weight
+    UnitEnum.DOZEN: 2.4,  # 12 pieces, estimated average
+    UnitEnum.BASKET: 5.0,  # Large basket
+}
+
+
+def get_estimated_weight(item: ItemEnum, unit: UnitEnum) -> float:
+    if unit == UnitEnum.KG:
+        return 1.0
+    elif unit == UnitEnum.PIECE:
+        return UNIT_ESTIMATES[UnitEnum.PIECE].get(item, 0.25)
+    else:
+        return UNIT_ESTIMATES.get(unit, 0.5)
 
 
 def reset_database(db: Session):
@@ -265,133 +286,132 @@ def create_additional_users(db: Session):
     return farmer_ids
 
 
-def create_all_products(db: Session, farmer_id: int):
-    product_pricing = {
-        # FRUITS
-        ItemEnum.APPLE: {"individual": 450.0, "business": 400.0, "unit": UnitEnum.KG, "stock": 100},
-        ItemEnum.BANANA: {"individual": 180.0, "business": 160.0, "unit": UnitEnum.DOZEN, "stock": 80},
-        ItemEnum.ORANGE: {"individual": 350.0, "business": 320.0, "unit": UnitEnum.KG, "stock": 90},
-        ItemEnum.MANGO: {"individual": 500.0, "business": 450.0, "unit": UnitEnum.KG, "stock": 60},
-        ItemEnum.PINEAPPLE: {"individual": 250.0, "business": 220.0, "unit": UnitEnum.PIECE, "stock": 40},
-        ItemEnum.PAPAYA: {"individual": 300.0, "business": 270.0, "unit": UnitEnum.KG, "stock": 50},
-        ItemEnum.GUAVA: {"individual": 200.0, "business": 180.0, "unit": UnitEnum.KG, "stock": 70},
-        ItemEnum.LYCHEE: {"individual": 600.0, "business": 550.0, "unit": UnitEnum.KG, "stock": 30},
-        ItemEnum.COCONUT: {"individual": 80.0, "business": 70.0, "unit": UnitEnum.PIECE, "stock": 100},
-        ItemEnum.LEMON: {"individual": 400.0, "business": 360.0, "unit": UnitEnum.KG, "stock": 60},
-        ItemEnum.LIME: {"individual": 350.0, "business": 320.0, "unit": UnitEnum.KG, "stock": 80},
-        ItemEnum.WATERMELON: {"individual": 150.0, "business": 130.0, "unit": UnitEnum.KG, "stock": 40},
-        ItemEnum.MELON: {"individual": 250.0, "business": 220.0, "unit": UnitEnum.KG, "stock": 50},
-        ItemEnum.GRAPES: {"individual": 800.0, "business": 720.0, "unit": UnitEnum.KG, "stock": 25},
-        ItemEnum.STRAWBERRY: {"individual": 1200.0, "business": 1000.0, "unit": UnitEnum.KG, "stock": 15},
+def create_product_with_multiple_units(db: Session, farmer_id: int, item: ItemEnum, base_kg_price: float):
+    """Create a product with multiple random units and consistent pricing"""
 
-        # VEGETABLES
-        ItemEnum.TOMATO: {"individual": 350.0, "business": 320.0, "unit": UnitEnum.KG, "stock": 120},
-        ItemEnum.POTATO: {"individual": 200.0, "business": 180.0, "unit": UnitEnum.KG, "stock": 200},
-        ItemEnum.ONION: {"individual": 300.0, "business": 270.0, "unit": UnitEnum.KG, "stock": 150},
-        ItemEnum.CARROT: {"individual": 280.0, "business": 250.0, "unit": UnitEnum.KG, "stock": 100},
-        ItemEnum.CABBAGE: {"individual": 150.0, "business": 130.0, "unit": UnitEnum.PIECE, "stock": 80},
-        ItemEnum.LETTUCE: {"individual": 200.0, "business": 180.0, "unit": UnitEnum.PIECE, "stock": 60},
-        ItemEnum.SPINACH: {"individual": 250.0, "business": 220.0, "unit": UnitEnum.BUNCH, "stock": 70},
-        ItemEnum.BROCCOLI: {"individual": 400.0, "business": 360.0, "unit": UnitEnum.KG, "stock": 40},
-        ItemEnum.CAULIFLOWER: {"individual": 350.0, "business": 320.0, "unit": UnitEnum.PIECE, "stock": 50},
-        ItemEnum.BELL_PEPPER: {"individual": 450.0, "business": 400.0, "unit": UnitEnum.KG, "stock": 60},
-        ItemEnum.CHILI: {"individual": 800.0, "business": 720.0, "unit": UnitEnum.KG, "stock": 30},
-        ItemEnum.CUCUMBER: {"individual": 180.0, "business": 160.0, "unit": UnitEnum.KG, "stock": 90},
-        ItemEnum.EGGPLANT: {"individual": 220.0, "business": 200.0, "unit": UnitEnum.KG, "stock": 70},
-        ItemEnum.OKRA: {"individual": 300.0, "business": 270.0, "unit": UnitEnum.KG, "stock": 50},
-        ItemEnum.GREEN_BEANS: {"individual": 250.0, "business": 220.0, "unit": UnitEnum.KG, "stock": 80},
-        ItemEnum.PUMPKIN: {"individual": 120.0, "business": 100.0, "unit": UnitEnum.KG, "stock": 60},
-        ItemEnum.BEETROOT: {"individual": 300.0, "business": 270.0, "unit": UnitEnum.KG, "stock": 50},
-        ItemEnum.RADISH: {"individual": 200.0, "business": 180.0, "unit": UnitEnum.KG, "stock": 70},
-        ItemEnum.GINGER: {"individual": 600.0, "business": 540.0, "unit": UnitEnum.KG, "stock": 40},
-        ItemEnum.GARLIC: {"individual": 800.0, "business": 720.0, "unit": UnitEnum.KG, "stock": 30},
-    }
+    # Create the base product
+    product = FarmerProduct(
+        farmer_id=farmer_id,
+        item=item,
+        description=f"Fresh organic {item.value.replace('_', ' ')}, pesticide-free",
+        is_active=True,
+        harvest_date=datetime.now() - timedelta(days=random.randint(0, 2)),
+        expiry_date=datetime.now() + timedelta(days=random.randint(7, 14))
+    )
+    db.add(product)
+    db.flush()
 
-    print(f"Creating ALL {len(product_pricing)} products for main farmer...")
+    # Randomly select 1-5 units for this product
+    all_units = list(UnitEnum)
+    num_units = random.randint(1, len(all_units))
+    selected_units = random.sample(all_units, num_units)
 
-    for item_enum, pricing in product_pricing.items():
-        # Create product
-        product = FarmerProduct(
-            farmer_id=farmer_id,
-            item=item_enum,
-            description=f"Fresh organic {item_enum.value.replace('_', ' ')}, pesticide-free",
-            is_active=True,
-            harvest_date=datetime.now() - timedelta(days=1),
-            expiry_date=datetime.now() + timedelta(days=10)
-        )
-        db.add(product)
-        db.flush()
+    units_created = []
 
-        # Individual pricing
+    for unit in selected_units:
+        # Calculate price based on estimated weight/count
+        weight_factor = get_estimated_weight(item, unit)
+        unit_price_individual = round(base_kg_price * weight_factor, 2)
+        unit_price_business = round(unit_price_individual * 0.85, 2)  # 15% business discount
+
+        # Random stock quantities for each unit
+        base_stock = random.randint(30, 200)
+        individual_stock = base_stock
+        business_stock = int(base_stock * random.uniform(1.5, 3.0))  # More stock for business
+
+        # Create individual pricing
         individual_unit_price = ProductUnitPrice(
             farmer_product_id=product.id,
-            unit=pricing["unit"],
+            unit=unit,
             customer_type=CustomerTypeEnum.INDIVIDUAL,
-            price_per_unit=pricing["individual"],
-            quantity_available=pricing["stock"],
-            minimum_order=1
+            price_per_unit=unit_price_individual,
+            quantity_available=individual_stock,
+            minimum_order=random.choice([1, 2, 3, 5])
         )
         db.add(individual_unit_price)
 
-        # Business pricing (bulk orders)
+        # Create business pricing
         business_unit_price = ProductUnitPrice(
             farmer_product_id=product.id,
-            unit=pricing["unit"],
+            unit=unit,
             customer_type=CustomerTypeEnum.BUSINESS,
-            price_per_unit=pricing["business"],
-            quantity_available=pricing["stock"] * 2,
-            minimum_order=25 if pricing["unit"] != UnitEnum.PIECE else 10
+            price_per_unit=unit_price_business,
+            quantity_available=business_stock,
+            minimum_order=random.choice([1, 2, 3, 5])  # Same minimum orders as specified
         )
         db.add(business_unit_price)
 
+        units_created.append({
+            'unit': unit.value,
+            'individual_price': unit_price_individual,
+            'business_price': unit_price_business,
+            'individual_stock': individual_stock,
+            'business_stock': business_stock
+        })
+
+    return product, units_created
+
+
+def create_all_products(db: Session, farmer_id: int):
+    print(f"Creating ALL products with multiple units for main farmer...")
+
+    # Base prices per kg for different items
+    base_prices = {
+        # FRUITS
+        ItemEnum.APPLE: 450.0, ItemEnum.BANANA: 300.0, ItemEnum.ORANGE: 350.0,
+        ItemEnum.MANGO: 500.0, ItemEnum.PINEAPPLE: 200.0, ItemEnum.PAPAYA: 300.0,
+        ItemEnum.GUAVA: 200.0, ItemEnum.LYCHEE: 600.0, ItemEnum.COCONUT: 80.0,
+        ItemEnum.LEMON: 400.0, ItemEnum.LIME: 350.0, ItemEnum.WATERMELON: 150.0,
+        ItemEnum.MELON: 250.0, ItemEnum.GRAPES: 800.0, ItemEnum.STRAWBERRY: 1200.0,
+
+        # VEGETABLES
+        ItemEnum.TOMATO: 350.0, ItemEnum.POTATO: 200.0, ItemEnum.ONION: 300.0,
+        ItemEnum.CARROT: 280.0, ItemEnum.CABBAGE: 150.0, ItemEnum.LETTUCE: 500.0,
+        ItemEnum.SPINACH: 400.0, ItemEnum.BROCCOLI: 400.0, ItemEnum.CAULIFLOWER: 350.0,
+        ItemEnum.BELL_PEPPER: 450.0, ItemEnum.CHILI: 800.0, ItemEnum.CUCUMBER: 180.0,
+        ItemEnum.EGGPLANT: 220.0, ItemEnum.OKRA: 300.0, ItemEnum.GREEN_BEANS: 250.0,
+        ItemEnum.PUMPKIN: 120.0, ItemEnum.BEETROOT: 300.0, ItemEnum.RADISH: 200.0,
+        ItemEnum.GINGER: 600.0, ItemEnum.GARLIC: 800.0,
+    }
+
+    products_created = 0
+    total_units_created = 0
+
+    for item, base_price in base_prices.items():
+        product, units_info = create_product_with_multiple_units(db, farmer_id, item, base_price)
+        products_created += 1
+        total_units_created += len(units_info)
+
+        # Print summary for some products
+        if products_created <= 5:
+            units_summary = ", ".join([f"{u['unit']} (₹{u['individual_price']:.2f})" for u in units_info])
+            print(f"  ✅ {item.value}: {len(units_info)} units - {units_summary}")
+
+    print(f"  📊 Created {products_created} products with {total_units_created} total unit variations")
+
 
 def create_farmer_products(db: Session, farmer_id: int, farmer_name: str):
-    # Select 10 random items
+    """Create products for additional farmers with multiple units"""
+
+    # Select random items for this farmer
     all_items = list(ItemEnum)
-    selected_items = random.sample(all_items, 10)
+    num_items = random.randint(8, 15)
+    selected_items = random.sample(all_items, num_items)
 
-    units = [UnitEnum.KG, UnitEnum.PIECE, UnitEnum.BUNCH, UnitEnum.DOZEN, UnitEnum.BASKET]
+    print(f"Creating {num_items} products for {farmer_name}...")
 
-    print(f"Creating 10 products for {farmer_name}...")
+    products_created = 0
+    total_units_created = 0
 
     for item in selected_items:
-        # Randomize unit and pricing
-        unit = random.choice(units)
-        base_price = random.randint(50, 800)
+        # Random base price
+        base_price = random.randint(80, 800)
 
-        # Create product
-        product = FarmerProduct(
-            farmer_id=farmer_id,
-            item=item,
-            description=f"Premium {item.value.replace('_', ' ')} from our farm",
-            is_active=True,
-            harvest_date=datetime.now() - timedelta(days=random.randint(0, 3)),
-            expiry_date=datetime.now() + timedelta(days=random.randint(7, 14))
-        )
-        db.add(product)
-        db.flush()
+        product, units_info = create_product_with_multiple_units(db, farmer_id, item, base_price)
+        products_created += 1
+        total_units_created += len(units_info)
 
-        # Individual pricing
-        individual_price = ProductUnitPrice(
-            farmer_product_id=product.id,
-            unit=unit,
-            customer_type=CustomerTypeEnum.INDIVIDUAL,
-            price_per_unit=base_price,
-            quantity_available=random.randint(20, 150),
-            minimum_order=random.choice([1, 2, 3, 5])
-        )
-        db.add(individual_price)
-
-        # Business pricing
-        business_price = ProductUnitPrice(
-            farmer_product_id=product.id,
-            unit=unit,
-            customer_type=CustomerTypeEnum.BUSINESS,
-            price_per_unit=base_price * 0.85,  # 15% discount for business
-            quantity_available=random.randint(50, 300),
-            minimum_order=random.choice([10, 15, 20, 25, 30])
-        )
-        db.add(business_price)
+    print(f"  📊 Created {products_created} products with {total_units_created} total unit variations for {farmer_name}")
 
 
 def create_sample_orders_and_notifications(db: Session, individual_id: int, business_id: int, farmer_id: int):
@@ -610,7 +630,7 @@ def seed_database():
         # Create additional users
         additional_farmer_ids = create_additional_users(db)
 
-        print(f"\n🥕 Creating ALL products for main farmer (ID: {farmer_id})...")
+        print(f"\n🥕 Creating ALL products with multiple units for main farmer (ID: {farmer_id})...")
         create_all_products(db, farmer_id)
 
         print(f"\n🌱 Creating products for additional farmers...")
@@ -638,6 +658,7 @@ def seed_database():
         print("  🚜 Farmer: roshan@test.com, nisha@test.com, ibrahim@test.com, kavitha@test.com")
         print("=" * 60)
         print("🎯 Ready for Testing!")
+        print("📊 Products now have 1-5 random units each with consistent pricing!")
 
     except Exception as e:
         print(f"\n❌ Error during seeding: {e}")
