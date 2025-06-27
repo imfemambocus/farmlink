@@ -590,34 +590,6 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
     )
     db.add(farmer_status2)
 
-    # Create device tokens for testing
-    device_token1 = DeviceToken(
-        user_id=farmer_id,
-        expo_push_token="ExponentPushToken[farmer-test-token-123]",
-        device_id="test-device-android-farmer",
-        platform="android",
-        is_active=True
-    )
-    db.add(device_token1)
-
-    device_token2 = DeviceToken(
-        user_id=individual_id,
-        expo_push_token="ExponentPushToken[individual-test-token-456]",
-        device_id="test-device-ios-individual",
-        platform="ios",
-        is_active=True
-    )
-    db.add(device_token2)
-
-    device_token3 = DeviceToken(
-        user_id=business_id,
-        expo_push_token="ExponentPushToken[business-test-token-789]",
-        device_id="test-device-android-business",
-        platform="android",
-        is_active=True
-    )
-    db.add(device_token3)
-
     print("✅ Created sample orders, payments, and notifications")
 
 
