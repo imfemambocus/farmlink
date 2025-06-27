@@ -123,7 +123,7 @@ export default function Header({
                     >
                         {title.toLowerCase()}
                     </Text>
-                    <View className="flex-row items-center gap-3">
+                    <View className="flex-row items-center gap-5">
                         {showHomeButton && (
                             <TouchableOpacity
                                 onPress={handleHomePress}

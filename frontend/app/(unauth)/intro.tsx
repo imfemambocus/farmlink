@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import Animated, {
@@ -178,7 +177,6 @@ export default function IntroScreen() {
     if (languageLoading) {
         return (
             <SafeAreaView className="flex-1 bg-background justify-center items-center">
-                <StatusBar hidden={true} />
                 <LottieView
                     source={animations.leaf}
                     autoPlay
@@ -191,8 +189,6 @@ export default function IntroScreen() {
 
     return (
         <SafeAreaView className="flex-1">
-            <StatusBar hidden={true} />
-
             <Animated.View
                 style={[splashBackgroundStyle, { backgroundColor: '#F2FBE0' }]}
                 className="absolute inset-0"

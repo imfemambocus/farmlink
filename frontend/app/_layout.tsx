@@ -10,6 +10,7 @@ import {NotificationProvider} from "@/context/NotificationContext";
 import {LanguageProvider} from "@/context/LanguageContext";
 import {Platform} from "react-native";
 import * as NavigationBar from "expo-navigation-bar";
+import {StatusBar} from "expo-status-bar";
 
 export default function RootLayout() {
     const [fontsLoaded] = useFonts({
@@ -21,7 +22,7 @@ export default function RootLayout() {
 
     useEffect(() => {
         if (Platform.OS === 'android') {
-            NavigationBar.setVisibilityAsync('hidden');
+            NavigationBar.setBehaviorAsync('overlay-swipe');
         }
     }, []);
 
@@ -36,20 +37,23 @@ export default function RootLayout() {
     }
 
     return (
-        <LanguageProvider>
-            <AuthProvider>
-                <CartProvider>
-                    <FarmerOrdersProvider>
-                        <NotificationProvider>
-                            <Stack
-                                screenOptions={{
-                                    headerShown: false,
-                                }}
-                            />
-                        </NotificationProvider>
-                    </FarmerOrdersProvider>
-                </CartProvider>
-            </AuthProvider>
-        </LanguageProvider>
+        <>
+            <StatusBar style="dark" />
+            <LanguageProvider>
+                <AuthProvider>
+                    <CartProvider>
+                        <FarmerOrdersProvider>
+                            <NotificationProvider>
+                                <Stack
+                                    screenOptions={{
+                                        headerShown: false,
+                                    }}
+                                />
+                            </NotificationProvider>
+                        </FarmerOrdersProvider>
+                    </CartProvider>
+                </AuthProvider>
+            </LanguageProvider>
+        </>
     );
 }
