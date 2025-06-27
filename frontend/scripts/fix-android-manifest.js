@@ -50,6 +50,8 @@ function fixMainManifest() {
 
             fs.writeFileSync(mainManifestPath, mainManifestContent);
             console.log('✅ Fixed main AndroidManifest.xml');
+        } else {
+            console.log('ℹ️  Main AndroidManifest.xml already has tools:replace');
         }
     }
 }
@@ -64,16 +66,28 @@ function fixGradleProperties() {
             gradleContent += '\n# Force AndroidX compatibility\nandroid.enableJetifier=true\n';
             fs.writeFileSync(gradlePropertiesPath, gradleContent);
             console.log('✅ Added android.enableJetifier=true to gradle.properties');
+        } else {
+            console.log('ℹ️  gradle.properties already has jetifier enabled');
         }
     }
 }
 
-// Function to fix app/build.gradle
+// IMPROVED Function to fix app/build.gradle
 function fixAppBuildGradle() {
-    if (fs.existsSync(appBuildGradlePath)) {
-        let buildGradleContent = fs.readFileSync(appBuildGradlePath, 'utf8');
+    if (!fs.existsSync(appBuildGradlePath)) {
+        console.log('❌ build.gradle not found');
+        return;
+    }
 
-        // Add configurations.all block if not present
+    let buildGradleContent = fs.readFileSync(appBuildGradlePath, 'utf8');
+    console.log('📖 Original build.gradle length:', buildGradleContent.length);
+
+    let modified = false;
+
+    // Add configurations.all block if not present
+    if (!buildGradleContent.includes('configurations.all')) {
+        console.log('🔧 Adding configurations.all block...');
+
         const configurationsBlock = `
 configurations.all {
     resolutionStrategy {
@@ -85,28 +99,52 @@ configurations.all {
         }
     }
 }
+
 `;
 
-        if (!buildGradleContent.includes('configurations.all')) {
-            // Find the android block and add configurations before it
+        // Find android block and insert before it
+        const androidBlockRegex = /(\s*)(android\s*\{)/;
+        if (androidBlockRegex.test(buildGradleContent)) {
             buildGradleContent = buildGradleContent.replace(
-                /android\s*{/,
-                `${configurationsBlock}\nandroid {`
+                androidBlockRegex,
+                `$1${configurationsBlock}$1$2`
             );
-            console.log('✅ Added configurations.all block to app/build.gradle');
+            modified = true;
+            console.log('✅ Added configurations.all block');
+        } else {
+            console.log('❌ Could not find android block to insert configurations');
         }
+    } else {
+        console.log('ℹ️  configurations.all block already exists');
+    }
 
-        // Add androidx.core dependency if not present
-        if (!buildGradleContent.includes("implementation 'androidx.core:core:1.13.1'")) {
-            // Find the dependencies block
-            buildGradleContent = buildGradleContent.replace(
-                /(dependencies\s*{[^}]*)/,
-                `$1    implementation 'androidx.core:core:1.13.1'\n`
-            );
-            console.log('✅ Added androidx.core:core:1.13.1 to dependencies');
+    // Add androidx.core dependency if not present
+    if (!buildGradleContent.includes("implementation 'androidx.core:core:1.13.1'")) {
+        console.log('🔧 Adding androidx.core dependency...');
+
+        // Find dependencies block - look for the opening brace after "dependencies"
+        const dependenciesRegex = /(dependencies\s*\{\s*)/;
+        const match = buildGradleContent.match(dependenciesRegex);
+
+        if (match) {
+            const insertPoint = match.index + match[0].length;
+            const beforeDeps = buildGradleContent.substring(0, insertPoint);
+            const afterDeps = buildGradleContent.substring(insertPoint);
+
+            buildGradleContent = beforeDeps + "    implementation 'androidx.core:core:1.13.1'\n" + afterDeps;
+            modified = true;
+            console.log('✅ Added androidx.core dependency');
+        } else {
+            console.log('❌ Could not find dependencies block');
         }
+    } else {
+        console.log('ℹ️  androidx.core dependency already exists');
+    }
 
+    if (modified) {
         fs.writeFileSync(appBuildGradlePath, buildGradleContent);
+        console.log('💾 Saved modified build.gradle');
+        console.log('📖 New build.gradle length:', buildGradleContent.length);
     }
 }
 
@@ -115,19 +153,85 @@ function createDebugManifest() {
     const debugDir = path.dirname(debugManifestPath);
     if (!fs.existsSync(debugDir)) {
         fs.mkdirSync(debugDir, { recursive: true });
+        console.log('📁 Created debug manifest directory');
     }
-    fs.writeFileSync(debugManifestPath, debugManifestContent);
-    console.log('✅ Fixed debug AndroidManifest.xml');
+
+    if (!fs.existsSync(debugManifestPath)) {
+        fs.writeFileSync(debugManifestPath, debugManifestContent);
+        console.log('✅ Created debug AndroidManifest.xml');
+    } else {
+        console.log('ℹ️  Debug AndroidManifest.xml already exists');
+    }
 }
 
-// Only run if android directory exists (i.e., during EAS build)
-if (fs.existsSync(path.join(__dirname, '../android'))) {
-    console.log('🔧 Applying Android configuration fixes...');
-    fixMainManifest();
-    fixGradleProperties();
-    fixAppBuildGradle();
-    createDebugManifest();
-    console.log('🎉 All Android fixes applied!');
-} else {
-    console.log('📱 Android directory not found, skipping fixes');
+// Add some debugging to understand the build environment
+function debugBuildEnvironment() {
+    console.log('🔍 Build environment debug:');
+    console.log('  - Current directory:', process.cwd());
+    console.log('  - Script directory:', __dirname);
+    console.log('  - Android dir exists:', fs.existsSync(path.join(__dirname, '../android')));
+
+    if (fs.existsSync(appBuildGradlePath)) {
+        const content = fs.readFileSync(appBuildGradlePath, 'utf8');
+        console.log('  - build.gradle exists, length:', content.length);
+        console.log('  - Contains "dependencies":', content.includes('dependencies'));
+        console.log('  - Contains "android":', content.includes('android'));
+    } else {
+        console.log('  - build.gradle does not exist yet');
+    }
 }
+
+// Wait for files to be generated (in case there's a timing issue)
+function waitForFiles(maxWaitMs = 30000) {
+    return new Promise((resolve) => {
+        const startTime = Date.now();
+        const checkFiles = () => {
+            if (fs.existsSync(appBuildGradlePath)) {
+                console.log('✅ build.gradle found after', Date.now() - startTime, 'ms');
+                resolve(true);
+            } else if (Date.now() - startTime > maxWaitMs) {
+                console.log('⏰ Timeout waiting for build.gradle');
+                resolve(false);
+            } else {
+                setTimeout(checkFiles, 1000);
+            }
+        };
+        checkFiles();
+    });
+}
+
+// Main execution
+async function main() {
+    debugBuildEnvironment();
+
+    // Only run if android directory exists (i.e., during EAS build)
+    if (fs.existsSync(path.join(__dirname, '../android'))) {
+        console.log('🔧 Applying Android configuration fixes...');
+
+        // Wait for build.gradle to be generated if it doesn't exist yet
+        if (!fs.existsSync(appBuildGradlePath)) {
+            console.log('⏳ Waiting for build.gradle to be generated...');
+            await waitForFiles();
+        }
+
+        try {
+            fixMainManifest();
+            fixGradleProperties();
+            fixAppBuildGradle();
+            createDebugManifest();
+            console.log('🎉 All Android fixes applied successfully!');
+        } catch (error) {
+            console.error('❌ Error applying fixes:', error.message);
+            console.error('Stack trace:', error.stack);
+            process.exit(1);
+        }
+    } else {
+        console.log('📱 Android directory not found, skipping fixes');
+    }
+}
+
+// Run the main function
+main().catch(error => {
+    console.error('❌ Fatal error:', error);
+    process.exit(1);
+});
