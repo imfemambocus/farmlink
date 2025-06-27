@@ -11,8 +11,10 @@ from datetime import datetime, timedelta
 import random
 import json
 
+
 # Password: testing (for all test users)
 DEFAULT_PASSWORD = "testing"
+
 
 # Mauritius data
 MAURITIUS_LOCATIONS = [
@@ -32,6 +34,7 @@ MAURITIUS_LOCATIONS = [
     {"street": "Avenue Jean Paul II", "city": "Floreal", "post_code": "74001"},
     {"street": "Sir Arthur Raman Street", "city": "Triolet", "post_code": "21201"},
 ]
+
 
 MAURITIUS_DISTRICTS = [
     "Port Louis", "Black River", "Flacq", "Grand Port", "Moka",
@@ -117,10 +120,10 @@ def create_test_users(db: Session):
     location = random.choice(MAURITIUS_LOCATIONS)
     individual_profile = IndividualProfile(
         user_id=individual_user.id,
-        first_name="Sarah",
-        last_name="Ramgoolam",
-        date_of_birth="1990-05-15",
-        phone_number="57123456",
+        first_name="Isfaaq",
+        last_name="Emambocus",
+        date_of_birth="1997-12-08",
+        phone_number="58173526",
         street=location["street"],
         city_town=location["city"],
         post_code=location["post_code"]
@@ -175,7 +178,7 @@ def create_test_users(db: Session):
 def create_additional_users(db: Session):
     print("\n👥 Creating additional test users...")
 
-    # Additional Individual Users (diverse Mauritius names including Muslim names)
+    # Additional Individual Users
     individual_names = [
         ("Priya", "Devi"), ("Faizal", "Khodabux"), ("Anita", "Boolell"), ("Yasin", "Patel")
     ]
@@ -203,7 +206,7 @@ def create_additional_users(db: Session):
         db.add(profile)
         print(f"Created {first_name.lower()}@test.com")
 
-    # Additional Business Users (diverse Mauritius names including Muslim names)
+    # Additional Business Users
     business_data = [
         ("Fresh Market Co", "Lisa", "Chen"),
         ("Halal Foods Ltd", "Ahmed", "Joomun"),
@@ -233,7 +236,7 @@ def create_additional_users(db: Session):
         db.add(profile)
         print(f"Created {first_name.lower()}@test.com")
 
-    # Additional Farmer Users (diverse Mauritius names including Muslim names)
+    # Additional Farmer Users
     farmer_names = [
         ("Roshan", "Appadoo"), ("Nisha", "Ramdin"), ("Ibrahim", "Sooklall"), ("Kavitha", "Bheenick")
     ]
@@ -343,8 +346,6 @@ def create_all_products(db: Session, farmer_id: int):
 
 
 def create_farmer_products(db: Session, farmer_id: int, farmer_name: str):
-    """Create 10 diverse products for additional farmers with varied units and pricing"""
-
     # Select 10 random items
     all_items = list(ItemEnum)
     selected_items = random.sample(all_items, 10)
@@ -394,7 +395,6 @@ def create_farmer_products(db: Session, farmer_id: int, farmer_name: str):
 
 
 def create_sample_orders_and_notifications(db: Session, individual_id: int, business_id: int, farmer_id: int):
-    """Create sample orders, payments, and notifications for main test users"""
     print("\n📦 Creating sample orders and notifications...")
 
     # Create an order for individual user
@@ -405,8 +405,8 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
         total_amount=1250.50,
         delivery_fee=100.0,
         final_amount=1350.50,
-        customer_name="Sarah Ramgoolam",
-        customer_phone="57123456",
+        customer_name="Isfaaq Emambocus",
+        customer_phone="58173526",
         customer_email="individual@test.com",
         delivery_address="Royal Road, Port Louis 11328",
         delivery_notes="Call when arriving",
@@ -656,42 +656,16 @@ def seed_database():
         print(f"🔑 Password for all users: {DEFAULT_PASSWORD}")
         print("=" * 60)
         print("🧪 Main test accounts:")
-        print("  👤 Individual: individual@test.com (Sarah Ramgoolam)")
+        print("  👤 Individual: individual@test.com (Isfaaq Emambocus)")
         print("  🏢 Business: business@test.com (Tropical Delights Ltd)")
         print("  🚜 Farmer: farmer@test.com (Kumar Seebaluck)")
         print("=" * 60)
-        print("📋 Additional test accounts (first name emails):")
+        print("📋 Additional test accounts:")
         print("  👤 Individual: priya@test.com, faizal@test.com, anita@test.com, yasin@test.com")
         print("  🏢 Business: lisa@test.com, ahmed@test.com, marie@test.com, zara@test.com")
         print("  🚜 Farmer: roshan@test.com, nisha@test.com, ibrahim@test.com, kavitha@test.com")
         print("=" * 60)
-        print("📦 Products available:")
-        print("  🍎 Main farmer: ALL 35 items (fruits & vegetables)")
-        print("  🌱 Each additional farmer: 10 diverse items")
-        print("  💰 Individual & Business pricing with varied units")
-        print("  📱 Different minimum orders and quantities")
-        print("=" * 60)
-        print("🏝️ Mauritius-specific data:")
-        print("  📍 Real street addresses and locations")
-        print("  🏘️ Authentic city/town names")
-        print("  📮 Genuine postal codes")
-        print("  📞 Proper phone number format (8 digits)")
-        print("  🌍 Diverse names (Hindu, Muslim, Chinese, Creole)")
-        print("=" * 60)
-        print("📋 Sample data created:")
-        print("  📦 2 complete orders with payments")
-        print("  📱 Push notification device tokens")
-        print("  🔔 Order notifications for testing")
-        print("  💳 Payment records and farmer payouts")
-        print("  📊 Farmer status tracking")
-        print("=" * 60)
-        print("🎯 Ready for Testing:")
-        print("  1. Login with any test account")
-        print("  2. Browse products from multiple farmers")
-        print("  3. Test orders and notifications")
-        print("  4. ML recommendations with diverse data")
-        print("  5. Push notification system")
-        print("=" * 60)
+        print("🎯 Ready for Testing!")
 
     except Exception as e:
         print(f"\n❌ Error during seeding: {e}")
