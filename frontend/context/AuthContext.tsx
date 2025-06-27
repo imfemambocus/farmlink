@@ -18,7 +18,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const login = async (email: string, password: string) => {
         try {
-            console.log('=== LOGIN ATTEMPT ===');
             const res = await api.post('/auth/login', { email, password });
             const token = res.data.access_token;
 
@@ -41,7 +40,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const logout = async () => {
-        console.log('=== LOGOUT ===');
         await AsyncStorage.removeItem('token');
         setUser(null);
         router.replace('/intro');

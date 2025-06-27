@@ -3,11 +3,40 @@ from sqlalchemy import text
 from core.database import SessionLocal, engine
 from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
 from models.product import FarmerProduct, ProductUnitPrice, ItemEnum, UnitEnum, CustomerTypeEnum
+from models.order import UnifiedOrder, UnifiedOrderItem, UnifiedPayment, FarmerPayment, OrderStatusEnum, \
+    PaymentStatusEnum, PaymentMethodEnum
+from models.notification import Notification, DeviceToken, NotificationTypeEnum, UnifiedOrderFarmerStatus
 from core.security import get_password_hash
 from datetime import datetime, timedelta
+import random
+import json
 
-# Password: test (for all test users)
+# Password: testing (for all test users)
 DEFAULT_PASSWORD = "testing"
+
+# Mauritius data
+MAURITIUS_LOCATIONS = [
+    {"street": "Royal Road", "city": "Port Louis", "post_code": "11328"},
+    {"street": "Sir William Newton Street", "city": "Port Louis", "post_code": "11302"},
+    {"street": "La Chaussée", "city": "Port Louis", "post_code": "11304"},
+    {"street": "Coastal Road", "city": "Flic en Flac", "post_code": "90537"},
+    {"street": "Royal Road", "city": "Grand Baie", "post_code": "30501"},
+    {"street": "Avenue des Cocotiers", "city": "Trou aux Biches", "post_code": "22201"},
+    {"street": "St Jean Road", "city": "Quatre Bornes", "post_code": "72201"},
+    {"street": "Avenue de la Paix", "city": "Vacoas", "post_code": "73403"},
+    {"street": "Royal Road", "city": "Rose Hill", "post_code": "71259"},
+    {"street": "Avenue Leconte de Lisle", "city": "Curepipe", "post_code": "74201"},
+    {"street": "Coastal Road", "city": "Tamarin", "post_code": "90903"},
+    {"street": "Sir Virgil Naz Street", "city": "Mahebourg", "post_code": "50801"},
+    {"street": "Avenue des Salines", "city": "Centre de Flacq", "post_code": "40701"},
+    {"street": "Avenue Jean Paul II", "city": "Floreal", "post_code": "74001"},
+    {"street": "Sir Arthur Raman Street", "city": "Triolet", "post_code": "21201"},
+]
+
+MAURITIUS_DISTRICTS = [
+    "Port Louis", "Black River", "Flacq", "Grand Port", "Moka",
+    "Pamplemousses", "Plaines Wilhems", "Rivière du Rempart", "Savanne"
+]
 
 
 def reset_database(db: Session):
@@ -74,52 +103,56 @@ def reset_database(db: Session):
 
 
 def create_test_users(db: Session):
-    # Test Individual User
+    print("\n👥 Creating main test users...")
+
+    # Main Individual User
     individual_user = User(
-        email="user@test.com",
+        email="individual@test.com",
         hashed_password=get_password_hash(DEFAULT_PASSWORD),
         role="individual"
     )
     db.add(individual_user)
     db.flush()
 
+    location = random.choice(MAURITIUS_LOCATIONS)
     individual_profile = IndividualProfile(
         user_id=individual_user.id,
-        first_name="Test",
-        last_name="User",
-        date_of_birth="1990-01-01",
-        phone_number="+94701234567",
-        street="123 Test Street",
-        city_town="Colombo",
-        post_code="00100"
+        first_name="Sarah",
+        last_name="Ramgoolam",
+        date_of_birth="1990-05-15",
+        phone_number="57123456",
+        street=location["street"],
+        city_town=location["city"],
+        post_code=location["post_code"]
     )
     db.add(individual_profile)
-    print("Created individual user: user@test.com")
+    print("Created individual user: individual@test.com")
 
-    # Test Business User
+    # Main Business User
     business_user = User(
-        email="biz@test.com",
+        email="business@test.com",
         hashed_password=get_password_hash(DEFAULT_PASSWORD),
         role="business"
     )
     db.add(business_user)
     db.flush()
 
+    location = random.choice(MAURITIUS_LOCATIONS)
     business_profile = BusinessProfile(
         user_id=business_user.id,
-        business_name="Test Business",
-        contact_name="Biz User",
-        phone_number="+94702345678",
-        street="456 Business Road",
-        city_town="Kandy",
-        post_code="20000"
+        business_name="Tropical Delights Ltd",
+        contact_name="Raj Patel",
+        phone_number="52987654",
+        street=location["street"],
+        city_town=location["city"],
+        post_code=location["post_code"]
     )
     db.add(business_profile)
-    print("Created business user: biz@test.com")
+    print("Created business user: business@test.com")
 
-    # Test Farmer User (with ALL products)
+    # Main Farmer User (with ALL products)
     farmer_user = User(
-        email="farm@test.com",
+        email="farmer@test.com",
         hashed_password=get_password_hash(DEFAULT_PASSWORD),
         role="farmer"
     )
@@ -128,15 +161,105 @@ def create_test_users(db: Session):
 
     farmer_profile = FarmerProfile(
         user_id=farmer_user.id,
-        first_name="Farm",
-        last_name="User",
-        phone_number="+94703456789",
-        district="Galle"
+        first_name="Kumar",
+        last_name="Seebaluck",
+        phone_number="59876543",
+        district=random.choice(MAURITIUS_DISTRICTS)
     )
     db.add(farmer_profile)
-    print("Created farmer user: farm@test.com")
+    print("Created farmer user: farmer@test.com")
 
-    return farmer_user.id
+    return individual_user.id, business_user.id, farmer_user.id
+
+
+def create_additional_users(db: Session):
+    print("\n👥 Creating additional test users...")
+
+    # Additional Individual Users (diverse Mauritius names including Muslim names)
+    individual_names = [
+        ("Priya", "Devi"), ("Faizal", "Khodabux"), ("Anita", "Boolell"), ("Yasin", "Patel")
+    ]
+
+    for first_name, last_name in individual_names:
+        user = User(
+            email=f"{first_name.lower()}@test.com",
+            hashed_password=get_password_hash(DEFAULT_PASSWORD),
+            role="individual"
+        )
+        db.add(user)
+        db.flush()
+
+        location = random.choice(MAURITIUS_LOCATIONS)
+        profile = IndividualProfile(
+            user_id=user.id,
+            first_name=first_name,
+            last_name=last_name,
+            date_of_birth=f"198{random.randint(5, 9)}-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}",
+            phone_number=f"5{random.randint(1000000, 9999999)}",
+            street=location["street"],
+            city_town=location["city"],
+            post_code=location["post_code"]
+        )
+        db.add(profile)
+        print(f"Created {first_name.lower()}@test.com")
+
+    # Additional Business Users (diverse Mauritius names including Muslim names)
+    business_data = [
+        ("Fresh Market Co", "Lisa", "Chen"),
+        ("Halal Foods Ltd", "Ahmed", "Joomun"),
+        ("Paradise Foods", "Marie", "Lalanne"),
+        ("Ocean View Supplies", "Zara", "Gupta")
+    ]
+
+    for business_name, first_name, last_name in business_data:
+        user = User(
+            email=f"{first_name.lower()}@test.com",
+            hashed_password=get_password_hash(DEFAULT_PASSWORD),
+            role="business"
+        )
+        db.add(user)
+        db.flush()
+
+        location = random.choice(MAURITIUS_LOCATIONS)
+        profile = BusinessProfile(
+            user_id=user.id,
+            business_name=business_name,
+            contact_name=f"{first_name} {last_name}",
+            phone_number=f"5{random.randint(1000000, 9999999)}",
+            street=location["street"],
+            city_town=location["city"],
+            post_code=location["post_code"]
+        )
+        db.add(profile)
+        print(f"Created {first_name.lower()}@test.com")
+
+    # Additional Farmer Users (diverse Mauritius names including Muslim names)
+    farmer_names = [
+        ("Roshan", "Appadoo"), ("Nisha", "Ramdin"), ("Ibrahim", "Sooklall"), ("Kavitha", "Bheenick")
+    ]
+
+    farmer_ids = []
+    for first_name, last_name in farmer_names:
+        user = User(
+            email=f"{first_name.lower()}@test.com",
+            hashed_password=get_password_hash(DEFAULT_PASSWORD),
+            role="farmer"
+        )
+        db.add(user)
+        db.flush()
+
+        profile = FarmerProfile(
+            user_id=user.id,
+            first_name=first_name,
+            last_name=last_name,
+            phone_number=f"5{random.randint(1000000, 9999999)}",
+            district=random.choice(MAURITIUS_DISTRICTS)
+        )
+        db.add(profile)
+        farmer_ids.append(user.id)
+        print(f"Created {first_name.lower()}@test.com")
+
+    return farmer_ids
 
 
 def create_all_products(db: Session, farmer_id: int):
@@ -181,7 +304,7 @@ def create_all_products(db: Session, farmer_id: int):
         ItemEnum.GARLIC: {"individual": 800.0, "business": 720.0, "unit": UnitEnum.KG, "stock": 30},
     }
 
-    print(f"Creating ALL {len(product_pricing)} products for test farmer...")
+    print(f"Creating ALL {len(product_pricing)} products for main farmer...")
 
     for item_enum, pricing in product_pricing.items():
         # Create product
@@ -218,13 +341,289 @@ def create_all_products(db: Session, farmer_id: int):
         )
         db.add(business_unit_price)
 
-        print(
-            f"  ✅ Created {item_enum.value} (Individual: Rs {pricing['individual']}, Business: Rs {pricing['business']})")
+
+def create_farmer_products(db: Session, farmer_id: int, farmer_name: str):
+    """Create 10 diverse products for additional farmers with varied units and pricing"""
+
+    # Select 10 random items
+    all_items = list(ItemEnum)
+    selected_items = random.sample(all_items, 10)
+
+    units = [UnitEnum.KG, UnitEnum.PIECE, UnitEnum.BUNCH, UnitEnum.DOZEN, UnitEnum.BASKET]
+
+    print(f"Creating 10 products for {farmer_name}...")
+
+    for item in selected_items:
+        # Randomize unit and pricing
+        unit = random.choice(units)
+        base_price = random.randint(50, 800)
+
+        # Create product
+        product = FarmerProduct(
+            farmer_id=farmer_id,
+            item=item,
+            description=f"Premium {item.value.replace('_', ' ')} from our farm",
+            is_active=True,
+            harvest_date=datetime.now() - timedelta(days=random.randint(0, 3)),
+            expiry_date=datetime.now() + timedelta(days=random.randint(7, 14))
+        )
+        db.add(product)
+        db.flush()
+
+        # Individual pricing
+        individual_price = ProductUnitPrice(
+            farmer_product_id=product.id,
+            unit=unit,
+            customer_type=CustomerTypeEnum.INDIVIDUAL,
+            price_per_unit=base_price,
+            quantity_available=random.randint(20, 150),
+            minimum_order=random.choice([1, 2, 3, 5])
+        )
+        db.add(individual_price)
+
+        # Business pricing
+        business_price = ProductUnitPrice(
+            farmer_product_id=product.id,
+            unit=unit,
+            customer_type=CustomerTypeEnum.BUSINESS,
+            price_per_unit=base_price * 0.85,  # 15% discount for business
+            quantity_available=random.randint(50, 300),
+            minimum_order=random.choice([10, 15, 20, 25, 30])
+        )
+        db.add(business_price)
+
+
+def create_sample_orders_and_notifications(db: Session, individual_id: int, business_id: int, farmer_id: int):
+    """Create sample orders, payments, and notifications for main test users"""
+    print("\n📦 Creating sample orders and notifications...")
+
+    # Create an order for individual user
+    order1 = UnifiedOrder(
+        order_number=f"ORD-{datetime.now().strftime('%Y%m%d')}-001",
+        customer_id=individual_id,
+        status=OrderStatusEnum.DELIVERED,
+        total_amount=1250.50,
+        delivery_fee=100.0,
+        final_amount=1350.50,
+        customer_name="Sarah Ramgoolam",
+        customer_phone="57123456",
+        customer_email="individual@test.com",
+        delivery_address="Royal Road, Port Louis 11328",
+        delivery_notes="Call when arriving",
+        created_at=datetime.now() - timedelta(days=3),
+        delivered_at=datetime.now() - timedelta(days=1)
+    )
+    db.add(order1)
+    db.flush()
+
+    # Create order items
+    order_item1 = UnifiedOrderItem(
+        order_id=order1.id,
+        farmer_id=farmer_id,
+        farmer_product_id=1,  # Assuming first product
+        item_name="Fresh Apples",
+        unit="kg",
+        unit_price=450.0,
+        quantity=2.0,
+        total_price=900.0,
+        product_description="Fresh organic apples"
+    )
+    db.add(order_item1)
+
+    order_item2 = UnifiedOrderItem(
+        order_id=order1.id,
+        farmer_id=farmer_id,
+        farmer_product_id=2,  # Assuming second product
+        item_name="Bananas",
+        unit="dozen",
+        unit_price=180.0,
+        quantity=2.0,
+        total_price=360.0,
+        product_description="Fresh bananas"
+    )
+    db.add(order_item2)
+
+    # Create payment
+    payment1 = UnifiedPayment(
+        order_id=order1.id,
+        payment_method=PaymentMethodEnum.CASH_ON_DELIVERY,
+        status=PaymentStatusEnum.SUCCESSFUL,
+        amount=1350.50,
+        currency="MUR",
+        completed_at=datetime.now() - timedelta(days=1)
+    )
+    db.add(payment1)
+
+    # Create farmer payment
+    farmer_payment1 = FarmerPayment(
+        order_id=order1.id,
+        farmer_id=farmer_id,
+        gross_amount=1250.50,
+        platform_fee=125.05,
+        net_amount=1125.45,
+        platform_fee_percentage=10.0,
+        payment_status="paid",
+        paid_at=datetime.now() - timedelta(days=1)
+    )
+    db.add(farmer_payment1)
+
+    # Create farmer status
+    farmer_status1 = UnifiedOrderFarmerStatus(
+        order_id=order1.id,
+        farmer_id=farmer_id,
+        status="delivered",
+        status_changed_at=datetime.now() - timedelta(days=1)
+    )
+    db.add(farmer_status1)
+
+    # Create notifications for farmer (order received)
+    notification1 = Notification(
+        user_id=farmer_id,
+        order_id=order1.id,
+        type=NotificationTypeEnum.ORDER_CREATED,
+        title="New Order Received!",
+        message=f"Order {order1.order_number} - 2 items, Rs 1250.50",
+        data=json.dumps({
+            "order_number": order1.order_number,
+            "item_count": 2,
+            "amount": 1250.50
+        }),
+        is_read=True,
+        is_sent=True,
+        sent_at=datetime.now() - timedelta(days=3),
+        created_at=datetime.now() - timedelta(days=3)
+    )
+    db.add(notification1)
+
+    # Create notification for customer (order delivered)
+    notification2 = Notification(
+        user_id=individual_id,
+        order_id=order1.id,
+        farmer_id=farmer_id,
+        type=NotificationTypeEnum.ORDER_DELIVERED,
+        title="Order Delivered!",
+        message="Your order has been successfully delivered",
+        data=json.dumps({
+            "order_number": order1.order_number,
+            "farmer_name": "Kumar Seebaluck"
+        }),
+        is_read=False,
+        is_sent=True,
+        sent_at=datetime.now() - timedelta(days=1),
+        created_at=datetime.now() - timedelta(days=1)
+    )
+    db.add(notification2)
+
+    # Create a business order
+    order2 = UnifiedOrder(
+        order_number=f"ORD-{datetime.now().strftime('%Y%m%d')}-002",
+        customer_id=business_id,
+        status=OrderStatusEnum.PROCESSING,
+        total_amount=5850.00,
+        delivery_fee=200.0,
+        final_amount=6050.00,
+        customer_name="Raj Patel",
+        customer_phone="52987654",
+        customer_email="business@test.com",
+        delivery_address="Sir William Newton Street, Port Louis 11302",
+        delivery_notes="Business delivery - loading dock access",
+        created_at=datetime.now() - timedelta(days=1)
+    )
+    db.add(order2)
+    db.flush()
+
+    # Create business order items
+    order_item3 = UnifiedOrderItem(
+        order_id=order2.id,
+        farmer_id=farmer_id,
+        farmer_product_id=3,
+        item_name="Organic Tomatoes",
+        unit="kg",
+        unit_price="320.0",
+        quantity=15.0,
+        total_price=4800.0,
+        product_description="Fresh organic tomatoes for business"
+    )
+    db.add(order_item3)
+
+    order_item4 = UnifiedOrderItem(
+        order_id=order2.id,
+        farmer_id=farmer_id,
+        farmer_product_id=4,
+        item_name="Fresh Onions",
+        unit="kg",
+        unit_price="270.0",
+        quantity=5.0,
+        total_price=1350.0,
+        product_description="Fresh onions for business"
+    )
+    db.add(order_item4)
+
+    # Create business payment
+    payment2 = UnifiedPayment(
+        order_id=order2.id,
+        payment_method=PaymentMethodEnum.BANK_TRANSFER,
+        status=PaymentStatusEnum.PENDING,
+        amount=6050.00,
+        currency="MUR"
+    )
+    db.add(payment2)
+
+    # Create business farmer payment
+    farmer_payment2 = FarmerPayment(
+        order_id=order2.id,
+        farmer_id=farmer_id,
+        gross_amount=6150.00,
+        platform_fee=615.00,
+        net_amount=5535.00,
+        platform_fee_percentage=10.0,
+        payment_status="pending"
+    )
+    db.add(farmer_payment2)
+
+    # Create business farmer status
+    farmer_status2 = UnifiedOrderFarmerStatus(
+        order_id=order2.id,
+        farmer_id=farmer_id,
+        status="processing",
+        status_changed_at=datetime.now() - timedelta(hours=12)
+    )
+    db.add(farmer_status2)
+
+    # Create device tokens for testing
+    device_token1 = DeviceToken(
+        user_id=farmer_id,
+        expo_push_token="ExponentPushToken[farmer-test-token-123]",
+        device_id="test-device-android-farmer",
+        platform="android",
+        is_active=True
+    )
+    db.add(device_token1)
+
+    device_token2 = DeviceToken(
+        user_id=individual_id,
+        expo_push_token="ExponentPushToken[individual-test-token-456]",
+        device_id="test-device-ios-individual",
+        platform="ios",
+        is_active=True
+    )
+    db.add(device_token2)
+
+    device_token3 = DeviceToken(
+        user_id=business_id,
+        expo_push_token="ExponentPushToken[business-test-token-789]",
+        device_id="test-device-android-business",
+        platform="android",
+        is_active=True
+    )
+    db.add(device_token3)
+
+    print("✅ Created sample orders, payments, and notifications")
 
 
 def seed_database():
     print("=" * 60)
-    print("🧪 Starting FarmLink ML Testing Database Setup...")
+    print("🏝️ Starting FarmLink Mauritius Testing Database Setup...")
     print("=" * 60)
 
     # Create database session
@@ -233,32 +632,65 @@ def seed_database():
         # Reset database
         reset_database(db)
 
-        print("\n👥 Creating test users...")
-        farmer_id = create_test_users(db)
+        print("\n👥 Creating main test users...")
+        individual_id, business_id, farmer_id = create_test_users(db)
 
-        print(f"\n🥕 Creating ALL products for test farmer (ID: {farmer_id})...")
+        # Create additional users
+        additional_farmer_ids = create_additional_users(db)
+
+        print(f"\n🥕 Creating ALL products for main farmer (ID: {farmer_id})...")
         create_all_products(db, farmer_id)
+
+        print(f"\n🌱 Creating products for additional farmers...")
+        farmer_names = ["roshan", "nisha", "ibrahim", "kavitha"]
+        for i, add_farmer_id in enumerate(additional_farmer_ids):
+            create_farmer_products(db, add_farmer_id, farmer_names[i])
+
+        # Create sample orders and notifications for main users
+        create_sample_orders_and_notifications(db, individual_id, business_id, farmer_id)
 
         db.commit()
         print("\n" + "=" * 60)
-        print("✅ ML Testing Database Setup Completed!")
+        print("✅ Mauritius Testing Database Setup Completed!")
         print("=" * 60)
         print(f"🔑 Password for all users: {DEFAULT_PASSWORD}")
         print("=" * 60)
-        print("🧪 Test accounts for ML:")
-        print("  👤 Individual: user@test.com")
-        print("  🏢 Business: biz@test.com")
-        print("  🚜 Farmer: farm@test.com")
+        print("🧪 Main test accounts:")
+        print("  👤 Individual: individual@test.com (Sarah Ramgoolam)")
+        print("  🏢 Business: business@test.com (Tropical Delights Ltd)")
+        print("  🚜 Farmer: farmer@test.com (Kumar Seebaluck)")
         print("=" * 60)
-        print("📋 Products available:")
-        print("  🍎 15 Fruits (apple, banana, orange, mango, etc.)")
-        print("  🥕 20 Vegetables (tomato, potato, onion, carrot, etc.)")
-        print("  💰 Individual & Business pricing for all items")
+        print("📋 Additional test accounts (first name emails):")
+        print("  👤 Individual: priya@test.com, faizal@test.com, anita@test.com, yasin@test.com")
+        print("  🏢 Business: lisa@test.com, ahmed@test.com, marie@test.com, zara@test.com")
+        print("  🚜 Farmer: roshan@test.com, nisha@test.com, ibrahim@test.com, kavitha@test.com")
         print("=" * 60)
-        print("🎯 Ready for ML Testing:")
-        print("  1. Login as user@test.com or biz@test.com")
-        print("  2. Order diverse products from farm@test.com")
-        print("  3. Test ML recommendations on homepage")
+        print("📦 Products available:")
+        print("  🍎 Main farmer: ALL 35 items (fruits & vegetables)")
+        print("  🌱 Each additional farmer: 10 diverse items")
+        print("  💰 Individual & Business pricing with varied units")
+        print("  📱 Different minimum orders and quantities")
+        print("=" * 60)
+        print("🏝️ Mauritius-specific data:")
+        print("  📍 Real street addresses and locations")
+        print("  🏘️ Authentic city/town names")
+        print("  📮 Genuine postal codes")
+        print("  📞 Proper phone number format (8 digits)")
+        print("  🌍 Diverse names (Hindu, Muslim, Chinese, Creole)")
+        print("=" * 60)
+        print("📋 Sample data created:")
+        print("  📦 2 complete orders with payments")
+        print("  📱 Push notification device tokens")
+        print("  🔔 Order notifications for testing")
+        print("  💳 Payment records and farmer payouts")
+        print("  📊 Farmer status tracking")
+        print("=" * 60)
+        print("🎯 Ready for Testing:")
+        print("  1. Login with any test account")
+        print("  2. Browse products from multiple farmers")
+        print("  3. Test orders and notifications")
+        print("  4. ML recommendations with diverse data")
+        print("  5. Push notification system")
         print("=" * 60)
 
     except Exception as e:

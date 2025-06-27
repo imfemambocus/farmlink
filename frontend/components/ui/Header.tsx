@@ -115,10 +115,15 @@ export default function Header({
         <View className="bg-background rounded-bl-[40px] rounded-br-[40px]" style={{ height: '20%' }}>
             <View className="pl-6 pr-6 justify-end h-full pb-5">
                 <View className="flex-row justify-between items-center">
-                    <Text className="text-2xl font-semibold text-black">
+                    <Text
+                        className="text-2xl font-semibold text-black"
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        style={{ flex: 1, marginRight: 16 }}
+                    >
                         {title.toLowerCase()}
                     </Text>
-                    <View className="flex-row items-center gap-5">
+                    <View className="flex-row items-center gap-3">
                         {showHomeButton && (
                             <TouchableOpacity
                                 onPress={handleHomePress}
