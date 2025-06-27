@@ -16,9 +16,6 @@
       },
       "env": {
         "NODE_ENV": "development"
-      },
-      "hooks": {
-        "postGenerate": "node scripts/fix-android-manifest.js"
       }
     },
     "preview": {

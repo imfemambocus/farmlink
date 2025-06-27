@@ -1,12 +1,10 @@
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+/* eslint-disable no-undef */
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const fs = require('fs');
+const path = require('path');
 
 // Fix debug AndroidManifest.xml
-const debugManifestPath = join(__dirname, '../android/app/src/debug/AndroidManifest.xml');
+const debugManifestPath = path.join(__dirname, '../android/app/src/debug/AndroidManifest.xml');
 const debugManifestContent = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
@@ -25,18 +23,18 @@ const debugManifestContent = `<?xml version="1.0" encoding="utf-8"?>
 </manifest>`;
 
 // Fix main AndroidManifest.xml
-const mainManifestPath = join(__dirname, '../android/app/src/main/AndroidManifest.xml');
+const mainManifestPath = path.join(__dirname, '../android/app/src/main/AndroidManifest.xml');
 
 // Fix gradle.properties
-const gradlePropertiesPath = join(__dirname, '../android/gradle.properties');
+const gradlePropertiesPath = path.join(__dirname, '../android/gradle.properties');
 
 // Fix app/build.gradle
-const appBuildGradlePath = join(__dirname, '../android/app/build.gradle');
+const appBuildGradlePath = path.join(__dirname, '../android/app/build.gradle');
 
 // Function to fix main manifest
 function fixMainManifest() {
-    if (existsSync(mainManifestPath)) {
-        let mainManifestContent = readFileSync(mainManifestPath, 'utf8');
+    if (fs.existsSync(mainManifestPath)) {
+        let mainManifestContent = fs.readFileSync(mainManifestPath, 'utf8');
 
         if (!mainManifestContent.includes('tools:replace')) {
             mainManifestContent = mainManifestContent.replace(
@@ -50,7 +48,7 @@ function fixMainManifest() {
                 }
             );
 
-            writeFileSync(mainManifestPath, mainManifestContent);
+            fs.writeFileSync(mainManifestPath, mainManifestContent);
             console.log('✅ Fixed main AndroidManifest.xml');
         }
     }
@@ -58,13 +56,13 @@ function fixMainManifest() {
 
 // Function to fix gradle.properties
 function fixGradleProperties() {
-    if (existsSync(gradlePropertiesPath)) {
-        let gradleContent = readFileSync(gradlePropertiesPath, 'utf8');
+    if (fs.existsSync(gradlePropertiesPath)) {
+        let gradleContent = fs.readFileSync(gradlePropertiesPath, 'utf8');
 
         // Add jetifier if not present
         if (!gradleContent.includes('android.enableJetifier=true')) {
             gradleContent += '\n# Force AndroidX compatibility\nandroid.enableJetifier=true\n';
-            writeFileSync(gradlePropertiesPath, gradleContent);
+            fs.writeFileSync(gradlePropertiesPath, gradleContent);
             console.log('✅ Added android.enableJetifier=true to gradle.properties');
         }
     }
@@ -72,8 +70,8 @@ function fixGradleProperties() {
 
 // Function to fix app/build.gradle
 function fixAppBuildGradle() {
-    if (existsSync(appBuildGradlePath)) {
-        let buildGradleContent = readFileSync(appBuildGradlePath, 'utf8');
+    if (fs.existsSync(appBuildGradlePath)) {
+        let buildGradleContent = fs.readFileSync(appBuildGradlePath, 'utf8');
 
         // Add configurations.all block if not present
         const configurationsBlock = `
@@ -108,24 +106,28 @@ configurations.all {
             console.log('✅ Added androidx.core:core:1.13.1 to dependencies');
         }
 
-        writeFileSync(appBuildGradlePath, buildGradleContent);
+        fs.writeFileSync(appBuildGradlePath, buildGradleContent);
     }
 }
 
 // Function to create debug manifest
 function createDebugManifest() {
-    const debugDir = dirname(debugManifestPath);
-    if (!existsSync(debugDir)) {
-        mkdirSync(debugDir, { recursive: true });
+    const debugDir = path.dirname(debugManifestPath);
+    if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir, { recursive: true });
     }
-    writeFileSync(debugManifestPath, debugManifestContent);
+    fs.writeFileSync(debugManifestPath, debugManifestContent);
     console.log('✅ Fixed debug AndroidManifest.xml');
 }
 
-// Run all fixes
-console.log('🔧 Applying Android configuration fixes...');
-fixMainManifest();
-fixGradleProperties();
-fixAppBuildGradle();
-createDebugManifest();
-console.log('🎉 All Android fixes applied!');
+// Only run if android directory exists (i.e., during EAS build)
+if (fs.existsSync(path.join(__dirname, '../android'))) {
+    console.log('🔧 Applying Android configuration fixes...');
+    fixMainManifest();
+    fixGradleProperties();
+    fixAppBuildGradle();
+    createDebugManifest();
+    console.log('🎉 All Android fixes applied!');
+} else {
+    console.log('📱 Android directory not found, skipping fixes');
+}
