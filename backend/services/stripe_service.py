@@ -19,7 +19,7 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_51RbVKCR2koWNU5mYSnmPAf
 class StripePaymentService:
     def __init__(self, db: Session):
         self.db = db
-        self.platform_fee_percentage = 10.0  # 10% commission for Farmlink (Can use env)
+        self.platform_fee_percentage = os.getenv("PLATFORM_FEE_PERCENTAGE", 10.0)  # Commission for Farmlink
         self.notification_service = PushNotificationService(db)
 
 

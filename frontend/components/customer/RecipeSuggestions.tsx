@@ -74,13 +74,11 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
 
         setLoading(true);
         try {
-            console.log('🤖 Generating rule-based AI recipes...');
             const generatedRecipes = await ruleBasedAIService.generatePersonalizedRecipes(
                 cartItems,
                 customerType
             );
             setRecipes(generatedRecipes);
-            console.log('✅ Generated', generatedRecipes.length, 'AI recipes');
         } catch (err) {
             console.error('Error generating recipes:', err);
             onAlert('error', t('ai.recipeError'), t('ai.failedToGenerate'));

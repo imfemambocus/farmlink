@@ -239,6 +239,11 @@ class PushNotificationService:
             print("WARNING: Notifications were not saved to database!")
 
     def notify_order_status_change(self, order: UnifiedOrder, farmer_id: int, new_status: str, old_status: str):
+        # Only send notification if status actually changed
+        if new_status == old_status:
+            print(f"Status unchanged for farmer {farmer_id}: {old_status}")
+            return
+
         farmer = self.db.query(User).get(farmer_id)
         farmer_name = f"{farmer.farmer_profile.first_name} {farmer.farmer_profile.last_name}" if farmer and farmer.farmer_profile else "Farmer"
 
@@ -253,6 +258,8 @@ class PushNotificationService:
         if new_status in status_messages:
             title = f"Order Update - #{order.order_number}"
             message = status_messages[new_status]
+
+            print(f"Sending notification: {title} - {message}")
 
             self.create_and_send_notification(
                 user_id=order.customer_id,

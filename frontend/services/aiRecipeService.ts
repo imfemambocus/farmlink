@@ -91,12 +91,9 @@ class RuleBasedAIService {
             skillLevel?: 'beginner' | 'intermediate' | 'advanced';
         }
     ): Promise<Recipe[]> {
-        console.log('🤖 AI: Starting optimized recipe generation...');
-
         const cartHash = this.createCartHash(cartItems, customerType);
 
         if (cartHash === this.lastCartHash && this.lastRecipesResult.length > 0) {
-            console.log('🎯 AI: Returning cached recipes (cart unchanged)');
             return this.lastRecipesResult;
         }
 
@@ -117,7 +114,6 @@ class RuleBasedAIService {
                     this.lastCartHash = cartHash;
                     this.lastRecipesResult = processedRecipes;
 
-                    console.log('🤖 AI: Generated', processedRecipes.length, 'optimized recipes');
                     resolve(processedRecipes);
                 } catch (error) {
                     console.error('🤖 AI: Error generating recipes:', error);
@@ -226,8 +222,6 @@ class RuleBasedAIService {
         });
 
         if (uncachedIngredients.length > 0) {
-            console.log(`🔍 Batch searching for ${uncachedIngredients.length} ingredients`);
-
             try {
                 const token = await AsyncStorage.getItem('token');
                 if (!token) return availabilityMap;
@@ -281,8 +275,6 @@ class RuleBasedAIService {
                 console.error('❌ Error in batch ingredient search:', error);
             }
         }
-
-        console.log(`📋 Found ${availabilityMap.size} available ingredients out of ${ingredientNames.length}`);
         return availabilityMap;
     }
 
@@ -318,14 +310,11 @@ class RuleBasedAIService {
 
     async findBestProductMatch(ingredientName: string, customerType: 'individual' | 'business'): Promise<any> {
         try {
-            console.log(`🔍 Finding best match for: ${ingredientName} (${customerType})`);
-
             const cacheKey = `${ingredientName}:${customerType}`;
             const cached = this.productSearchCache.get(cacheKey);
             let products: any[] = [];
 
             if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
-                console.log(`📋 Using cached data for ${ingredientName}`);
                 products = cached.products;
             } else {
                 const token = await AsyncStorage.getItem('token');
@@ -342,8 +331,6 @@ class RuleBasedAIService {
                     customerType
                 });
             }
-
-            console.log(`📦 Found ${products.length} products for ${ingredientName}`);
 
             let bestMatch = null;
             let lowestPrice = Infinity;
@@ -369,10 +356,6 @@ class RuleBasedAIService {
                 }
             }
 
-            if (bestMatch) {
-                console.log(`🎯 Best match for ${ingredientName}:`, bestMatch.product_name);
-            }
-
             return bestMatch;
         } catch (error) {
             console.error(`❌ Error finding product match for ${ingredientName}:`, error);
@@ -384,7 +367,6 @@ class RuleBasedAIService {
         this.productSearchCache.clear();
         this.lastCartHash = '';
         this.lastRecipesResult = [];
-        console.log('🧹 AI: Cache cleared');
     }
 
     private analyzeCartContents(cartItems: CartItem[]) {
@@ -544,8 +526,6 @@ class RuleBasedAIService {
         customerType: 'individual' | 'business'
     ): Promise<{success: boolean, addedItems: any[], errors: string[]}> {
         try {
-            console.log(`🛒 Adding ${missingIngredients.length} missing ingredients to cart for ${customerType}`);
-
             const token = await AsyncStorage.getItem('token');
             if (!token) throw new Error(this.t('common.noAuthToken'));
 

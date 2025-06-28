@@ -114,6 +114,10 @@ class UnifiedOrder(Base):
         if status == "delivered" and delivered_at:
             self.farmer_statuses[farmer_key]["delivered_at"] = delivered_at
 
+        # IMPORTANT: Mark the JSON field as changed for SQLAlchemy
+        from sqlalchemy.orm import attributes
+        attributes.flag_modified(self, "farmer_statuses")
+
         # Recalculate overall status (worst status)
         self._update_overall_status()
 

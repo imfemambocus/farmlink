@@ -298,6 +298,8 @@ class OrderService:
         # Get current farmer status for notification
         old_status = order.get_farmer_status(farmer_id)
 
+        print(f"Updating farmer {farmer_id} status from '{old_status}' to '{new_status}'")
+
         # Update farmer status and recalculate overall status
         delivered_at = None
         if new_status == "delivered":
@@ -305,16 +307,23 @@ class OrderService:
 
         order.update_farmer_status(farmer_id, new_status, delivered_at)
 
+        # Commit the changes first
         self.db.commit()
         self.db.refresh(order)
 
-        # Send notification to customer about farmer's status change
-        self.notification_service.notify_order_status_change(
-            order=order,
-            farmer_id=farmer_id,
-            new_status=new_status,
-            old_status=old_status
-        )
+        print(f"Order {order_id} farmer statuses after update: {order.farmer_statuses}")
+
+        # Send notification to customer about farmer's status change (only if changed)
+        if old_status != new_status:
+            self.notification_service.notify_order_status_change(
+                order=order,
+                farmer_id=farmer_id,
+                new_status=new_status,
+                old_status=old_status
+            )
+            print(f"Notification sent for status change: {old_status} -> {new_status}")
+        else:
+            print(f"No notification sent - status unchanged: {old_status}")
 
         return order
 
