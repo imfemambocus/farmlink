@@ -81,7 +81,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     setUser(null);
                 }
             } else {
-                console.log('No token found');
                 setUser(null);
             }
         } catch (error) {

@@ -3,7 +3,6 @@ import {
     View,
     Text,
     TextInput,
-    Alert,
     TouchableOpacity,
     Pressable,
     ScrollView,
@@ -12,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/ui/Header';
+import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import { useTranslation } from '@/context/LanguageContext';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -20,12 +20,31 @@ interface FormErrors {
     [key: string]: string;
 }
 
+interface AlertState {
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons: Array<{
+        text: string;
+        onPress: () => void;
+        style?: 'default' | 'cancel' | 'destructive';
+    }>;
+}
+
 export default function Register() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<FormErrors>({});
     const [showPassword, setShowPassword] = useState(false);
     const { t, tAuth, tValidation, tCommon, getErrorMessage } = useTranslation();
+    const [alert, setAlert] = useState<AlertState>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+        buttons: []
+    });
 
     const roles = [
         { label: tAuth('farmer'), value: 'farmer' },
@@ -48,6 +67,29 @@ export default function Register() {
         business_name: '',
         contact_name: '',
     });
+
+    const showAlert = (
+        type: 'success' | 'error' | 'warning' | 'info',
+        title: string,
+        message: string,
+        buttons: Array<{
+            text: string;
+            onPress: () => void;
+            style?: 'default' | 'cancel' | 'destructive';
+        }>
+    ) => {
+        setAlert({
+            visible: true,
+            type,
+            title,
+            message,
+            buttons
+        });
+    };
+
+    const hideAlert = () => {
+        setAlert(prev => ({ ...prev, visible: false }));
+    };
 
     const handleChange = (field: string, value: string) => {
         setForm((prev) => ({ ...prev, [field]: value }));
@@ -157,17 +199,30 @@ export default function Register() {
         try {
             const payload = buildPayload();
             await api.post('/auth/register', payload);
-            Alert.alert(
+
+            showAlert(
+                'success',
                 tCommon('success'),
                 tAuth('accountCreated'),
-                [{ text: tCommon('ok'), style: 'default' }]
+                [{
+                    text: tCommon('ok'),
+                    style: 'default',
+                    onPress: () => {
+                        hideAlert();
+                        router.replace('/login');
+                    }
+                }]
             );
-            router.replace('/login');
-        } catch (err: any) {
-            Alert.alert(
+        } catch (err: unknown) {
+            showAlert(
+                'error',
                 tAuth('registrationFailed'),
                 getErrorMessage(err),
-                [{ text: tCommon('ok'), style: 'default' }]
+                [{
+                    text: tCommon('ok'),
+                    style: 'default',
+                    onPress: hideAlert
+                }]
             );
         } finally {
             setLoading(false);
@@ -365,6 +420,15 @@ export default function Register() {
                     </View>
                 </View>
             </KeyboardAwareScrollView>
+
+            <CustomAlert
+                visible={alert.visible}
+                type={alert.type}
+                title={alert.title}
+                message={alert.message}
+                buttons={alert.buttons}
+                onClose={hideAlert}
+            />
         </View>
     );
 }

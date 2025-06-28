@@ -5,7 +5,6 @@ import {
     TextInput,
     TouchableOpacity,
     ScrollView,
-    Alert,
     ActivityIndicator,
     SafeAreaView,
 } from 'react-native';
@@ -14,10 +13,23 @@ import { useTranslation } from '@/context/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/ui/Header';
 import LanguageSelector from '@/components/ui/LanguageSelector';
-import {KeyboardAwareScrollView} from "react-native-keyboard-aware-scroll-view";
+import CustomAlert from '@/components/ui/CustomAlert';
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
 interface FormErrors {
     [key: string]: string;
+}
+
+interface AlertState {
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons: Array<{
+        text: string;
+        onPress: () => void;
+        style?: 'default' | 'cancel' | 'destructive';
+    }>;
 }
 
 export default function ProfileEditScreen() {
@@ -61,12 +73,42 @@ export default function ProfileEditScreen() {
     const [formData, setFormData] = useState<any>(getInitialFormData);
     const [errors, setErrors] = useState<FormErrors>({});
     const [loading, setLoading] = useState(false);
+    const [alert, setAlert] = useState<AlertState>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+        buttons: []
+    });
 
     useEffect(() => {
         if (user) {
             setFormData(getInitialFormData());
         }
     }, [user]);
+
+    const showAlert = (
+        type: 'success' | 'error' | 'warning' | 'info',
+        title: string,
+        message: string,
+        buttons: Array<{
+            text: string;
+            onPress: () => void;
+            style?: 'default' | 'cancel' | 'destructive';
+        }>
+    ) => {
+        setAlert({
+            visible: true,
+            type,
+            title,
+            message,
+            buttons
+        });
+    };
+
+    const hideAlert = () => {
+        setAlert(prev => ({ ...prev, visible: false }));
+    };
 
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {};
@@ -136,16 +178,31 @@ export default function ProfileEditScreen() {
         setLoading(true);
         try {
             await updateProfile(formData);
-            Alert.alert(
+
+            showAlert(
+                'success',
                 tCommon('success'),
                 tProfile('profileUpdated'),
-                [{ text: tCommon('ok'), style: 'default' }]
+                [{
+                    text: tCommon('ok'),
+                    style: 'default',
+                    onPress: hideAlert
+                }]
             );
-        } catch (error: any) {
-            Alert.alert(
+        } catch (error: unknown) {
+            const errorMessage = error && typeof error === 'object' && 'message' in error
+                ? (error.message as string)
+                : tProfile('failedToUpdate');
+
+            showAlert(
+                'error',
                 tCommon('error'),
-                error.message || tProfile('failedToUpdate'),
-                [{ text: tCommon('ok'), style: 'default' }]
+                errorMessage,
+                [{
+                    text: tCommon('ok'),
+                    style: 'default',
+                    onPress: hideAlert
+                }]
             );
         } finally {
             setLoading(false);
@@ -330,6 +387,15 @@ export default function ProfileEditScreen() {
                     </TouchableOpacity>
                 </View>
             </KeyboardAwareScrollView>
+
+            <CustomAlert
+                visible={alert.visible}
+                type={alert.type}
+                title={alert.title}
+                message={alert.message}
+                buttons={alert.buttons}
+                onClose={hideAlert}
+            />
         </View>
     );
 }

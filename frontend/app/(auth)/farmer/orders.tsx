@@ -205,15 +205,10 @@ export default function FarmerOrdersScreen() {
         try {
             const token = await AsyncStorage.getItem('token');
 
-            console.log(`Updating order ${orderId} to status: ${newStatus}`);
-
-            // Use the new farmer-status endpoint
-            const response = await api.put(`/orders/${orderId}/farmer-status`,
+            await api.put(`/orders/${orderId}/farmer-status`,
                 { status: newStatus },
                 { headers: { Authorization: `Bearer ${token}` }}
             );
-
-            console.log('Status update response:', response.data);
 
             // Update the order list to show new farmer status
             setOrders(prev => prev.map(order =>
@@ -227,7 +222,6 @@ export default function FarmerOrdersScreen() {
                     [orderId]: {
                         ...prev[orderId],
                         status: newStatus,
-                        // Update delivered_at if status is delivered
                         delivered_at: newStatus === 'delivered' ? new Date().toISOString() : prev[orderId].delivered_at
                     }
                 }));
@@ -240,15 +234,18 @@ export default function FarmerOrdersScreen() {
                 [{ text: tCommon('ok'), style: 'cancel', onPress: hideAlert }]
             );
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error updating farmer status:', error);
-            console.error('Error response:', error.response?.data);
 
             let errorMessage = tOrders('failedToUpdate');
-            if (error.response?.status === 403) {
-                errorMessage = tOrders('noPermission');
-            } else if (error.response?.data?.detail) {
-                errorMessage = error.response.data.detail;
+
+            if (error && typeof error === 'object' && 'response' in error) {
+                const axiosError = error as { response?: { status?: number; data?: { detail?: string } } };
+                if (axiosError.response?.status === 403) {
+                    errorMessage = tOrders('noPermission');
+                } else if (axiosError.response?.data?.detail) {
+                    errorMessage = axiosError.response.data.detail;
+                }
             }
 
             showAlert(

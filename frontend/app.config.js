@@ -18,6 +18,9 @@ export default {
         NSSpeechRecognitionUsageDescription: "Farmlink uses speech recognition to process your voice commands for easier shopping"
       }
     },
+    androidNavigationBar: {
+      visible: "immersive"
+    },
     android: {
       package: "com.imfestudio.farmlink",
       adaptiveIcon: {
