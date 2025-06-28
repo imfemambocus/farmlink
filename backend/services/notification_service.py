@@ -42,11 +42,19 @@ class PushNotificationService:
             return device_token
 
     def send_push_notification(self, expo_push_tokens: List[str], title: str, message: str, data: Dict = None) -> bool:
+        print(f"=== PUSH NOTIFICATION DEBUG START ===")
+        print(f"Tokens to send to: {len(expo_push_tokens)}")
+        print(f"Title: {title}")
+        print(f"Message: {message}")
+        print(f"Data: {data}")
+
         if not expo_push_tokens:
+            print("No expo push tokens provided")
             return False
 
         messages = []
-        for token in expo_push_tokens:
+        for i, token in enumerate(expo_push_tokens):
+            print(f"Token {i + 1}: {token[:20]}...")
             message_data = {
                 "to": token,
                 "title": title,
@@ -57,6 +65,7 @@ class PushNotificationService:
             messages.append(message_data)
 
         try:
+            print(f"Sending {len(messages)} messages to Expo...")
             response = requests.post(
                 self.expo_push_url,
                 headers={
@@ -67,19 +76,36 @@ class PushNotificationService:
                 data=json.dumps(messages)
             )
 
+            print(f"Expo response status: {response.status_code}")
+            print(f"Expo response body: {response.text}")
+
             if response.status_code == 200:
                 response_data = response.json()
+                print(f"Expo response data: {response_data}")
+
+                success_count = 0
+                error_count = 0
+
                 for i, receipt in enumerate(response_data.get('data', [])):
                     if receipt.get('status') == 'error':
-                        print(f"Push notification error for token {expo_push_tokens[i]}: {receipt.get('message')}")
+                        error_count += 1
+                        print(f"Push notification error for token {i + 1}: {receipt.get('message')}")
+                        print(f"Error details: {receipt.get('details', {})}")
+                    else:
+                        success_count += 1
+                        print(f"Push notification success for token {i + 1}: {receipt.get('id', 'No ID')}")
 
-                return True
+                print(f"Push results: {success_count} success, {error_count} errors")
+                print(f"=== PUSH NOTIFICATION DEBUG END ===")
+                return success_count > 0
             else:
                 print(f"Failed to send push notification: {response.status_code} - {response.text}")
+                print(f"=== PUSH NOTIFICATION DEBUG END ===")
                 return False
 
         except Exception as e:
-            print(f"Error sending push notification: {str(e)}")
+            print(f"Exception sending push notification: {str(e)}")
+            print(f"=== PUSH NOTIFICATION DEBUG END ===")
             return False
 
     def create_and_send_notification(
@@ -239,6 +265,12 @@ class PushNotificationService:
             print("WARNING: Notifications were not saved to database!")
 
     def notify_order_status_change(self, order: UnifiedOrder, farmer_id: int, new_status: str, old_status: str):
+        """Notify customer about farmer's status change"""
+
+        print(f"=== NOTIFICATION DEBUG START ===")
+        print(f"Order ID: {order.id}, Customer ID: {order.customer_id}")
+        print(f"Farmer ID: {farmer_id}, Status: {old_status} -> {new_status}")
+
         # Only send notification if status actually changed
         if new_status == old_status:
             print(f"Status unchanged for farmer {farmer_id}: {old_status}")
@@ -259,9 +291,24 @@ class PushNotificationService:
             title = f"Order Update - #{order.order_number}"
             message = status_messages[new_status]
 
-            print(f"Sending notification: {title} - {message}")
+            print(f"Creating notification: {title} - {message}")
+            print(f"Target user ID: {order.customer_id}")
 
-            self.create_and_send_notification(
+            # Check if customer has device tokens
+            device_tokens = (
+                self.db.query(DeviceToken)
+                .filter(
+                    DeviceToken.user_id == order.customer_id,
+                    DeviceToken.is_active == True
+                )
+                .all()
+            )
+
+            print(f"Found {len(device_tokens)} device tokens for customer {order.customer_id}")
+            for i, token in enumerate(device_tokens):
+                print(f"  Token {i + 1}: {token.expo_push_token[:20]}... (platform: {token.platform})")
+
+            notification = self.create_and_send_notification(
                 user_id=order.customer_id,
                 notification_type=NotificationTypeEnum.ORDER_STATUS_CHANGED,
                 title=title,
@@ -275,6 +322,9 @@ class PushNotificationService:
                     "old_status": old_status
                 }
             )
+
+            print(f"Notification created: ID {notification.id}, Sent: {notification.is_sent}")
+            print(f"=== NOTIFICATION DEBUG END ===")
 
         self.db.commit()
 

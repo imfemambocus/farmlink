@@ -148,21 +148,33 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
 
     const registerDeviceToken = async (expoPushToken: string) => {
         try {
+            console.log('=== DEVICE TOKEN REGISTRATION DEBUG START ===');
+            console.log('Expo push token:', expoPushToken.substring(0, 20) + '...');
+            console.log('User ID:', user?.id);
+
             const authToken = await AsyncStorage.getItem('token');
-            if (!authToken) return;
+            if (!authToken) {
+                console.log('No auth token found');
+                return;
+            }
 
             // Check if this token is already registered for this user
             const storedTokenKey = `expo_push_token_${user?.id}`;
             const storedToken = await AsyncStorage.getItem(storedTokenKey);
 
             if (storedToken === expoPushToken) {
+                console.log('Token already registered for this user');
                 return;
             }
 
             const deviceName = await Device.deviceName;
             const deviceId = `${deviceName}_${Date.now()}`;
 
-            await api.post('/notification/device-token', {
+            console.log('Device name:', deviceName);
+            console.log('Device ID:', deviceId);
+            console.log('Platform:', Platform.OS);
+
+            const response = await api.post('/notification/device-token', {
                 expo_push_token: expoPushToken,
                 device_id: deviceId,
                 platform: Platform.OS
@@ -170,10 +182,23 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 
+            console.log('Device token registration response:', response.data);
+
             // Store the token to prevent duplicate registrations
             await AsyncStorage.setItem(storedTokenKey, expoPushToken);
+            console.log('Token stored in AsyncStorage');
+            console.log('=== DEVICE TOKEN REGISTRATION DEBUG END ===');
+
         } catch (error) {
             console.error('Error registering device token:', error);
+            // @ts-ignore
+            if (error.response) {
+                // @ts-ignore
+                console.error('Error response data:', error.response.data);
+                // @ts-ignore
+                console.error('Error response status:', error.response.status);
+            }
+            console.log('=== DEVICE TOKEN REGISTRATION DEBUG END ===');
         }
     };
 

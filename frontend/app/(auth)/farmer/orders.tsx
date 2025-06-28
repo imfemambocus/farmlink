@@ -205,10 +205,15 @@ export default function FarmerOrdersScreen() {
         try {
             const token = await AsyncStorage.getItem('token');
 
-            await api.put(`/orders/${orderId}/farmer-status`,
+            console.log(`Updating order ${orderId} to status: ${newStatus}`);
+
+            // Use the new farmer-status endpoint
+            const response = await api.put(`/orders/${orderId}/farmer-status`,
                 { status: newStatus },
                 { headers: { Authorization: `Bearer ${token}` }}
             );
+
+            console.log('Status update response:', response.data);
 
             // Update the order list to show new farmer status
             setOrders(prev => prev.map(order =>
@@ -237,6 +242,7 @@ export default function FarmerOrdersScreen() {
 
         } catch (error: any) {
             console.error('Error updating farmer status:', error);
+            console.error('Error response:', error.response?.data);
 
             let errorMessage = tOrders('failedToUpdate');
             if (error.response?.status === 403) {
