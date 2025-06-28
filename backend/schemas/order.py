@@ -122,6 +122,18 @@ class UnifiedOrderUpdateRequest(BaseModel):
     status: OrderStatusEnum
 
 
+class FarmerStatusUpdateRequest(BaseModel):
+    """Schema specifically for farmer status updates"""
+    status: OrderStatusEnum
+
+    @validator('status')
+    def validate_farmer_status(cls, v):
+        allowed_statuses = ['processing', 'out_for_delivery', 'delivered', 'cancelled']
+        if v not in allowed_statuses:
+            raise ValueError(f'Farmers can only set status to: {", ".join(allowed_statuses)}')
+        return v
+
+
 class UnifiedPaymentResponse(BaseModel):
     id: int
     payment_method: PaymentMethodEnum
@@ -157,20 +169,7 @@ class FarmerOrderSummary(BaseModel):
     processing_orders: int
     out_for_delivery_orders: int
     delivered_orders: int
+    cancelled_orders: int
     total_gross_revenue: float
     total_net_revenue: float
     pending_revenue: float
-
-
-# Legacy order create - before unified orders - might be put to use later
-class OrderCreateRequest(BaseModel):
-    farmer_id: int
-    delivery_address: str
-    delivery_notes: Optional[str] = None
-    payment_method: PaymentMethodEnum
-
-    @validator('delivery_address')
-    def validate_delivery_address(cls, v):
-        if not v or not v.strip():
-            raise ValueError('Delivery address is required')
-        return v.strip()

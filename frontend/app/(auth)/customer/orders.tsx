@@ -36,7 +36,7 @@ interface OrderItem {
 interface Order {
     id: number;
     order_number: string;
-    status: OrderStatus;
+    status: OrderStatus; // Overall order status
     final_amount: number;
     farmer_count?: number;
     item_count: number;
@@ -47,7 +47,7 @@ interface Order {
 interface OrderDetails {
     id: number;
     order_number: string;
-    status: OrderStatus;
+    status: OrderStatus; // Overall order status
     total_amount: number;
     delivery_fee: number;
     final_amount: number;
@@ -66,6 +66,7 @@ interface FarmerStatus {
     farmer_name: string;
     status: string;
     farmer_district?: string;
+    delivered_at?: string;
 }
 
 interface FarmerStatuses {
@@ -261,7 +262,7 @@ export default function OrdersScreen() {
 
                 <View className="flex-1">
                     <Text className="text-sm font-medium text-black">
-                        {item.item_name.toLowerCase() || tOrders('unknownProduct')}
+                        {item.item_name || tOrders('unknownProduct')}
                     </Text>
                     <Text className="text-xs text-gray-600">
                         {item.quantity} {item.unit} × rs {formatPrice(item.unit_price)}
@@ -296,7 +297,8 @@ export default function OrdersScreen() {
                 ...group,
                 farmer_name: farmerStatus?.farmer_name || tOrders('unknownFarmer'),
                 farmer_district: farmerStatus?.farmer_district || tOrders('unknownDistrict'),
-                status: farmerStatus?.status || 'confirmed'
+                status: farmerStatus?.status || 'confirmed',
+                delivered_at: farmerStatus?.delivered_at
             };
         });
     };
@@ -312,26 +314,12 @@ export default function OrdersScreen() {
         };
     };
 
-    const getSingleFarmerStatus = (order: Order): OrderStatus => {
-        const details = orderDetails[order.id];
-        if (!details) return order.status;
-
-        const farmerIds = new Set(details.items.map(item => item.farmer_id));
-        if (farmerIds.size === 1) {
-            const farmerId = Array.from(farmerIds)[0];
-            const farmerStatus = farmerStatuses[order.id]?.[farmerId];
-            return (farmerStatus?.status as OrderStatus) || 'confirmed';
-        }
-        return order.status;
-    };
-
     const renderOrder = (order: Order) => {
         const isExpanded = expandedOrders.has(order.id);
         const details = orderDetails[order.id];
         const isLoadingDetails = loadingOrderDetails.has(order.id);
         const animationValue = getAnimationValue(order.id);
         const { isMultiFarmer, farmerCount } = getOrderType(order);
-        const displayStatus = isMultiFarmer ? order.status : getSingleFarmerStatus(order);
 
         return (
             <View key={order.id} className="bg-white rounded-xl mb-4 overflow-hidden border border-gray-200">
@@ -367,13 +355,13 @@ export default function OrdersScreen() {
                             ) : (
                                 <View
                                     className="px-3 py-1 rounded-full mb-1"
-                                    style={{ backgroundColor: getStatusColor(displayStatus) + '20' }}
+                                    style={{ backgroundColor: getStatusColor(order.status) + '20' }}
                                 >
                                     <Text
                                         className="text-xs font-medium capitalize"
-                                        style={{ color: getStatusColor(displayStatus) }}
+                                        style={{ color: getStatusColor(order.status) }}
                                     >
-                                        {getStatusText(displayStatus)}
+                                        {getStatusText(order.status)}
                                     </Text>
                                 </View>
                             )}
@@ -433,12 +421,12 @@ export default function OrdersScreen() {
                                                 <View className="flex-row items-center justify-between mb-2">
                                                     <View className="flex-1">
                                                         <Text className="text-sm font-medium text-black">
-                                                            {farmerGroup.farmer_name.toLowerCase()}
+                                                            {farmerGroup.farmer_name}
                                                         </Text>
                                                         <View className="flex-row items-center mt-1">
                                                             <Ionicons name="location-outline" size={12} color="#666666" />
                                                             <Text className="text-xs text-gray-600 ml-1">
-                                                                {farmerGroup.farmer_district.toLowerCase()}
+                                                                {farmerGroup.farmer_district}
                                                             </Text>
                                                         </View>
                                                     </View>
@@ -460,6 +448,11 @@ export default function OrdersScreen() {
                                                         <Text className="text-xs text-gray-600">
                                                             rs {formatPrice(farmerGroup.total)}
                                                         </Text>
+                                                        {farmerGroup.delivered_at && (
+                                                            <Text className="text-xs text-green-600 mt-1">
+                                                                {tOrders('deliveredAt')}: {formatDate(farmerGroup.delivered_at)}
+                                                            </Text>
+                                                        )}
                                                     </View>
                                                 </View>
                                             </View>
@@ -484,6 +477,12 @@ export default function OrdersScreen() {
                                         <Text className="text-base font-semibold text-black">{tOrders('total')}</Text>
                                         <Text className="text-base font-bold text-black">rs {formatPrice(details.final_amount)}</Text>
                                     </View>
+                                    {details.delivered_at && (
+                                        <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-gray-200">
+                                            <Text className="text-sm text-green-600">{tOrders('orderDeliveredAt')}</Text>
+                                            <Text className="text-sm text-green-600">{formatDate(details.delivered_at)}</Text>
+                                        </View>
+                                    )}
                                 </View>
                             </View>
                         ) : (

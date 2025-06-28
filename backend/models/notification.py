@@ -55,26 +55,3 @@ class Notification(Base):
     user = relationship("User", foreign_keys=[user_id])
     order = relationship("UnifiedOrder", foreign_keys=[order_id])
     farmer = relationship("User", foreign_keys=[farmer_id])
-
-
-class UnifiedOrderFarmerStatus(Base):
-    __tablename__ = "unified_order_farmer_status"
-
-    id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("unified_orders.id"), nullable=False)
-    farmer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    # Farmer-specific status (can be different from main order status)
-    status = Column(String, default="confirmed")
-
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    status_changed_at = Column(DateTime, server_default=func.now())
-
-    order = relationship("UnifiedOrder")
-    farmer = relationship("User", foreign_keys=[farmer_id])
-
-    # Ensure one status record per farmer per order
-    __table_args__ = (
-        {'extend_existing': True}
-    )

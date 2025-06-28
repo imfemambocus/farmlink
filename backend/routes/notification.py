@@ -1,49 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from pydantic import BaseModel
 from models.order import UnifiedOrder, UnifiedOrderItem
 from models.user import FarmerProfile
+from schemas.notification import DeviceTokenRegister, NotificationListResponse, NotificationResponse
 from services.notification_service import PushNotificationService
 from core.security import get_current_user, get_db
-from models.notification import NotificationTypeEnum, UnifiedOrderFarmerStatus
 import json
 
 
 router = APIRouter()
 
 
-class DeviceTokenRegister(BaseModel):
-    expo_push_token: str
-    device_id: str
-    platform: str  # iOS or Android
-
-
-class NotificationResponse(BaseModel):
-    id: int
-    type: str
-    title: str
-    message: str
-    order_id: Optional[int]
-    farmer_id: Optional[int]
-    farmer_name: Optional[str]
-    data: Optional[dict]
-    is_read: bool
-    created_at: str
-    read_at: Optional[str]
-
-    class Config:
-        from_attributes = True
-
-
-class NotificationListResponse(BaseModel):
-    notifications: List[NotificationResponse]
-    total: int
-    unread_count: int
-    has_next: bool
-
-
-# Register device token
 @router.post("/device-token")
 def register_device_token(
         token_data: DeviceTokenRegister,
@@ -65,7 +32,6 @@ def register_device_token(
     }
 
 
-# Get user notifications
 @router.get("", response_model=NotificationListResponse)
 def get_notifications(
         limit: int = Query(20, le=50, description="Number of notifications to return"),
@@ -109,7 +75,6 @@ def get_notifications(
     )
 
 
-# Mark notification as read
 @router.put("/{notification_id}/read")
 def mark_notification_read(
         notification_id: int,
@@ -126,7 +91,6 @@ def mark_notification_read(
     return {"message": "Notification marked as read"}
 
 
-# Mark all notifications as read
 @router.put("/read-all")
 def mark_all_notifications_read(
         current_user=Depends(get_current_user),
@@ -142,7 +106,6 @@ def mark_all_notifications_read(
     }
 
 
-# Get unread count
 @router.get("/unread-count")
 def get_unread_count(
         current_user=Depends(get_current_user),
@@ -155,7 +118,6 @@ def get_unread_count(
     return {"unread_count": unread_count}
 
 
-# Get order farmer statuses (for customers to see per-farmer status)
 @router.get("/order/{order_id}/farmer-statuses")
 def get_order_farmer_statuses(
         order_id: int,
@@ -178,14 +140,6 @@ def get_order_farmer_statuses(
     if current_user.id != order.customer_id and current_user.id not in farmer_ids_in_order:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    farmer_statuses_records = (
-        db.query(UnifiedOrderFarmerStatus)
-        .filter(UnifiedOrderFarmerStatus.order_id == order_id)
-        .all()
-    )
-
-    farmer_statuses = {fs.farmer_id: fs.status for fs in farmer_statuses_records}
-
     result = {}
     for farmer_id in farmer_ids_in_order:
         farmer_profile = (
@@ -201,10 +155,15 @@ def get_order_farmer_statuses(
             farmer_name = f"Farmer {farmer_id}"
             farmer_district = "Unknown District"
 
+        # Get farmer status from the JSON field
+        farmer_status = order.get_farmer_status(farmer_id)
+        farmer_delivered_at = order.get_farmer_delivered_at(farmer_id)
+
         result[farmer_id] = {
             "farmer_name": farmer_name,
-            "status": farmer_statuses.get(farmer_id, "confirmed"),
-            "farmer_district": farmer_district
+            "status": farmer_status,
+            "farmer_district": farmer_district,
+            "delivered_at": farmer_delivered_at
         }
 
     return {"farmer_statuses": result}

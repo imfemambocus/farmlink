@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '@/context/AuthContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import api from '@/services/api';
 import { useLanguage } from '@/context/LanguageContext';
 import Constants from 'expo-constants';
@@ -11,7 +11,6 @@ import {router} from "expo-router";
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
-        shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
         shouldShowBanner: true,
@@ -84,6 +83,9 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
 
     const notificationListener = useRef<Notifications.EventSubscription | undefined>(undefined);
     const responseListener = useRef<Notifications.EventSubscription | undefined>(undefined);
+    const pollingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+    const lastFetchTime = useRef<number>(0);
+    const appStateSubscription = useRef<any>(null);
 
     const registerForPushNotifications = async () => {
         try {
@@ -107,13 +109,11 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
 
             const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
-            console.log(projectId)
-
             const token = await Notifications.getExpoPushTokenAsync({
                 projectId: projectId,
             });
 
-            console.log('Expo Push Token obtained:', token.data);
+
 
             // Set up Android notification channel
             if (Platform.OS === 'android') {
@@ -151,6 +151,14 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             const authToken = await AsyncStorage.getItem('token');
             if (!authToken) return;
 
+            // Check if this token is already registered for this user
+            const storedTokenKey = `expo_push_token_${user?.id}`;
+            const storedToken = await AsyncStorage.getItem(storedTokenKey);
+
+            if (storedToken === expoPushToken) {
+                return;
+            }
+
             const deviceName = await Device.deviceName;
             const deviceId = `${deviceName}_${Date.now()}`;
 
@@ -162,7 +170,8 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 
-            console.log('Device token registered successfully');
+            // Store the token to prevent duplicate registrations
+            await AsyncStorage.setItem(storedTokenKey, expoPushToken);
         } catch (error) {
             console.error('Error registering device token:', error);
         }
@@ -172,7 +181,15 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
         try {
             if (!user || isLoading) return;
 
+            // Prevent too frequent API calls (minimum 10 seconds between calls)
+            const now = Date.now();
+            if (now - lastFetchTime.current < 10000) {
+                return;
+            }
+
             setIsLoading(true);
+            lastFetchTime.current = now;
+
             const token = await AsyncStorage.getItem('token');
             if (!token) return;
 
@@ -237,19 +254,20 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
     };
 
     const handleNotificationReceived = (notification: Notifications.Notification) => {
-        console.log('Notification received:', notification);
+        // Immediately update in-app notifications when a push notification is received
         refreshNotifications();
 
         const data = notification.request.content.data as NotificationData;
         if (data?.type === 'order_created') {
-            console.log('New order notification received');
+            // New order notification - increment unread count immediately for better UX
+            setUnreadCount(prev => prev + 1);
         } else if (data?.type === 'order_status_changed') {
-            console.log('Order status change notification received');
+            // Order status change notification - increment unread count immediately
+            setUnreadCount(prev => prev + 1);
         }
     };
 
     const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
-        console.log('Notification tapped:', response);
         const data = response.notification.request.content.data as NotificationData;
 
         if (data?.type === 'order_created' && data?.order_id) {
@@ -263,8 +281,48 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             } else {
                 router.push('/(auth)/customer/orders');
             }
-        } else {
-            console.log('Notification has no actionable data');
+        }
+    };
+
+    // Start polling for notifications (only when app is active)
+    const startPolling = () => {
+        if (pollingInterval.current) return; // Already polling
+
+        pollingInterval.current = setInterval(() => {
+            // Only poll if app is in active state
+            if (AppState.currentState === 'active') {
+                refreshNotifications();
+            }
+        }, 30000); // Poll every 30 seconds
+    };
+
+    // Stop polling
+    const stopPolling = () => {
+        if (pollingInterval.current) {
+            clearInterval(pollingInterval.current);
+            pollingInterval.current = null;
+        }
+    };
+
+    // Handle app state changes
+    const handleAppStateChange = (nextAppState: string) => {
+        if (nextAppState === 'active' && user) {
+            // App became active - refresh notifications immediately and ensure polling is running
+            refreshNotifications();
+            if (!pollingInterval.current) {
+                startPolling();
+            }
+        } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+            // App went to background - stop polling to save battery and data
+            stopPolling();
+        }
+    };
+
+    // Clear stored token when user logs out
+    const clearStoredToken = async () => {
+        if (user?.id) {
+            const storedTokenKey = `expo_push_token_${user.id}`;
+            await AsyncStorage.removeItem(storedTokenKey);
         }
     };
 
@@ -273,18 +331,31 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
             registerForPushNotifications();
             refreshNotifications();
 
-            // Set up notification listeners
+            // Set up app state listener
+            appStateSubscription.current = AppState.addEventListener('change', handleAppStateChange);
+
+            // Start polling only if app is currently active
+            if (AppState.currentState === 'active') {
+                startPolling();
+            }
+
+            // Set up notification listeners (only work on physical devices)
             notificationListener.current = Notifications.addNotificationReceivedListener(handleNotificationReceived);
             responseListener.current = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
             return () => {
+                stopPolling();
+                appStateSubscription.current?.remove();
                 notificationListener.current?.remove();
                 responseListener.current?.remove();
             };
         } else {
-            // Clear notifications when user logs out
+            // Clear notifications and stored token when user logs out
+            stopPolling();
+            appStateSubscription.current?.remove();
             setNotifications([]);
             setUnreadCount(0);
+            clearStoredToken();
         }
     }, [user?.id]);
 

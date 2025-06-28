@@ -3,9 +3,8 @@ from sqlalchemy import text
 from core.database import SessionLocal, engine
 from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
 from models.product import FarmerProduct, ProductUnitPrice, ItemEnum, UnitEnum, CustomerTypeEnum
-from models.order import UnifiedOrder, UnifiedOrderItem, UnifiedPayment, FarmerPayment, OrderStatusEnum, \
-    PaymentStatusEnum, PaymentMethodEnum
-from models.notification import Notification, DeviceToken, NotificationTypeEnum, UnifiedOrderFarmerStatus
+from models.order import UnifiedOrder, UnifiedOrderItem, UnifiedPayment, FarmerPayment, OrderStatusEnum, PaymentStatusEnum, PaymentMethodEnum
+from models.notification import Notification, DeviceToken, NotificationTypeEnum
 from core.security import get_password_hash
 from datetime import datetime, timedelta
 import random
@@ -287,8 +286,6 @@ def create_additional_users(db: Session):
 
 
 def create_product_with_multiple_units(db: Session, farmer_id: int, item: ItemEnum, base_kg_price: float):
-    """Create a product with multiple random units and consistent pricing"""
-
     # Create the base product
     product = FarmerProduct(
         farmer_id=farmer_id,
@@ -391,8 +388,6 @@ def create_all_products(db: Session, farmer_id: int):
 
 
 def create_farmer_products(db: Session, farmer_id: int, farmer_name: str):
-    """Create products for additional farmers with multiple units"""
-
     # Select random items for this farmer
     all_items = list(ItemEnum)
     num_items = random.randint(8, 15)
@@ -436,6 +431,10 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
     db.add(order1)
     db.flush()
 
+    # Set farmer status using the new JSON field
+    delivery_time = (datetime.now() - timedelta(days=1)).isoformat()
+    order1.update_farmer_status(farmer_id, "delivered", delivery_time)
+
     # Create order items
     order_item1 = UnifiedOrderItem(
         order_id=order1.id,
@@ -466,7 +465,7 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
     # Create payment
     payment1 = UnifiedPayment(
         order_id=order1.id,
-        payment_method=PaymentMethodEnum.CASH_ON_DELIVERY,
+        payment_method=PaymentMethodEnum.STRIPE_CARD,
         status=PaymentStatusEnum.SUCCESSFUL,
         amount=1350.50,
         currency="MUR",
@@ -486,15 +485,6 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
         paid_at=datetime.now() - timedelta(days=1)
     )
     db.add(farmer_payment1)
-
-    # Create farmer status
-    farmer_status1 = UnifiedOrderFarmerStatus(
-        order_id=order1.id,
-        farmer_id=farmer_id,
-        status="delivered",
-        status_changed_at=datetime.now() - timedelta(days=1)
-    )
-    db.add(farmer_status1)
 
     # Create notifications for farmer (order received)
     notification1 = Notification(
@@ -552,6 +542,9 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
     db.add(order2)
     db.flush()
 
+    # Set farmer status for business order using the new JSON field
+    order2.update_farmer_status(farmer_id, "processing")
+
     # Create business order items
     order_item3 = UnifiedOrderItem(
         order_id=order2.id,
@@ -582,7 +575,7 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
     # Create business payment
     payment2 = UnifiedPayment(
         order_id=order2.id,
-        payment_method=PaymentMethodEnum.BANK_TRANSFER,
+        payment_method=PaymentMethodEnum.STRIPE_APPLE_PAY,
         status=PaymentStatusEnum.PENDING,
         amount=6050.00,
         currency="MUR"
@@ -600,15 +593,6 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
         payment_status="pending"
     )
     db.add(farmer_payment2)
-
-    # Create business farmer status
-    farmer_status2 = UnifiedOrderFarmerStatus(
-        order_id=order2.id,
-        farmer_id=farmer_id,
-        status="processing",
-        status_changed_at=datetime.now() - timedelta(hours=12)
-    )
-    db.add(farmer_status2)
 
     print("✅ Created sample orders, payments, and notifications")
 

@@ -42,8 +42,8 @@ export default {
       favicon: "./assets/images/logo.png",
     },
     notification: {
-      icon: "./assets/icons/notification.png",
-      color: "#4CAF50",
+      icon: "./assets/images/logo.png",
+      // color: "#4CAF50",
       // sounds: ["./assets/notification.wav"]
     },
     plugins: [
@@ -62,8 +62,8 @@ export default {
       [
         "expo-notifications",
         {
-          icon: "./assets/icons/notification.png",
-          color: "#4CAF50",
+          icon: "./assets/images/logo.png",
+          // color: "#4CAF50",
           // sounds: ["./assets/notification.wav"],
           mode: "development", // or "production"
         }

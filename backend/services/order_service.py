@@ -15,7 +15,6 @@ class OrderService:
         self.db = db
         self.notification_service = PushNotificationService(db)
 
-
     def get_or_create_cart(self, user_id: int) -> Cart:
         cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
         if not cart:
@@ -24,7 +23,6 @@ class OrderService:
             self.db.commit()
             self.db.refresh(cart)
         return cart
-
 
     def add_to_cart(self, user_id: int, item_data: CartItemCreate) -> CartItem:
         cart = self.get_or_create_cart(user_id)
@@ -84,7 +82,6 @@ class OrderService:
             self.db.refresh(cart_item)
             return cart_item
 
-
     def update_cart_item(self, user_id: int, cart_item_id: int, update_data: CartItemUpdate) -> CartItem:
         cart_item = (
             self.db.query(CartItem)
@@ -114,7 +111,6 @@ class OrderService:
         self.db.refresh(cart_item)
         return cart_item
 
-
     def remove_from_cart(self, user_id: int, cart_item_id: int) -> bool:
         cart_item = (
             self.db.query(CartItem)
@@ -132,7 +128,6 @@ class OrderService:
         self.db.delete(cart_item)
         self.db.commit()
         return True
-
 
     def get_cart(self, user_id: int) -> Dict:
         cart = (
@@ -193,7 +188,6 @@ class OrderService:
             "updated_at": cart.updated_at
         }
 
-
     def clear_cart(self, user_id: int) -> bool:
         cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
         if not cart:
@@ -202,7 +196,6 @@ class OrderService:
         self.db.query(CartItem).filter(CartItem.cart_id == cart.id).delete()
         self.db.commit()
         return True
-
 
     def clear_farmer_items_from_cart(self, user_id: int, farmer_id: int) -> bool:
         cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
@@ -215,7 +208,6 @@ class OrderService:
         ).delete(synchronize_session='fetch')
         self.db.commit()
         return True
-
 
     def get_customer_orders(self, user_id: int, status: Optional[str] = None) -> List[UnifiedOrder]:
         query = (
@@ -232,8 +224,8 @@ class OrderService:
 
         return query.order_by(desc(UnifiedOrder.created_at)).all()
 
-
     def get_farmer_orders(self, farmer_id: int, status: Optional[str] = None) -> List[UnifiedOrder]:
+        """Get orders containing items from a specific farmer"""
         query = (
             self.db.query(UnifiedOrder)
             .join(UnifiedOrderItem)
@@ -244,13 +236,21 @@ class OrderService:
             .filter(UnifiedOrderItem.farmer_id == farmer_id)
         )
 
+        # Filter by farmer's individual status if specified
         if status:
-            query = query.filter(UnifiedOrder.status == status)
+            # We need to filter orders where this farmer has the specified status
+            orders = query.order_by(desc(UnifiedOrder.created_at)).all()
+            filtered_orders = []
+            for order in orders:
+                farmer_status = order.get_farmer_status(farmer_id)
+                if farmer_status == status:
+                    filtered_orders.append(order)
+            return filtered_orders
 
         return query.order_by(desc(UnifiedOrder.created_at)).all()
 
-
     def get_order_by_id(self, order_id: int, user_id: int) -> Optional[UnifiedOrder]:
+        # Try customer first
         order = (
             self.db.query(UnifiedOrder)
             .options(
@@ -268,6 +268,7 @@ class OrderService:
         if order:
             return order
 
+        # Try farmer
         order = (
             self.db.query(UnifiedOrder)
             .join(UnifiedOrderItem)
@@ -285,8 +286,42 @@ class OrderService:
 
         return order
 
+    def update_farmer_status(self, order_id: int, farmer_id: int, new_status: str) -> UnifiedOrder:
+        """Update individual farmer status"""
+        order = (
+            self.db.query(UnifiedOrder)
+            .filter(UnifiedOrder.id == order_id)
+            .first()
+        )
+
+        if not order:
+            raise ValueError("Order not found")
+
+        # Get current farmer status for notification
+        old_status = order.get_farmer_status(farmer_id)
+
+        # Update farmer status and recalculate overall status
+        delivered_at = None
+        if new_status == "delivered":
+            delivered_at = datetime.utcnow().isoformat()
+
+        order.update_farmer_status(farmer_id, new_status, delivered_at)
+
+        self.db.commit()
+        self.db.refresh(order)
+
+        # Send notification to customer about farmer's status change
+        self.notification_service.notify_order_status_change(
+            order=order,
+            farmer_id=farmer_id,
+            new_status=new_status,
+            old_status=old_status
+        )
+
+        return order
 
     def update_order_status(self, order_id: int, user_id: int, new_status: str) -> UnifiedOrder:
+        """Legacy method for admin/system overall status updates"""
         order = (
             self.db.query(UnifiedOrder)
             .filter(UnifiedOrder.id == order_id)
@@ -297,7 +332,6 @@ class OrderService:
             raise ValueError("Order not found")
 
         old_status = order.status
-
         order.status = new_status
 
         if new_status == "delivered" and not order.delivered_at:
@@ -310,23 +344,10 @@ class OrderService:
         self.db.commit()
         self.db.refresh(order)
 
-        # Send notification to customer about farmer's status change
-        user = self.db.query(User).get(user_id)
-        if user and user.role == 'farmer':
-            # Check if farmer has items in this order
-            farmer_items = [item for item in order.items if item.farmer_id == user_id]
-            if farmer_items:
-                self.notification_service.notify_order_status_change(
-                    order=order,
-                    farmer_id=user_id,
-                    new_status=new_status,
-                    old_status=old_status
-                )
-
         return order
 
-
     def get_farmer_order_summary(self, farmer_id: int) -> Dict:
+        """Get summary of farmer's orders based on their individual statuses"""
         result = {
             'total_orders': 0,
             'confirmed_orders': 0,
@@ -340,91 +361,77 @@ class OrderService:
         }
 
         try:
-            farmer_payments = (
-                self.db.query(FarmerPayment, UnifiedOrder.status)
-                .join(UnifiedOrder, FarmerPayment.order_id == UnifiedOrder.id)
-                .filter(FarmerPayment.farmer_id == farmer_id)
-                .all()
-            )
+            # Get all orders containing farmer's items
+            orders = self.get_farmer_orders(farmer_id)
 
-            for payment, status in farmer_payments:
+            for order in orders:
+                # Check if farmer has items in this order
+                farmer_items = [item for item in order.items if item.farmer_id == farmer_id]
+                if not farmer_items:
+                    continue
+
                 result['total_orders'] += 1
 
-                gross_amount = float(payment.gross_amount or 0)
-                net_amount = float(payment.net_amount or 0)
+                # Get farmer's individual status
+                farmer_status = order.get_farmer_status(farmer_id)
 
-                result['total_gross_revenue'] += gross_amount
-                result['total_net_revenue'] += net_amount
+                # Calculate farmer's portion of the order
+                farmer_payment = next(
+                    (fp for fp in order.farmer_payments if fp.farmer_id == farmer_id),
+                    None
+                )
 
-                # Count by status
-                if status == OrderStatusEnum.CONFIRMED:
-                    result['confirmed_orders'] += 1
-                    result['pending_revenue'] += net_amount
-                elif status == OrderStatusEnum.PROCESSING:
-                    result['processing_orders'] += 1
-                    result['pending_revenue'] += net_amount
-                elif status == OrderStatusEnum.OUT_FOR_DELIVERY:
-                    result['out_for_delivery_orders'] += 1
-                    result['pending_revenue'] += net_amount
-                elif status == OrderStatusEnum.DELIVERED:
-                    result['delivered_orders'] += 1
-                elif status == OrderStatusEnum.CANCELLED:
-                    result['cancelled_orders'] += 1
+                if farmer_payment:
+                    gross_amount = float(farmer_payment.gross_amount or 0)
+                    net_amount = float(farmer_payment.net_amount or 0)
+
+                    result['total_gross_revenue'] += gross_amount
+                    result['total_net_revenue'] += net_amount
+
+                    # Count by farmer's individual status
+                    if farmer_status == "confirmed":
+                        result['confirmed_orders'] += 1
+                        result['pending_revenue'] += net_amount
+                    elif farmer_status == "processing":
+                        result['processing_orders'] += 1
+                        result['pending_revenue'] += net_amount
+                    elif farmer_status == "out_for_delivery":
+                        result['out_for_delivery_orders'] += 1
+                        result['pending_revenue'] += net_amount
+                    elif farmer_status == "delivered":
+                        result['delivered_orders'] += 1
+                    elif farmer_status == "cancelled":
+                        result['cancelled_orders'] += 1
 
         except Exception as e:
             print(f"Error in get_farmer_order_summary: {e}")
 
         return result
 
-
     def get_farmer_sales_for_period(self, farmer_id: int, period: str) -> Dict:
+        """Get farmer sales count for a specific period based on their individual orders"""
         try:
             now = datetime.now()
 
+            # Get all farmer orders first
+            all_orders = self.get_farmer_orders(farmer_id)
+
+            # Filter by period
+            filtered_orders = []
+
             if period == 'this_week':
-                start_date = (now - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
-                date_filter = UnifiedOrder.created_at >= start_date
+                start_date = now - timedelta(days=7)
+                filtered_orders = [o for o in all_orders if o.created_at >= start_date]
             elif period == 'this_month':
-                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
-                date_filter = UnifiedOrder.created_at >= start_date
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                filtered_orders = [o for o in all_orders if o.created_at >= start_date]
             elif period == 'this_year':
-                start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0).strftime(
-                    '%Y-%m-%d %H:%M:%S')
-                date_filter = UnifiedOrder.created_at >= start_date
+                current_year = now.year
+                filtered_orders = [o for o in all_orders if o.created_at.year == current_year]
             elif period == 'all_time':
-                date_filter = text('1=1')
+                filtered_orders = all_orders
             elif period in ['january', 'february', 'march', 'april', 'may', 'june',
                             'july', 'august', 'september', 'october', 'november', 'december']:
-                month_mapping = {
-                    'january': '01', 'february': '02', 'march': '03', 'april': '04',
-                    'may': '05', 'june': '06', 'july': '07', 'august': '08',
-                    'september': '09', 'october': '10', 'november': '11', 'december': '12'
-                }
-                target_month = month_mapping[period]
-                current_year = str(now.year)
-
-                date_filter = text(
-                    f"strftime('%Y', unified_orders.created_at) = '{current_year}' AND strftime('%m', unified_orders.created_at) = '{target_month}'")
-            else:
-                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime('%Y-%m-%d %H:%M:%S')
-                date_filter = UnifiedOrder.created_at >= start_date
-
-            if period == 'all_time':
-                sales_count = (
-                    self.db.query(UnifiedOrder.id)
-                    .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
-                    .filter(FarmerPayment.farmer_id == farmer_id)
-                    .count()
-                )
-            elif period in ['january', 'february', 'march', 'april', 'may', 'june',
-                            'july', 'august', 'september', 'october', 'november', 'december']:
-                orders = (
-                    self.db.query(UnifiedOrder.created_at)
-                    .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
-                    .filter(FarmerPayment.farmer_id == farmer_id)
-                    .all()
-                )
-
                 month_mapping = {
                     'january': 1, 'february': 2, 'march': 3, 'april': 4,
                     'may': 5, 'june': 6, 'july': 7, 'august': 8,
@@ -432,34 +439,27 @@ class OrderService:
                 }
                 target_month = month_mapping[period]
                 current_year = now.year
-
-                sales_count = 0
-                for order in orders:
-                    order_date = order.created_at
-                    if order_date.year == current_year and order_date.month == target_month:
-                        sales_count += 1
+                filtered_orders = [
+                    o for o in all_orders
+                    if o.created_at.year == current_year and o.created_at.month == target_month
+                ]
             else:
-                sales_count = (
-                    self.db.query(UnifiedOrder.id)
-                    .join(FarmerPayment, UnifiedOrder.id == FarmerPayment.order_id)
-                    .filter(
-                        FarmerPayment.farmer_id == farmer_id,
-                        date_filter
-                    )
-                    .count()
-                )
+                start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                filtered_orders = [o for o in all_orders if o.created_at >= start_date]
 
-            return {'total_sales': sales_count or 0}
+            sales_count = len(filtered_orders)
+            return {'total_sales': sales_count}
 
         except Exception as e:
             print(f"Error getting farmer sales for period {period}: {e}")
             return {'total_sales': 0}
 
-
     def get_farmer_revenue_for_period(self, farmer_id: int, period: str) -> Dict:
+        """Get farmer revenue for a specific period"""
         try:
             now = datetime.now()
 
+            # Get all farmer payments
             all_payments = (
                 self.db.query(FarmerPayment, UnifiedOrder.created_at)
                 .join(UnifiedOrder, FarmerPayment.order_id == UnifiedOrder.id)

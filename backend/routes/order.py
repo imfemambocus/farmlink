@@ -1,17 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from models.notification import UnifiedOrderFarmerStatus
 from models.user import FarmerProfile, User
 from schemas.order import (
     CartItemCreate, CartItemUpdate, CartItemResponse, CartResponse,
     UnifiedOrderResponse, UnifiedOrderListItem, UnifiedOrderUpdateRequest,
-    FarmerOrderSummary
+    FarmerOrderSummary, FarmerStatusUpdateRequest
 )
 from services.order_service import OrderService
 from core.security import get_current_user, get_db
 from models.order import OrderStatusEnum, UnifiedOrder, UnifiedOrderItem
-
 
 router = APIRouter()
 
@@ -114,22 +112,25 @@ def get_my_orders(
     result = []
     for order in orders:
         if current_user.role == 'farmer':
-            # For farmer view - count only their items
+            # For farmer view - show their individual status and calculate their portion
             farmer_items = [item for item in order.items if item.farmer_id == current_user.id]
+            farmer_status = order.get_farmer_status(current_user.id)
+
             result.append(UnifiedOrderListItem(
                 id=order.id,
                 order_number=order.order_number,
-                status=order.status,
+                status=OrderStatusEnum(farmer_status),  # Individual farmer status
                 final_amount=sum(item.total_price for item in farmer_items),
                 item_count=len(farmer_items),
                 created_at=order.created_at
             ))
         else:
+            # For customer view - show overall status and all farmers
             farmer_ids = set(item.farmer_id for item in order.items)
             result.append(UnifiedOrderListItem(
                 id=order.id,
                 order_number=order.order_number,
-                status=order.status,
+                status=order.status,  # Overall order status
                 final_amount=order.final_amount,
                 farmer_count=len(farmer_ids),
                 item_count=len(order.items),
@@ -151,27 +152,38 @@ def get_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # For farmers, filter items to show only their products
+    # For farmers, filter items to show only their products and use their individual status
     items = order.items
-    farmer_total_amount = order.total_amount
-    farmer_final_amount = order.final_amount
+    total_amount = order.total_amount
+    final_amount = order.final_amount
+    status = order.status
+    delivered_at = order.delivered_at
 
     if current_user.role == 'farmer':
         items = [item for item in order.items if item.farmer_id == current_user.id]
 
-        # Calculate farmer-specific totals
-        farmer_total_amount = sum(item.total_price for item in items)
+        # Check if farmer has items in this order
+        if not items:
+            raise HTTPException(status_code=403, detail="You don't have items in this order")
 
-        # The farmer only gets paid for their items
-        farmer_final_amount = farmer_total_amount
+        # Calculate farmer-specific totals
+        total_amount = sum(item.total_price for item in items)
+        final_amount = total_amount
+
+        # Use farmer's individual status
+        status = OrderStatusEnum(order.get_farmer_status(current_user.id))
+
+        # Use farmer's individual delivery time
+        farmer_delivered_at = order.get_farmer_delivered_at(current_user.id)
+        delivered_at = farmer_delivered_at if farmer_delivered_at else None
 
     return UnifiedOrderResponse(
         id=order.id,
         order_number=order.order_number,
-        status=order.status,
-        total_amount=farmer_total_amount,
-        delivery_fee=0,
-        final_amount=farmer_final_amount,
+        status=status,
+        total_amount=total_amount,
+        delivery_fee=0 if current_user.role == 'farmer' else order.delivery_fee,
+        final_amount=final_amount,
         customer_name=order.customer_name,
         customer_phone=order.customer_phone,
         customer_email=order.customer_email,
@@ -180,7 +192,7 @@ def get_order(
         items=items,
         created_at=order.created_at,
         updated_at=order.updated_at,
-        delivered_at=order.delivered_at
+        delivered_at=delivered_at
     )
 
 
@@ -227,24 +239,78 @@ def get_order_farmers(
             farmer_name = f"Farmer {farmer_id}"
             farmer_district = "Unknown District"
 
-        farmer_status = (
-            db.query(UnifiedOrderFarmerStatus)
-            .filter(
-                UnifiedOrderFarmerStatus.order_id == order_id,
-                UnifiedOrderFarmerStatus.farmer_id == farmer_id
-            )
-            .first()
-        )
-
-        status = farmer_status.status if farmer_status else "confirmed"
+        # Get individual farmer status from the JSON field
+        farmer_status = order.get_farmer_status(farmer_id)
+        farmer_delivered_at = order.get_farmer_delivered_at(farmer_id)
 
         farmers_info[farmer_id] = {
             "farmer_name": farmer_name,
             "farmer_district": farmer_district,
-            "status": status
+            "status": farmer_status,
+            "delivered_at": farmer_delivered_at
         }
 
     return {"farmers": farmers_info}
+
+
+@router.put("/{order_id}/farmer-status")
+def update_farmer_status(
+        order_id: int,
+        update_data: FarmerStatusUpdateRequest,
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    """Endpoint specifically for farmers to update their individual status"""
+    if current_user.role != 'farmer':
+        raise HTTPException(status_code=403, detail="Only farmers can use this endpoint")
+
+    service = OrderService(db)
+    order = service.get_order_by_id(order_id, current_user.id)
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Check if farmer has items in this order
+    farmer_items = [item for item in order.items if item.farmer_id == current_user.id]
+    if not farmer_items:
+        raise HTTPException(status_code=403, detail="You can only update orders containing your products")
+
+    # Validate status transition
+    current_farmer_status = order.get_farmer_status(current_user.id)
+    allowed_statuses = ['processing', 'out_for_delivery', 'delivered', 'cancelled']
+
+    if update_data.status not in allowed_statuses:
+        raise HTTPException(status_code=403, detail=f"Farmers cannot set status to {update_data.status}")
+
+    if current_farmer_status in ['delivered', 'cancelled']:
+        raise HTTPException(status_code=403, detail="Cannot modify delivered or cancelled orders")
+
+    try:
+        updated_order = service.update_farmer_status(order_id, current_user.id, update_data.status)
+
+        # Return farmer's view of the order
+        farmer_status = updated_order.get_farmer_status(current_user.id)
+        farmer_delivered_at = updated_order.get_farmer_delivered_at(current_user.id)
+
+        return UnifiedOrderResponse(
+            id=updated_order.id,
+            order_number=updated_order.order_number,
+            status=OrderStatusEnum(farmer_status),
+            total_amount=sum(item.total_price for item in farmer_items),
+            delivery_fee=0,
+            final_amount=sum(item.total_price for item in farmer_items),
+            customer_name=updated_order.customer_name,
+            customer_phone=updated_order.customer_phone,
+            customer_email=updated_order.customer_email,
+            delivery_address=updated_order.delivery_address,
+            delivery_notes=updated_order.delivery_notes,
+            items=farmer_items,
+            created_at=updated_order.created_at,
+            updated_at=updated_order.updated_at,
+            delivered_at=farmer_delivered_at
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/{order_id}/status", response_model=UnifiedOrderResponse)
@@ -254,35 +320,18 @@ def update_order_status(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    service = OrderService(db)
+    """Legacy endpoint for admin/system status updates"""
+    if current_user.role not in ['admin', 'system']:
+        raise HTTPException(status_code=403, detail="Only admin/system can use this endpoint")
 
+    service = OrderService(db)
     order = service.get_order_by_id(order_id, current_user.id)
+
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    if current_user.role == 'farmer':
-        farmer_items = [item for item in order.items if item.farmer_id == current_user.id]
-        if not farmer_items:
-            raise HTTPException(status_code=403, detail="You can only update orders containing your products")
-
-        allowed_statuses = ['processing', 'out_for_delivery', 'delivered', 'cancelled']
-        if update_data.status not in allowed_statuses:
-            raise HTTPException(status_code=403, detail=f"Farmers cannot set status to {update_data.status}")
-
-        if order.status in ['delivered', 'cancelled']:
-            raise HTTPException(status_code=403, detail="Cannot modify delivered or cancelled orders")
-
-    elif current_user.role in ['admin', 'system']:
-        pass
-    else:
-        raise HTTPException(status_code=403, detail="Not authorized to update order status")
-
     try:
         updated_order = service.update_order_status(order_id, current_user.id, update_data.status)
-
-        items = updated_order.items
-        if current_user.role == 'farmer':
-            items = [item for item in updated_order.items if item.farmer_id == current_user.id]
 
         return UnifiedOrderResponse(
             id=updated_order.id,
@@ -296,7 +345,7 @@ def update_order_status(
             customer_email=updated_order.customer_email,
             delivery_address=updated_order.delivery_address,
             delivery_notes=updated_order.delivery_notes,
-            items=items,
+            items=updated_order.items,
             created_at=updated_order.created_at,
             updated_at=updated_order.updated_at,
             delivered_at=updated_order.delivered_at

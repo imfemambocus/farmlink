@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, Enum, Numeric
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, Enum, Numeric, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from core.database import Base
@@ -22,10 +22,6 @@ class PaymentStatusEnum(str, enum.Enum):
 
 
 class PaymentMethodEnum(str, enum.Enum):
-    CASH_ON_DELIVERY = "cash_on_delivery"
-    MOBILE_PAYMENT = "mobile_payment"
-    BANK_TRANSFER = "bank_transfer"
-    DIGITAL_WALLET = "digital_wallet"
     STRIPE_CARD = "stripe_card"
     STRIPE_APPLE_PAY = "stripe_apple_pay"
     STRIPE_GOOGLE_PAY = "stripe_google_pay"
@@ -74,8 +70,12 @@ class UnifiedOrder(Base):
     order_number = Column(String, unique=True, nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    # Order details
+    # Overall order status (computed from farmer statuses - "worst" status)
     status = Column(Enum(OrderStatusEnum), default=OrderStatusEnum.CONFIRMED)
+
+    # Individual farmer statuses - JSON field storing {farmer_id: {status: str, delivered_at: datetime}}
+    farmer_statuses = Column(JSON, nullable=False, default=dict)
+
     total_amount = Column(Numeric(10, 2), nullable=False)
     delivery_fee = Column(Numeric(10, 2), default=0)
     final_amount = Column(Numeric(10, 2), nullable=False)
@@ -89,12 +89,73 @@ class UnifiedOrder(Base):
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
-    delivered_at = Column(DateTime)
+    delivered_at = Column(DateTime)  # Set when ALL farmers have delivered
 
     customer = relationship("User", foreign_keys=[customer_id])
     items = relationship("UnifiedOrderItem", back_populates="order", cascade="all, delete-orphan")
     payment = relationship("UnifiedPayment", back_populates="order", uselist=False)
     farmer_payments = relationship("FarmerPayment", back_populates="order", cascade="all, delete-orphan")
+
+    def get_farmer_status(self, farmer_id: int) -> str:
+        """Get status for a specific farmer"""
+        return self.farmer_statuses.get(str(farmer_id), {}).get("status", "confirmed")
+
+    def get_farmer_delivered_at(self, farmer_id: int) -> str:
+        """Get delivery time for a specific farmer"""
+        return self.farmer_statuses.get(str(farmer_id), {}).get("delivered_at")
+
+    def update_farmer_status(self, farmer_id: int, status: str, delivered_at: str = None):
+        """Update status for a specific farmer and recalculate overall status"""
+        if not self.farmer_statuses:
+            self.farmer_statuses = {}
+
+        farmer_key = str(farmer_id)
+        if farmer_key not in self.farmer_statuses:
+            self.farmer_statuses[farmer_key] = {}
+
+        self.farmer_statuses[farmer_key]["status"] = status
+        if status == "delivered" and delivered_at:
+            self.farmer_statuses[farmer_key]["delivered_at"] = delivered_at
+
+        # Recalculate overall status (worst status)
+        self._update_overall_status()
+
+    def _update_overall_status(self):
+        """Calculate overall status based on farmer statuses (worst status wins)"""
+        if not self.farmer_statuses:
+            self.status = OrderStatusEnum.CONFIRMED
+            return
+
+        # Status priority (worst to best)
+        status_priority = {
+            "cancelled": 0,
+            "confirmed": 1,
+            "processing": 2,
+            "out_for_delivery": 3,
+            "delivered": 4
+        }
+
+        # Get all farmer statuses
+        farmer_status_list = [
+            data.get("status", "confirmed")
+            for data in self.farmer_statuses.values()
+        ]
+
+        # Find the worst status
+        worst_status = min(farmer_status_list, key=lambda x: status_priority.get(x, 1))
+        self.status = OrderStatusEnum(worst_status)
+
+        # Set overall delivered_at only when ALL farmers have delivered
+        all_delivered = all(
+            data.get("status") == "delivered"
+            for data in self.farmer_statuses.values()
+        )
+
+        if all_delivered and not self.delivered_at:
+            from datetime import datetime
+            self.delivered_at = datetime.utcnow()
+        elif not all_delivered:
+            self.delivered_at = None
 
 
 class UnifiedOrderItem(Base):

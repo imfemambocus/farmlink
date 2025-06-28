@@ -2,7 +2,7 @@ import requests
 import json
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
-from models.notification import DeviceToken, Notification, NotificationTypeEnum, UnifiedOrderFarmerStatus
+from models.notification import DeviceToken, Notification, NotificationTypeEnum
 from models.order import UnifiedOrder
 from models.user import User
 from datetime import datetime
@@ -12,7 +12,6 @@ class PushNotificationService:
     def __init__(self, db: Session):
         self.db = db
         self.expo_push_url = "https://exp.host/--/api/v2/push/send"
-
 
     def register_device_token(self, user_id: int, expo_push_token: str, device_id: str, platform: str) -> DeviceToken:
         existing_token = (
@@ -41,7 +40,6 @@ class PushNotificationService:
             self.db.add(device_token)
             self.db.commit()
             return device_token
-
 
     def send_push_notification(self, expo_push_tokens: List[str], title: str, message: str, data: Dict = None) -> bool:
         if not expo_push_tokens:
@@ -83,7 +81,6 @@ class PushNotificationService:
         except Exception as e:
             print(f"Error sending push notification: {str(e)}")
             return False
-
 
     def create_and_send_notification(
             self,
@@ -144,10 +141,14 @@ class PushNotificationService:
         self.db.flush()
         return notification
 
-
     def notify_new_order_to_farmers(self, order: UnifiedOrder):
+        """Notify farmers about new orders and initialize their status"""
         farmer_ids = set(item.farmer_id for item in order.items)
         print(f"Processing order {order.id}, farmer IDs: {farmer_ids}")
+
+        # Initialize farmer statuses in the order
+        if not order.farmer_statuses:
+            order.farmer_statuses = {}
 
         for farmer_id in farmer_ids:
             # Get farmer's items for this order
@@ -157,26 +158,11 @@ class PushNotificationService:
 
             print(f"Farmer {farmer_id}: {item_count} items, total: {total_amount}")
 
-            # Create farmer status record
-            existing_status = (
-                self.db.query(UnifiedOrderFarmerStatus)
-                .filter(
-                    UnifiedOrderFarmerStatus.order_id == order.id,
-                    UnifiedOrderFarmerStatus.farmer_id == farmer_id
-                )
-                .first()
-            )
-
-            if not existing_status:
-                farmer_status = UnifiedOrderFarmerStatus(
-                    order_id=order.id,
-                    farmer_id=farmer_id,
-                    status="confirmed"
-                )
-                self.db.add(farmer_status)
-                print(f"Created farmer status record for farmer {farmer_id}")
-            else:
-                print(f"Farmer status record already exists for farmer {farmer_id}")
+            # Initialize farmer status in the JSON field
+            order.farmer_statuses[str(farmer_id)] = {
+                "status": "confirmed",
+                "delivered_at": None
+            }
 
             # Send notification to farmer
             title = "New Order Received!"
@@ -250,36 +236,13 @@ class PushNotificationService:
         )
         print(f"Total notifications in DB for order {order.id}: {len(notifications)}")
 
-        farmer_statuses = (
-            self.db.query(UnifiedOrderFarmerStatus)
-            .filter(UnifiedOrderFarmerStatus.order_id == order.id)
-            .all()
-        )
-        print(f"Total farmer status records in DB for order {order.id}: {len(farmer_statuses)}")
-
-        # If still zero, there's a transaction issue
         if len(notifications) == 0 and len(farmer_ids) > 0:
             print("WARNING: Notifications were not saved to database!")
-        if len(farmer_statuses) == 0 and len(farmer_ids) > 0:
-            print("WARNING: Farmer status records were not saved to database!")
-
 
     def notify_order_status_change(self, order: UnifiedOrder, farmer_id: int, new_status: str, old_status: str):
+        """Notify customer about farmer's status change"""
         farmer = self.db.query(User).get(farmer_id)
         farmer_name = f"{farmer.farmer_profile.first_name} {farmer.farmer_profile.last_name}" if farmer and farmer.farmer_profile else "Farmer"
-
-        farmer_status = (
-            self.db.query(UnifiedOrderFarmerStatus)
-            .filter(
-                UnifiedOrderFarmerStatus.order_id == order.id,
-                UnifiedOrderFarmerStatus.farmer_id == farmer_id
-            )
-            .first()
-        )
-
-        if farmer_status:
-            farmer_status.status = new_status
-            farmer_status.status_changed_at = datetime.utcnow()
 
         # Create notification message based on status
         status_messages = {
@@ -310,7 +273,6 @@ class PushNotificationService:
 
         self.db.commit()
 
-
     def get_user_notifications(self, user_id: int, limit: int = 50, offset: int = 0) -> List[Notification]:
         return (
             self.db.query(Notification)
@@ -320,7 +282,6 @@ class PushNotificationService:
             .limit(limit)
             .all()
         )
-
 
     def mark_notification_as_read(self, notification_id: int, user_id: int) -> bool:
         notification = (
@@ -340,7 +301,6 @@ class PushNotificationService:
 
         return False
 
-
     def mark_all_notifications_as_read(self, user_id: int) -> int:
         updated_count = (
             self.db.query(Notification)
@@ -356,7 +316,6 @@ class PushNotificationService:
         self.db.commit()
         return updated_count
 
-
     def get_unread_count(self, user_id: int) -> int:
         return (
             self.db.query(Notification)
@@ -367,12 +326,14 @@ class PushNotificationService:
             .count()
         )
 
-
     def get_order_farmer_statuses(self, order_id: int) -> Dict[int, str]:
-        statuses = (
-            self.db.query(UnifiedOrderFarmerStatus)
-            .filter(UnifiedOrderFarmerStatus.order_id == order_id)
-            .all()
-        )
+        """Get farmer statuses from the order's JSON field"""
+        order = self.db.query(UnifiedOrder).filter(UnifiedOrder.id == order_id).first()
+        if not order or not order.farmer_statuses:
+            return {}
 
-        return {status.farmer_id: status.status for status in statuses}
+        # Convert string keys back to int and extract status
+        return {
+            int(farmer_id): status_data.get("status", "confirmed")
+            for farmer_id, status_data in order.farmer_statuses.items()
+        }

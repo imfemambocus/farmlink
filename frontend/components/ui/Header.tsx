@@ -121,7 +121,7 @@ export default function Header({
                         ellipsizeMode="tail"
                         style={{ flex: 1, marginRight: 16 }}
                     >
-                        {title.toLowerCase()}
+                        {title}
                     </Text>
                     <View className="flex-row items-center gap-5">
                         {showHomeButton && (
@@ -285,18 +285,6 @@ export default function Header({
                                 />
                             </TouchableOpacity>
                         )}
-                        {showBackButton && (
-                            <TouchableOpacity
-                                onPress={handleBackPress}
-                                activeOpacity={0.7}
-                            >
-                                <Ionicons
-                                    name="arrow-back-sharp"
-                                    size={20}
-                                    color="#000000"
-                                />
-                            </TouchableOpacity>
-                        )}
                         {showLogoutButton && (
                             <TouchableOpacity
                                 onPress={handleLogout}
@@ -304,6 +292,18 @@ export default function Header({
                             >
                                 <Ionicons
                                     name="log-out"
+                                    size={20}
+                                    color="red"
+                                />
+                            </TouchableOpacity>
+                        )}
+                        {showBackButton && (
+                            <TouchableOpacity
+                                onPress={handleBackPress}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons
+                                    name="arrow-back-sharp"
                                     size={20}
                                     color="#000000"
                                 />

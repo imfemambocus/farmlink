@@ -2,14 +2,13 @@ import { useEffect, useState, useContext } from 'react';
 import {
     View,
     Text,
-    ScrollView,
     TouchableOpacity,
     ActivityIndicator,
     Alert,
     TextInput,
-    Platform,
-    KeyboardAvoidingView
+    Platform
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
@@ -344,16 +343,6 @@ function CheckoutScreen() {
         }
     };
 
-    const createOrders = async () => {
-        router.push({
-            pathname: '/(auth)/customer/payment/order-success',
-            params: {
-                payment_intent_id: 'success',
-                amount: cart?.total_amount?.toString() || '0'
-            }
-        });
-    };
-
     const renderDeliveryForm = () => (
         <View className="bg-white rounded-xl p-4 mb-4">
             <Text className="text-xl font-semibold text-black mb-4">{tCheckout('deliveryInformation')}</Text>
@@ -462,8 +451,12 @@ function CheckoutScreen() {
                             number: '4242 4242 4242 4242',
                         }}
                         cardStyle={{
-                            backgroundColor: '#FFFFFF',
-                            textColor: '#000000',
+                            backgroundColor: Platform.OS === 'ios' ? '#FFFFFF' : '#000000',
+                            textColor: Platform.OS === 'ios' ? '#000000' : '#FFFFFF',
+                            borderRadius: 8,
+                            placeholderColor: '#CCCCCC',
+                            borderWidth: 1,
+                            borderColor: Platform.OS === 'ios' ? '#D1D5DB' : '#000000',
                         }}
                         style={{
                             width: '100%',
@@ -556,16 +549,19 @@ function CheckoutScreen() {
     }
 
     return (
-        <KeyboardAvoidingView
-            className="flex-1 bg-surface"
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <View className="flex-1 bg-surface">
             <Header title={tCheckout('checkoutTitle')} showBackButton={true} />
 
-            <ScrollView
+            <KeyboardAwareScrollView
                 className="flex-1 px-2 pt-3"
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 20 }}
+                enableOnAndroid={true}
+                enableAutomaticScroll={true}
+                extraScrollHeight={150}
+                keyboardShouldPersistTaps="handled"
+                scrollEventThrottle={10}
+                enableResetScrollToCoords={false}
+                keyboardOpeningTime={250}
             >
                 {renderOrderSummary()}
                 {renderDeliveryForm()}
@@ -583,7 +579,7 @@ function CheckoutScreen() {
                         </Text>
                     </TouchableOpacity>
                 </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+            </KeyboardAwareScrollView>
+        </View>
     );
 }

@@ -293,7 +293,7 @@ export default function FarmerDetailScreen() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title={farmer.name.toLowerCase()}
+                title={farmer.name}
                 showBackButton={true}
                 showCartButton={true}
                 showOrdersButton={true}
@@ -314,7 +314,7 @@ export default function FarmerDetailScreen() {
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
                 <View className="px-5 pt-6 pb-4">
-                    <View className="bg-background rounded-xl p-6 flex-row justify-between">
+                    <View className="bg-background rounded-xl py-6 px-4 flex-row gap-2 justify-between">
                         <View className="flex-row items-center gap-2">
                             <Ionicons name="location" size={18} color="#000000" />
                             <Text className="text-base text-gray-600">

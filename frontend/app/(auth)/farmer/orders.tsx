@@ -37,7 +37,7 @@ interface OrderItem {
 interface Order {
     id: number;
     order_number: string;
-    status: OrderStatus;
+    status: OrderStatus; // This is now the farmer's individual status
     final_amount: number;
     item_count: number;
     created_at: string;
@@ -46,7 +46,7 @@ interface Order {
 interface OrderDetails {
     id: number;
     order_number: string;
-    status: OrderStatus;
+    status: OrderStatus; // This is now the farmer's individual status
     total_amount: number;
     delivery_fee: number;
     final_amount: number;
@@ -58,7 +58,7 @@ interface OrderDetails {
     items: OrderItem[];
     created_at: string;
     updated_at: string;
-    delivered_at?: string;
+    delivered_at?: string; // This is now the farmer's individual delivery time
 }
 
 interface AlertState {
@@ -136,10 +136,11 @@ export default function FarmerOrdersScreen() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            // Orders now come with individual farmer status, so sort accordingly
             const sortedOrders = response.data.sort((a: Order, b: Order) => {
                 if (a.status === 'delivered' && b.status !== 'delivered') return 1;
                 if (a.status !== 'delivered' && b.status === 'delivered') return -1;
-                return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
             });
 
             setOrders(sortedOrders);
@@ -182,7 +183,7 @@ export default function FarmerOrdersScreen() {
         }
     };
 
-    const updateOrderStatus = async (orderId: number, newStatus: OrderStatus) => {
+    const updateFarmerStatus = async (orderId: number, newStatus: OrderStatus) => {
         showAlert(
             'warning',
             tOrders('updateOrderStatus'),
@@ -204,21 +205,26 @@ export default function FarmerOrdersScreen() {
         try {
             const token = await AsyncStorage.getItem('token');
 
-            await api.put(`/orders/${orderId}/status`,
+            // Use the new farmer-status endpoint
+            await api.put(`/orders/${orderId}/farmer-status`,
                 { status: newStatus },
                 { headers: { Authorization: `Bearer ${token}` }}
             );
 
+            // Update the order list to show new farmer status
             setOrders(prev => prev.map(order =>
                 order.id === orderId ? { ...order, status: newStatus } : order
             ));
 
+            // Update order details if loaded
             if (orderDetails[orderId]) {
                 setOrderDetails(prev => ({
                     ...prev,
                     [orderId]: {
                         ...prev[orderId],
-                        status: newStatus
+                        status: newStatus,
+                        // Update delivered_at if status is delivered
+                        delivered_at: newStatus === 'delivered' ? new Date().toISOString() : prev[orderId].delivered_at
                     }
                 }));
             }
@@ -231,7 +237,7 @@ export default function FarmerOrdersScreen() {
             );
 
         } catch (error: any) {
-            console.error('Error updating order status:', error);
+            console.error('Error updating farmer status:', error);
 
             let errorMessage = tOrders('failedToUpdate');
             if (error.response?.status === 403) {
@@ -252,6 +258,7 @@ export default function FarmerOrdersScreen() {
                 newSet.delete(orderId);
                 return newSet;
             });
+            hideAlert();
         }
     };
 
@@ -324,9 +331,9 @@ export default function FarmerOrdersScreen() {
             case 'confirmed':
                 return ['processing', 'out_for_delivery', 'delivered', 'cancelled'];
             case 'processing':
-                return ['confirmed', 'out_for_delivery', 'delivered', 'cancelled'];
+                return ['out_for_delivery', 'delivered', 'cancelled'];
             case 'out_for_delivery':
-                return ['processing', 'delivered', 'cancelled'];
+                return ['delivered', 'cancelled'];
             case 'delivered':
                 return [];
             case 'cancelled':
@@ -358,7 +365,7 @@ export default function FarmerOrdersScreen() {
         return (
             <TouchableOpacity
                 key={status}
-                onPress={() => updateOrderStatus(orderId, status)}
+                onPress={() => updateFarmerStatus(orderId, status)}
                 disabled={isUpdating}
                 className={`px-3 py-2 rounded-lg mr-2 mb-2 ${
                     isCurrentStatus ? 'bg-gray-200' : 'bg-background'
@@ -511,9 +518,17 @@ export default function FarmerOrdersScreen() {
                                 {getAvailableStatusOptions(details.status).length > 0 && (
                                     <View className="mb-4">
                                         <Text className="text-sm font-medium text-black mb-3">
-                                            {tOrders('changeOrderStatus')}
+                                            {tOrders('changeYourStatus')}
                                             {isUpdating && <Text className="text-gray-500"> ({tOrders('updating')})</Text>}
                                         </Text>
+                                        <View className="bg-blue-50 rounded-lg p-3 mb-3">
+                                            <View className="flex-row items-center">
+                                                <Ionicons name="information-circle" size={16} color="#3b82f6" />
+                                                <Text className="text-xs text-blue-600 ml-2 flex-1">
+                                                    {tOrders('statusUpdateInfo')}
+                                                </Text>
+                                            </View>
+                                        </View>
                                         <View className="flex-row flex-wrap">
                                             {getAvailableStatusOptions(details.status).map(status =>
                                                 renderStatusButton(order.id, status, false)
@@ -527,14 +542,8 @@ export default function FarmerOrdersScreen() {
                                         <Text className="text-sm text-gray-600">{tOrders('itemsTotal')}</Text>
                                         <Text className="text-sm text-black">{t('units.rs')} {formatPrice(details.total_amount)}</Text>
                                     </View>
-                                    {details.delivery_fee > 0 && (
-                                        <View className="flex-row justify-between items-center mb-2">
-                                            <Text className="text-sm text-gray-600">{t('checkout.deliveryFee')}</Text>
-                                            <Text className="text-sm text-black">{t('units.rs')} {formatPrice(details.delivery_fee)}</Text>
-                                        </View>
-                                    )}
                                     <View className="flex-row justify-between items-center mb-2 pt-2 border-t border-gray-200">
-                                        <Text className="text-sm font-medium text-black">{tOrders('orderTotal')}</Text>
+                                        <Text className="text-sm font-medium text-black">{tOrders('yourTotal')}</Text>
                                         <Text className="text-sm font-medium text-black">{t('units.rs')} {formatPrice(details.final_amount)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center mb-2">

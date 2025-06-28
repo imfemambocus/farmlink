@@ -1,5 +1,5 @@
 import { useState, useContext } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Modal, ScrollView } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
@@ -42,6 +42,24 @@ const getQuantityStep = (userRole: string): number => {
     return userRole === 'business' ? 25 : 1;
 };
 
+const getUnitPriceLayout = (unitPrices: UnitPrice[]) => {
+    const count = unitPrices.length;
+
+    if (count === 1) {
+        return [[0]]; // Single row, full width
+    } else if (count === 2) {
+        return [[0, 1]]; // Single row, 2 columns
+    } else if (count === 3) {
+        return [[0, 1], [2]]; // Row 1: 2 columns, Row 2: full width
+    } else if (count === 4) {
+        return [[0, 1], [2, 3]]; // 2 rows, 2 columns each
+    } else if (count === 5) {
+        return [[0, 1], [2, 3], [4]]; // Row 1&2: 2 columns, Row 3: full width
+    }
+
+    return [];
+};
+
 export default function ProductCard({ product }: ProductCardProps) {
     const { user } = useContext(AuthContext);
     const { triggerCartFlash } = useCart();
@@ -61,6 +79,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     const quantityStep = getQuantityStep(userRole);
 
     const filteredUnitPrices = getFilteredUnitPrices(product.unit_prices, userRole);
+    const unitPriceLayout = getUnitPriceLayout(filteredUnitPrices);
 
     const addToCart = async (unitPriceId: number, selectedQuantity: number) => {
         try {
@@ -199,7 +218,16 @@ export default function ProductCard({ product }: ProductCardProps) {
                     <View>
                         <View className="flex-row items-center mb-1">
                             <Text className="text-xs text-gray-500">
-                                {filteredUnitPrices.map(up => up.unit).join(', ')}
+                                {(() => {
+                                    const units = filteredUnitPrices.map(up => up.unit);
+                                    if (units.length === 1) {
+                                        return units[0];
+                                    } else if (units.length === 2) {
+                                        return units.join(', ');
+                                    } else {
+                                        return `${units.slice(0, 2).join(', ')}, more...`;
+                                    }
+                                })()}
                             </Text>
                         </View>
                         <View className="flex-row items-baseline">
@@ -262,207 +290,219 @@ export default function ProductCard({ product }: ProductCardProps) {
                     </TouchableOpacity>
 
                     <Animated.View
-                        className="bg-surface rounded-t-[40px] overflow-hidden p-3"
+                        className="bg-surface rounded-t-[40px] overflow-hidden"
                         style={[
                             { height: '86%' },
                             modalStyle
                         ]}
                     >
-                        <View
-                            className="h-[24rem] rounded-[40px] w-full mb-3 items-center justify-center"
-                            style={{ backgroundColor: getProductBackgroundColor(product.item) }}
+                        <ScrollView
+                            className="flex-1 p-3"
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
                         >
-                            {imageError ? (
-                                <Text className="text-sm text-gray-500 text-center px-4">
-                                    {tCustomer('imageFailedToLoad')}
-                                </Text>
-                            ) : (
-                                <Image
-                                    source={productImage}
-                                    style={{
-                                        width: '80%',
-                                        height: '80%',
-                                        resizeMode: 'contain',
-                                    }}
-                                    onError={() => setImageError(true)}
-                                />
-                            )}
-                        </View>
-
-                        <View className="flex-1 p-2">
-                            <View className="mb-3">
-                                <View className="flex-row items-center justify-between mb-1">
-                                    <Text className="text-xl font-medium text-black flex-1">
-                                        {product.item.toLowerCase()}
+                            <View
+                                className="h-[24rem] rounded-[40px] w-full mb-3 items-center justify-center"
+                                style={{ backgroundColor: getProductBackgroundColor(product.item) }}
+                            >
+                                {imageError ? (
+                                    <Text className="text-sm text-gray-500 text-center px-4">
+                                        {tCustomer('imageFailedToLoad')}
                                     </Text>
-                                    <View className="flex-row items-center gap-2">
-                                        {userRole === 'business' && (
-                                            <View className="px-3 py-1 bg-blue-100 rounded-full">
-                                                <Text className="text-xs text-blue-600 font-medium">
-                                                    {tCustomer('bulkPricing')}
-                                                </Text>
-                                            </View>
-                                        )}
-                                        {(() => {
-                                            const listingDate = new Date(product.created_at);
-                                            const threeDaysAgo = new Date();
-                                            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-                                            return listingDate > threeDaysAgo;
-                                        })() && (
-                                            <View className="flex-row items-center">
-                                                <Ionicons name="leaf" size={12} color="#4CAF50" />
-                                                <Text className="text-xs text-black ml-1 font-medium">
-                                                    {tCustomer('fresh')}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                </View>
-                                <View className="flex-row items-center justify-between">
-                                    <View className="flex-row items-center">
-                                        <Text className="text-base text-gray-600">{tCustomer('producedBy')} </Text>
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                closeModal();
-                                                router.push(`/(auth)/customer/farmers/${product.farmer_id}`);
-                                            }}
-                                            activeOpacity={0.7}
-                                        >
-                                            <Text className="text-base text-black font-medium">
-                                                {product.farmer_name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View className="flex-row items-center">
-                                        <Ionicons name="location-outline" size={14} color="#666666" />
-                                        <Text className="text-sm text-gray-600 ml-1">
-                                            {product.farmer_district}
-                                        </Text>
-                                    </View>
-                                </View>
+                                ) : (
+                                    <Image
+                                        source={productImage}
+                                        style={{
+                                            width: '80%',
+                                            height: '80%',
+                                            resizeMode: 'contain',
+                                        }}
+                                        onError={() => setImageError(true)}
+                                    />
+                                )}
                             </View>
 
-                            {product.description && (
+                            <View className="p-2">
                                 <View className="mb-3">
-                                    <Text className="text-base font-medium text-black mb-2">
-                                        {tCustomer('description')}
-                                    </Text>
-                                    <Text className="text-gray-600 text-sm">
-                                        {product.description}
-                                    </Text>
-                                </View>
-                            )}
-
-                            <View className="mb-3">
-                                <Text className="text-base font-medium text-black mb-2">
-                                    {userRole === 'business' ? tCustomer('selectUnitBulkPrice') : tCustomer('selectUnitPrice')}
-                                </Text>
-                                <View className="flex-row gap-2">
-                                    {filteredUnitPrices.map((unitPrice) => (
-                                        <TouchableOpacity
-                                            key={unitPrice.id}
-                                            onPress={() => handleUnitPriceSelect(unitPrice)}
-                                            className={`p-3 rounded-lg border ${
-                                                selectedUnitPrice?.id === unitPrice.id
-                                                    ? 'bg-gray-100 border-black'
-                                                    : 'bg-gray-50 border-gray-200'
-                                            }`}
-                                            style={{
-                                                flex: filteredUnitPrices.length === 1 ? 1 : 1 / filteredUnitPrices.length,
-                                                maxWidth: filteredUnitPrices.length === 1 ? '100%' : `${100 / filteredUnitPrices.length}%`
-                                            }}
-                                            activeOpacity={0.7}
-                                        >
-                                            <Text className={`text-center text-sm ${
-                                                selectedUnitPrice?.id === unitPrice.id
-                                                    ? 'text-black font-medium'
-                                                    : 'text-black'
-                                            }`}>
-                                                {t('units.rs')} {unitPrice.price_per_unit} / {unitPrice.unit}
-                                            </Text>
+                                    <View className="flex-row items-center justify-between mb-1">
+                                        <Text className="text-xl font-medium text-black flex-1">
+                                            {product.item.toLowerCase()}
+                                        </Text>
+                                        <View className="flex-row items-center gap-2">
                                             {userRole === 'business' && (
-                                                <Text className="text-xs text-gray-500 text-center mt-1">
-                                                    {tCustomer('min')}: {unitPrice.minimum_order}
-                                                </Text>
-                                            )}
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            </View>
-
-                            {selectedUnitPrice && (
-                                <View className="mb-5">
-                                    <Text className="text-base font-medium text-black mb-2">
-                                        {t('productManagement.quantity')} {userRole === 'business' && `(${tCustomer('quantitySteps')} ${quantityStep})`}
-                                    </Text>
-                                    <View className="flex-row gap-4">
-                                        <View className="flex-[65%]">
-                                            <View className="flex-row items-center justify-between bg-gray-100 rounded-lg p-2">
-                                                <TouchableOpacity
-                                                    onPress={() => adjustQuantity(-1)}
-                                                    className="w-8 h-8 bg-background rounded items-center justify-center"
-                                                    activeOpacity={0.7}
-                                                    disabled={quantity <= Math.max(
-                                                        Math.ceil(selectedUnitPrice.minimum_order / quantityStep) * quantityStep,
-                                                        quantityStep
-                                                    )}
-                                                >
-                                                    <Ionicons
-                                                        name="remove"
-                                                        size={16}
-                                                        color={quantity <= Math.max(
-                                                            Math.ceil(selectedUnitPrice.minimum_order / quantityStep) * quantityStep,
-                                                            quantityStep
-                                                        ) ? "red" : "#000"}
-                                                    />
-                                                </TouchableOpacity>
-
-                                                <View className="flex-1 mx-3 items-center">
-                                                    <Text className="text-lg font-medium text-black">
-                                                        {quantity}
-                                                    </Text>
-                                                    <Text className="text-xs text-gray-600 text-center">
-                                                        {tCustomer('min')}: {selectedUnitPrice.minimum_order} | {tCustomer('max')}: {selectedUnitPrice.quantity_available}
+                                                <View className="px-3 py-1 bg-blue-100 rounded-full">
+                                                    <Text className="text-xs text-blue-600 font-medium">
+                                                        {tCustomer('bulkPricing')}
                                                     </Text>
                                                 </View>
-
-                                                <TouchableOpacity
-                                                    onPress={() => adjustQuantity(1)}
-                                                    className="w-8 h-8 bg-background rounded items-center justify-center"
-                                                    activeOpacity={0.7}
-                                                    disabled={quantity >= selectedUnitPrice.quantity_available}
-                                                >
-                                                    <Ionicons
-                                                        name="add"
-                                                        size={16}
-                                                        color={quantity >= selectedUnitPrice.quantity_available ? "#ccc" : "#000"}
-                                                    />
-                                                </TouchableOpacity>
-                                            </View>
+                                            )}
+                                            {(() => {
+                                                const listingDate = new Date(product.created_at);
+                                                const threeDaysAgo = new Date();
+                                                threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                                                return listingDate > threeDaysAgo;
+                                            })() && (
+                                                <View className="flex-row items-center">
+                                                    <Ionicons name="leaf" size={12} color="#4CAF50" />
+                                                    <Text className="text-xs text-black ml-1 font-medium">
+                                                        {tCustomer('fresh')}
+                                                    </Text>
+                                                </View>
+                                            )}
                                         </View>
-
-                                        <View className="flex-[35%] bg-gray-100 rounded-lg p-3 justify-center items-center flex flex-row gap-2">
-                                            <Text className="text-center text-lg font-semibold">
-                                                {t('units.rs')} {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
+                                    </View>
+                                    <View className="flex-row items-center justify-between">
+                                        <View className="flex-row items-center">
+                                            <Text className="text-base text-gray-600">{tCustomer('producedBy')} </Text>
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    closeModal();
+                                                    router.push(`/(auth)/customer/farmers/${product.farmer_id}`);
+                                                }}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Text className="text-base text-black font-medium">
+                                                    {product.farmer_name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                        <View className="flex-row items-center">
+                                            <Ionicons name="location-outline" size={14} color="#666666" />
+                                            <Text className="text-sm text-gray-600 ml-1">
+                                                {product.farmer_district}
                                             </Text>
                                         </View>
                                     </View>
                                 </View>
-                            )}
 
-                            <View className="pb-2">
-                                <TouchableOpacity
-                                    onPress={addToCartFromModal}
-                                    className="bg-background py-4 px-6 rounded-xl"
-                                    activeOpacity={0.7}
-                                    disabled={addingToCart || !selectedUnitPrice}
-                                >
-                                    <Text className="text-center font-medium text-black">
-                                        {addingToCart ? tCustomer('addingToCart') : tCustomer('addToCart')}
+                                {product.description && (
+                                    <View className="mb-3">
+                                        <Text className="text-base font-medium text-black mb-2">
+                                            {tCustomer('description')}
+                                        </Text>
+                                        <Text className="text-gray-600 text-sm">
+                                            {product.description}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                <View className="mb-3">
+                                    <Text className="text-base font-medium text-black mb-3">
+                                        {userRole === 'business' ? tCustomer('selectUnitBulkPrice') : tCustomer('selectUnitPrice')}
                                     </Text>
-                                </TouchableOpacity>
+
+                                    <View className="gap-2">
+                                        {unitPriceLayout.map((row, rowIndex) => (
+                                            <View key={rowIndex} className="flex-row gap-2">
+                                                {row.map((unitIndex) => {
+                                                    const unitPrice = filteredUnitPrices[unitIndex];
+                                                    const isFullWidth = row.length === 1;
+
+                                                    return (
+                                                        <TouchableOpacity
+                                                            key={unitPrice.id}
+                                                            onPress={() => handleUnitPriceSelect(unitPrice)}
+                                                            className={`p-3 rounded-lg border h-16 justify-center ${
+                                                                selectedUnitPrice?.id === unitPrice.id
+                                                                    ? 'bg-gray-100 border-black'
+                                                                    : 'bg-gray-50 border-gray-200'
+                                                            } ${isFullWidth ? 'flex-1' : 'flex-1'}`}
+                                                            activeOpacity={0.7}
+                                                        >
+                                                            <Text className={`text-center text-sm ${
+                                                                selectedUnitPrice?.id === unitPrice.id
+                                                                    ? 'text-black font-medium'
+                                                                    : 'text-black'
+                                                            }`}>
+                                                                {t('units.rs')} {unitPrice.price_per_unit} / {unitPrice.unit}
+                                                            </Text>
+                                                            {userRole === 'business' && (
+                                                                <Text className="text-xs text-gray-500 text-center mt-1">
+                                                                    {tCustomer('min')}: {unitPrice.minimum_order}
+                                                                </Text>
+                                                            )}
+                                                        </TouchableOpacity>
+                                                    );
+                                                })}
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+
+                                {selectedUnitPrice && (
+                                    <View className="mb-5">
+                                        <Text className="text-base font-medium text-black mb-2">
+                                            {t('productManagement.quantity')} {userRole === 'business' && `(${tCustomer('quantitySteps')} ${quantityStep})`}
+                                        </Text>
+                                        <View className="flex-row gap-4">
+                                            <View className="flex-[65%]">
+                                                <View className="flex-row items-center justify-between bg-gray-100 rounded-lg p-2">
+                                                    <TouchableOpacity
+                                                        onPress={() => adjustQuantity(-1)}
+                                                        className="w-8 h-8 bg-background rounded items-center justify-center"
+                                                        activeOpacity={0.7}
+                                                        disabled={quantity <= Math.max(
+                                                            Math.ceil(selectedUnitPrice.minimum_order / quantityStep) * quantityStep,
+                                                            quantityStep
+                                                        )}
+                                                    >
+                                                        <Ionicons
+                                                            name="remove"
+                                                            size={16}
+                                                            color={quantity <= Math.max(
+                                                                Math.ceil(selectedUnitPrice.minimum_order / quantityStep) * quantityStep,
+                                                                quantityStep
+                                                            ) ? "red" : "#000"}
+                                                        />
+                                                    </TouchableOpacity>
+
+                                                    <View className="flex-1 mx-3 items-center">
+                                                        <Text className="text-lg font-medium text-black">
+                                                            {quantity}
+                                                        </Text>
+                                                        <Text className="text-xs text-gray-600 text-center">
+                                                            {tCustomer('min')}: {selectedUnitPrice.minimum_order} | {tCustomer('max')}: {selectedUnitPrice.quantity_available}
+                                                        </Text>
+                                                    </View>
+
+                                                    <TouchableOpacity
+                                                        onPress={() => adjustQuantity(1)}
+                                                        className="w-8 h-8 bg-background rounded items-center justify-center"
+                                                        activeOpacity={0.7}
+                                                        disabled={quantity >= selectedUnitPrice.quantity_available}
+                                                    >
+                                                        <Ionicons
+                                                            name="add"
+                                                            size={16}
+                                                            color={quantity >= selectedUnitPrice.quantity_available ? "#ccc" : "#000"}
+                                                        />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+
+                                            <View className="flex-[35%] bg-gray-100 rounded-lg p-3 justify-center items-center flex flex-row gap-2">
+                                                <Text className="text-center text-lg font-semibold">
+                                                    {t('units.rs')} {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                )}
+
+                                <View className="pb-6">
+                                    <TouchableOpacity
+                                        onPress={addToCartFromModal}
+                                        className="bg-background py-4 px-6 rounded-xl"
+                                        activeOpacity={0.7}
+                                        disabled={addingToCart || !selectedUnitPrice}
+                                    >
+                                        <Text className="text-center font-medium text-black">
+                                            {addingToCart ? tCustomer('addingToCart') : tCustomer('addToCart')}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                        </View>
+                        </ScrollView>
                     </Animated.View>
                 </View>
             </Modal>
