@@ -260,7 +260,6 @@ def update_farmer_status(
         current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    """Endpoint specifically for farmers to update their individual status"""
     if current_user.role != 'farmer':
         raise HTTPException(status_code=403, detail="Only farmers can use this endpoint")
 
@@ -308,47 +307,6 @@ def update_farmer_status(
             created_at=updated_order.created_at,
             updated_at=updated_order.updated_at,
             delivered_at=farmer_delivered_at
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.put("/{order_id}/status", response_model=UnifiedOrderResponse)
-def update_order_status(
-        order_id: int,
-        update_data: UnifiedOrderUpdateRequest,
-        current_user=Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """Legacy endpoint for admin/system status updates"""
-    if current_user.role not in ['admin', 'system']:
-        raise HTTPException(status_code=403, detail="Only admin/system can use this endpoint")
-
-    service = OrderService(db)
-    order = service.get_order_by_id(order_id, current_user.id)
-
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    try:
-        updated_order = service.update_order_status(order_id, current_user.id, update_data.status)
-
-        return UnifiedOrderResponse(
-            id=updated_order.id,
-            order_number=updated_order.order_number,
-            status=updated_order.status,
-            total_amount=updated_order.total_amount,
-            delivery_fee=updated_order.delivery_fee,
-            final_amount=updated_order.final_amount,
-            customer_name=updated_order.customer_name,
-            customer_phone=updated_order.customer_phone,
-            customer_email=updated_order.customer_email,
-            delivery_address=updated_order.delivery_address,
-            delivery_notes=updated_order.delivery_notes,
-            items=updated_order.items,
-            created_at=updated_order.created_at,
-            updated_at=updated_order.updated_at,
-            delivered_at=updated_order.delivered_at
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

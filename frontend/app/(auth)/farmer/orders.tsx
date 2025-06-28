@@ -37,7 +37,7 @@ interface OrderItem {
 interface Order {
     id: number;
     order_number: string;
-    status: OrderStatus; // This is now the farmer's individual status
+    status: OrderStatus;
     final_amount: number;
     item_count: number;
     created_at: string;
@@ -46,7 +46,7 @@ interface Order {
 interface OrderDetails {
     id: number;
     order_number: string;
-    status: OrderStatus; // This is now the farmer's individual status
+    status: OrderStatus;
     total_amount: number;
     delivery_fee: number;
     final_amount: number;
@@ -58,7 +58,7 @@ interface OrderDetails {
     items: OrderItem[];
     created_at: string;
     updated_at: string;
-    delivered_at?: string; // This is now the farmer's individual delivery time
+    delivered_at?: string;
 }
 
 interface AlertState {
@@ -205,7 +205,6 @@ export default function FarmerOrdersScreen() {
         try {
             const token = await AsyncStorage.getItem('token');
 
-            // Use the new farmer-status endpoint
             await api.put(`/orders/${orderId}/farmer-status`,
                 { status: newStatus },
                 { headers: { Authorization: `Bearer ${token}` }}
@@ -456,7 +455,7 @@ export default function FarmerOrdersScreen() {
                                 </Text>
                             </View>
                             <Text className="text-lg font-bold text-black">
-                                {t('units.rs')} {formatPrice(order.final_amount)}
+                                {t('units.rs')} {formatPrice(order.final_amount * 0.9)}
                             </Text>
                         </View>
                     </View>
@@ -518,17 +517,9 @@ export default function FarmerOrdersScreen() {
                                 {getAvailableStatusOptions(details.status).length > 0 && (
                                     <View className="mb-4">
                                         <Text className="text-sm font-medium text-black mb-3">
-                                            {tOrders('changeYourStatus')}
+                                            {tOrders('changeOrderStatus')}
                                             {isUpdating && <Text className="text-gray-500"> ({tOrders('updating')})</Text>}
                                         </Text>
-                                        <View className="bg-blue-50 rounded-lg p-3 mb-3">
-                                            <View className="flex-row items-center">
-                                                <Ionicons name="information-circle" size={16} color="#3b82f6" />
-                                                <Text className="text-xs text-blue-600 ml-2 flex-1">
-                                                    {tOrders('statusUpdateInfo')}
-                                                </Text>
-                                            </View>
-                                        </View>
                                         <View className="flex-row flex-wrap">
                                             {getAvailableStatusOptions(details.status).map(status =>
                                                 renderStatusButton(order.id, status, false)
@@ -543,7 +534,7 @@ export default function FarmerOrdersScreen() {
                                         <Text className="text-sm text-black">{t('units.rs')} {formatPrice(details.total_amount)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center mb-2 pt-2 border-t border-gray-200">
-                                        <Text className="text-sm font-medium text-black">{tOrders('yourTotal')}</Text>
+                                        <Text className="text-sm font-medium text-black">{tOrders('orderTotal')}</Text>
                                         <Text className="text-sm font-medium text-black">{t('units.rs')} {formatPrice(details.final_amount)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center mb-2">

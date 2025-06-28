@@ -36,7 +36,7 @@ interface OrderItem {
 interface Order {
     id: number;
     order_number: string;
-    status: OrderStatus; // Overall order status
+    status: OrderStatus;
     final_amount: number;
     farmer_count?: number;
     item_count: number;
@@ -47,7 +47,7 @@ interface Order {
 interface OrderDetails {
     id: number;
     order_number: string;
-    status: OrderStatus; // Overall order status
+    status: OrderStatus;
     total_amount: number;
     delivery_fee: number;
     final_amount: number;
@@ -477,12 +477,6 @@ export default function OrdersScreen() {
                                         <Text className="text-base font-semibold text-black">{tOrders('total')}</Text>
                                         <Text className="text-base font-bold text-black">rs {formatPrice(details.final_amount)}</Text>
                                     </View>
-                                    {details.delivered_at && (
-                                        <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-gray-200">
-                                            <Text className="text-sm text-green-600">{tOrders('orderDeliveredAt')}</Text>
-                                            <Text className="text-sm text-green-600">{formatDate(details.delivered_at)}</Text>
-                                        </View>
-                                    )}
                                 </View>
                             </View>
                         ) : (

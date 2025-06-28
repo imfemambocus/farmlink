@@ -142,7 +142,6 @@ class PushNotificationService:
         return notification
 
     def notify_new_order_to_farmers(self, order: UnifiedOrder):
-        """Notify farmers about new orders and initialize their status"""
         farmer_ids = set(item.farmer_id for item in order.items)
         print(f"Processing order {order.id}, farmer IDs: {farmer_ids}")
 
@@ -240,7 +239,6 @@ class PushNotificationService:
             print("WARNING: Notifications were not saved to database!")
 
     def notify_order_status_change(self, order: UnifiedOrder, farmer_id: int, new_status: str, old_status: str):
-        """Notify customer about farmer's status change"""
         farmer = self.db.query(User).get(farmer_id)
         farmer_name = f"{farmer.farmer_profile.first_name} {farmer.farmer_profile.last_name}" if farmer and farmer.farmer_profile else "Farmer"
 
@@ -327,7 +325,6 @@ class PushNotificationService:
         )
 
     def get_order_farmer_statuses(self, order_id: int) -> Dict[int, str]:
-        """Get farmer statuses from the order's JSON field"""
         order = self.db.query(UnifiedOrder).filter(UnifiedOrder.id == order_id).first()
         if not order or not order.farmer_statuses:
             return {}

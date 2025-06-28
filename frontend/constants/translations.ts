@@ -352,6 +352,7 @@ export const translations = {
             item: 'item',
             farmers: 'farmers',
             farmer: 'farmer',
+            noRecipes: 'No recipes could be determined based on the items in your cart.',
         },
 
         // Checkout
@@ -475,6 +476,7 @@ export const translations = {
             orderSummary: 'order summary',
             deliveryInformation: 'delivery information',
             deliveryNotes: 'delivery notes',
+            deliveredAt: 'delivered',
         },
 
         // Farmers
@@ -1039,6 +1041,7 @@ export const translations = {
             item: 'article',
             farmers: 'agriculteurs',
             farmer: 'agriculteur',
+            noRecipes: 'Aucune recette n\'a pu être déterminée en fonction des articles de votre panier.',
         },
 
         // Checkout
@@ -1162,6 +1165,7 @@ export const translations = {
             orderSummary: 'résumé de la commande',
             deliveryInformation: 'informations de livraison',
             deliveryNotes: 'notes de livraison',
+            deliveredAt: 'livré',
         },
 
         // Farmers

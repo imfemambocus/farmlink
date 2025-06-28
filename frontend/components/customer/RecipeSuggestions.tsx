@@ -45,11 +45,11 @@ const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = screenWidth * 0.8;
 
 const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
-                                                                 cartItems,
-                                                                 customerType,
-                                                                 onIngredientsAdded,
-                                                                 onAlert
-                                                             }) => {
+     cartItems,
+     customerType,
+     onIngredientsAdded,
+     onAlert
+ }) => {
     const { t, tCart } = useTranslation();
     const [recipes, setRecipes] = useState<Recipe[]>([]);
     const [loading, setLoading] = useState(false);
@@ -150,10 +150,6 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
             case 'hard': return 'flame';
             default: return 'help-circle';
         }
-    };
-
-    const formatPrice = (price: number): string => {
-        return price.toFixed(2);
     };
 
     const formatConfidenceScore = (score: number): string => {
@@ -416,7 +412,7 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
                         {tCart('aiAnalyzing')}
                     </Text>
                 </View>
-            ) : (
+            ) : recipes.length >= 1 ? (
                 <View className="mb-6">
                     <FlatList
                         data={recipes}
@@ -432,6 +428,12 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
                         snapToAlignment="start"
                         decelerationRate="fast"
                     />
+                </View>
+            ) : (
+                <View className="py-12 items-center">
+                    <Text className="text-gray-600 mt-3 text-sm">
+                        {tCart('noRecipes')}
+                    </Text>
                 </View>
             )}
         </View>

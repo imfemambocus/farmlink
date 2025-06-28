@@ -97,15 +97,12 @@ class UnifiedOrder(Base):
     farmer_payments = relationship("FarmerPayment", back_populates="order", cascade="all, delete-orphan")
 
     def get_farmer_status(self, farmer_id: int) -> str:
-        """Get status for a specific farmer"""
         return self.farmer_statuses.get(str(farmer_id), {}).get("status", "confirmed")
 
     def get_farmer_delivered_at(self, farmer_id: int) -> str:
-        """Get delivery time for a specific farmer"""
         return self.farmer_statuses.get(str(farmer_id), {}).get("delivered_at")
 
     def update_farmer_status(self, farmer_id: int, status: str, delivered_at: str = None):
-        """Update status for a specific farmer and recalculate overall status"""
         if not self.farmer_statuses:
             self.farmer_statuses = {}
 
@@ -121,7 +118,6 @@ class UnifiedOrder(Base):
         self._update_overall_status()
 
     def _update_overall_status(self):
-        """Calculate overall status based on farmer statuses (worst status wins)"""
         if not self.farmer_statuses:
             self.status = OrderStatusEnum.CONFIRMED
             return

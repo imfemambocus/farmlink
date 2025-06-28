@@ -123,7 +123,6 @@ class UnifiedOrderUpdateRequest(BaseModel):
 
 
 class FarmerStatusUpdateRequest(BaseModel):
-    """Schema specifically for farmer status updates"""
     status: OrderStatusEnum
 
     @validator('status')

@@ -225,7 +225,6 @@ class OrderService:
         return query.order_by(desc(UnifiedOrder.created_at)).all()
 
     def get_farmer_orders(self, farmer_id: int, status: Optional[str] = None) -> List[UnifiedOrder]:
-        """Get orders containing items from a specific farmer"""
         query = (
             self.db.query(UnifiedOrder)
             .join(UnifiedOrderItem)
@@ -287,7 +286,6 @@ class OrderService:
         return order
 
     def update_farmer_status(self, order_id: int, farmer_id: int, new_status: str) -> UnifiedOrder:
-        """Update individual farmer status"""
         order = (
             self.db.query(UnifiedOrder)
             .filter(UnifiedOrder.id == order_id)
@@ -320,34 +318,7 @@ class OrderService:
 
         return order
 
-    def update_order_status(self, order_id: int, user_id: int, new_status: str) -> UnifiedOrder:
-        """Legacy method for admin/system overall status updates"""
-        order = (
-            self.db.query(UnifiedOrder)
-            .filter(UnifiedOrder.id == order_id)
-            .first()
-        )
-
-        if not order:
-            raise ValueError("Order not found")
-
-        old_status = order.status
-        order.status = new_status
-
-        if new_status == "delivered" and not order.delivered_at:
-            order.delivered_at = datetime.utcnow()
-            # Mark payment as successful when delivered
-            if order.payment:
-                order.payment.status = "successful"
-                order.payment.completed_at = datetime.utcnow()
-
-        self.db.commit()
-        self.db.refresh(order)
-
-        return order
-
     def get_farmer_order_summary(self, farmer_id: int) -> Dict:
-        """Get summary of farmer's orders based on their individual statuses"""
         result = {
             'total_orders': 0,
             'confirmed_orders': 0,
@@ -409,7 +380,6 @@ class OrderService:
         return result
 
     def get_farmer_sales_for_period(self, farmer_id: int, period: str) -> Dict:
-        """Get farmer sales count for a specific period based on their individual orders"""
         try:
             now = datetime.now()
 
@@ -455,7 +425,6 @@ class OrderService:
             return {'total_sales': 0}
 
     def get_farmer_revenue_for_period(self, farmer_id: int, period: str) -> Dict:
-        """Get farmer revenue for a specific period"""
         try:
             now = datetime.now()
 
