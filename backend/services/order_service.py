@@ -1,3 +1,4 @@
+import os
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, text
 from models.order import Cart, CartItem, UnifiedOrder, UnifiedOrderItem, OrderStatusEnum, FarmerPayment
@@ -14,6 +15,7 @@ class OrderService:
     def __init__(self, db: Session):
         self.db = db
         self.notification_service = PushNotificationService(db)
+        self.delivery_fee = Decimal(os.getenv("DELIVERY_FEE", "50.0"))
 
     def get_or_create_cart(self, user_id: int) -> Cart:
         cart = self.db.query(Cart).filter(Cart.user_id == user_id).first()
@@ -183,6 +185,8 @@ class OrderService:
             "id": cart.id,
             "farmer_groups": list(farmer_groups.values()),
             "total_amount": total_amount,
+            "delivery_fee": float(self.delivery_fee),
+            "final_amount": float(total_amount + self.delivery_fee),
             "total_items": len(cart.items),
             "created_at": cart.created_at,
             "updated_at": cart.updated_at

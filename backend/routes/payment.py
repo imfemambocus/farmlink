@@ -1,11 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
 from pydantic import BaseModel
-from services.stripe_service import StripePaymentService, handle_stripe_webhook
+from services.stripe_service import StripePaymentService
 from core.security import get_current_user, get_db
 from models.order import UnifiedOrder
-import json
 
 
 router = APIRouter()
@@ -202,20 +201,3 @@ def process_refund(
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-# To set up for Stripe testing
-@router.post("/webhook")
-async def stripe_webhook(
-        request: Request,
-        stripe_signature: str = Header(None, alias="stripe-signature")
-):
-    try:
-        payload = await request.body()
-        event_data = json.loads(payload)
-
-        result = handle_stripe_webhook(event_data, stripe_signature)
-        return result
-
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Webhook error: {str(e)}")

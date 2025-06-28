@@ -204,11 +204,11 @@ EXPO_PROJECT_ID=
 ```bash
 # Stripe Configuration
 STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
 
 # Platform Configuration
 # 10% commission for Farmlink
-PLATFORM_FEE_PERCENTAGE=10.0
+PLATFORM_FEE_PERCENTAGE=2.5
+DELIVERY_FEE=75.0
 
 # Force Seed DB When Deploying
 FORCE_SEED=

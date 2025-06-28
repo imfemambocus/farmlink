@@ -409,12 +409,12 @@ def create_farmer_products(db: Session, farmer_id: int, farmer_name: str):
     print(f"  📊 Created {products_created} products with {total_units_created} total unit variations for {farmer_name}")
 
 
-def create_sample_orders_and_notifications(db: Session, individual_id: int, business_id: int, farmer_id: int):
+def create_sample_orders(db: Session, individual_id: int, business_id: int, farmer_id: int):
     print("\n📦 Creating sample orders and notifications...")
 
     # Create an order for individual user
     order1 = UnifiedOrder(
-        order_number=f"ORD-{datetime.now().strftime('%Y%m%d')}-001",
+        order_number="FL-B4M2NC",
         customer_id=individual_id,
         status=OrderStatusEnum.DELIVERED,
         total_amount=1250.50,
@@ -486,47 +486,9 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
     )
     db.add(farmer_payment1)
 
-    # Create notifications for farmer (order received)
-    notification1 = Notification(
-        user_id=farmer_id,
-        order_id=order1.id,
-        type=NotificationTypeEnum.ORDER_CREATED,
-        title="New Order Received!",
-        message=f"Order {order1.order_number} - 2 items, Rs 1250.50",
-        data=json.dumps({
-            "order_number": order1.order_number,
-            "item_count": 2,
-            "amount": 1250.50
-        }),
-        is_read=True,
-        is_sent=True,
-        sent_at=datetime.now() - timedelta(days=3),
-        created_at=datetime.now() - timedelta(days=3)
-    )
-    db.add(notification1)
-
-    # Create notification for customer (order delivered)
-    notification2 = Notification(
-        user_id=individual_id,
-        order_id=order1.id,
-        farmer_id=farmer_id,
-        type=NotificationTypeEnum.ORDER_DELIVERED,
-        title="Order Delivered!",
-        message="Your order has been successfully delivered",
-        data=json.dumps({
-            "order_number": order1.order_number,
-            "farmer_name": "Kumar Seebaluck"
-        }),
-        is_read=False,
-        is_sent=True,
-        sent_at=datetime.now() - timedelta(days=1),
-        created_at=datetime.now() - timedelta(days=1)
-    )
-    db.add(notification2)
-
     # Create a business order
     order2 = UnifiedOrder(
-        order_number=f"ORD-{datetime.now().strftime('%Y%m%d')}-002",
+        order_number="FL-A3K9PZ",
         customer_id=business_id,
         status=OrderStatusEnum.PROCESSING,
         total_amount=5850.00,
@@ -599,7 +561,7 @@ def create_sample_orders_and_notifications(db: Session, individual_id: int, busi
 
 def seed_database():
     print("=" * 60)
-    print("🏝️ Starting FarmLink Mauritius Testing Database Setup...")
+    print("🏝️ Starting Farmlink Testing Database Setup...")
     print("=" * 60)
 
     # Create database session
@@ -614,7 +576,7 @@ def seed_database():
         # Create additional users
         additional_farmer_ids = create_additional_users(db)
 
-        print(f"\n🥕 Creating ALL products with multiple units for main farmer (ID: {farmer_id})...")
+        print(f"\n🥕 Creating ALL products for main farmer (ID: {farmer_id})...")
         create_all_products(db, farmer_id)
 
         print(f"\n🌱 Creating products for additional farmers...")
@@ -623,11 +585,11 @@ def seed_database():
             create_farmer_products(db, add_farmer_id, farmer_names[i])
 
         # Create sample orders and notifications for main users
-        create_sample_orders_and_notifications(db, individual_id, business_id, farmer_id)
+        create_sample_orders(db, individual_id, business_id, farmer_id)
 
         db.commit()
         print("\n" + "=" * 60)
-        print("✅ Mauritius Testing Database Setup Completed!")
+        print("✅ Testing Database Setup Completed!")
         print("=" * 60)
         print(f"🔑 Password for all users: {DEFAULT_PASSWORD}")
         print("=" * 60)
@@ -642,7 +604,7 @@ def seed_database():
         print("  🚜 Farmer: roshan@test.com, nisha@test.com, ibrahim@test.com, kavitha@test.com")
         print("=" * 60)
         print("🎯 Ready for Testing!")
-        print("📊 Products now have 1-5 random units each with consistent pricing!")
+        print("=" * 60)
 
     except Exception as e:
         print(f"\n❌ Error during seeding: {e}")

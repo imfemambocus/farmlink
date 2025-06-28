@@ -1,12 +1,12 @@
+import shortuuid
 import stripe
 from sqlalchemy.orm import Session
 from models.order import UnifiedOrder, UnifiedOrderItem, UnifiedPayment, FarmerPayment, PaymentMethodEnum, PaymentStatusEnum
 from models.product import ProductUnitPrice
 from models.user import User
-from models.order import Cart, CartItem
-from typing import Dict, List, Optional
+from models.order import CartItem
+from typing import Dict, Optional
 from decimal import Decimal
-import uuid
 from datetime import datetime
 import os
 import json
@@ -19,7 +19,8 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_51RbVKCR2koWNU5mYSnmPAf
 class StripePaymentService:
     def __init__(self, db: Session):
         self.db = db
-        self.platform_fee_percentage = os.getenv("PLATFORM_FEE_PERCENTAGE", 10.0)  # Commission for Farmlink
+        self.platform_fee_percentage = float(os.getenv("PLATFORM_FEE_PERCENTAGE", "2.5"))
+        self.delivery_fee = Decimal(os.getenv("DELIVERY_FEE", "75.0"))
         self.notification_service = PushNotificationService(db)
 
 
@@ -27,7 +28,6 @@ class StripePaymentService:
             self,
             user_id: int,
             cart_id: int,
-            delivery_info: Dict,
             amount_cents: int
     ) -> Dict:
         # Create Stripe payment intent for the cart
@@ -49,19 +49,6 @@ class StripePaymentService:
                     'platform': 'farmlink_mobile'
                 },
                 description=f"Farmlink Order - {len(cart.get('farmer_groups', []))} farmers, {cart.get('total_items', 0)} items"
-            )
-
-            # Store payment intent info temporarily in the database (Can use Redis later)
-            temp_payment = UnifiedPayment(
-                order_id=0,
-                payment_method=PaymentMethodEnum.STRIPE_CARD,
-                amount=Decimal(str(amount_cents / 100)),
-                stripe_payment_intent_id=payment_intent.id,
-                gateway_response=json.dumps({
-                    'payment_intent_id': payment_intent.id,
-                    'client_secret': payment_intent.client_secret,
-                    'status': payment_intent.status
-                })
             )
 
             return {
@@ -100,11 +87,12 @@ class StripePaymentService:
             customer_name, customer_phone = self.get_customer_info(user)
 
             # Generate order number
-            order_number = f"FL-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
+            shortuuid.set_alphabet("23456789ABCDEFGHJKLMNPQRSTUVWXYZ")
+            order_number = f"FL-{shortuuid.random(length=6)}"
 
             # Calculate totals
             total_amount = sum(Decimal(str(group['subtotal'])) for group in cart.get('farmer_groups', []))
-            delivery_fee = Decimal('50.00') # Need to change to a more dynamic approach later
+            delivery_fee = self.delivery_fee
             final_amount = total_amount + delivery_fee
 
             # Create unified order
@@ -325,30 +313,3 @@ class StripePaymentService:
         except Exception as e:
             self.db.rollback()
             raise Exception(f"Failed to process refund: {str(e)}")
-
-
-# Webhook handler for Stripe events to be used later for testing
-def handle_stripe_webhook(event_data: Dict, signature: str) -> Dict:
-    try:
-        # Verify webhook signature
-        endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
-        if endpoint_secret:
-            stripe.Webhook.construct_event(
-                event_data, signature, endpoint_secret
-            )
-
-        event_type = event_data['type']
-
-        if event_type == 'payment_intent.succeeded':
-            payment_intent = event_data['data']['object']
-            print(f"Payment succeeded: {payment_intent['id']}")
-
-        elif event_type == 'payment_intent.payment_failed':
-            payment_intent = event_data['data']['object']
-            print(f"Payment failed: {payment_intent['id']}")
-
-        return {'status': 'success'}
-
-    except Exception as e:
-        print(f"Webhook error: {str(e)}")
-        return {'status': 'error', 'message': str(e)}
