@@ -30,7 +30,7 @@ export default function RootLayout() {
 
     return (
         <>
-            <StatusBar style="dark" />
+            <StatusBar translucent style="dark" />
             <LanguageProvider>
                 <AuthProvider>
                     <CartProvider>

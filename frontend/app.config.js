@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 export default {
   expo: {
     name: "Farmlink",
@@ -17,9 +19,6 @@ export default {
         NSMicrophoneUsageDescription: "Farmlink needs microphone access for voice commands to search products and add items to cart",
         NSSpeechRecognitionUsageDescription: "Farmlink uses speech recognition to process your voice commands for easier shopping"
       }
-    },
-    androidNavigationBar: {
-      visible: "immersive"
     },
     android: {
       package: "com.imfestudio.farmlink",
@@ -107,7 +106,9 @@ export default {
       },
       STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY || "pk_test_51RbVKCR2koWNU5mYXZLTBS8F2QFV6BNavZXTeL8vi2W84bBMncWqogZCYDdOKZxsLF3sqkOqytjofCnFzk3DTCB100zbpCFyuk",
       MERCHANT_IDENTIFIER: process.env.MERCHANT_IDENTIFIER || "",
-      API_BASE_URL: process.env.API_BASE_URL || "https://farmlink-bmiy.onrender.com",
+      API_ENV: process.env.API_ENV,
+      API_BASE_URL_LOCAL: process.env.API_BASE_URL_LOCAL,
+      API_BASE_URL_REMOTE: process.env.API_BASE_URL_REMOTE,
     },
     owner: "imfestudio",
   },

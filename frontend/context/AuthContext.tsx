@@ -22,7 +22,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const token = res.data.access_token;
 
             await AsyncStorage.setItem('token', token);
-            console.log('Token saved to AsyncStorage');
 
             const profileRes = await api.get<User>('/auth/profile', {
                 headers: {

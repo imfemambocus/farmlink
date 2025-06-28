@@ -194,7 +194,10 @@ Both frontend and backend have `.env.example` files with all required variables.
 
 **Frontend (.env.example):**
 ```bash
-API_BASE_URL=
+# API_ENV options: local | remote
+API_ENV=
+API_BASE_URL_LOCAL=
+API_BASE_URL_REMOTE=
 STRIPE_PUBLISHABLE_KEY=
 MERCHANT_IDENTIFIER=
 EXPO_PROJECT_ID=
