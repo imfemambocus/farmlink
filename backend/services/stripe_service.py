@@ -51,6 +51,19 @@ class StripePaymentService:
                 description=f"Farmlink Order - {len(cart.get('farmer_groups', []))} farmers, {cart.get('total_items', 0)} items"
             )
 
+            # Store payment intent info temporarily in the database (Can use Redis later)
+            temp_payment = UnifiedPayment(
+                order_id=0,
+                payment_method=PaymentMethodEnum.STRIPE_CARD,
+                amount = Decimal(str(amount_cents / 100)),
+                stripe_payment_intent_id = payment_intent.id,
+                gateway_response = json.dumps({
+                    'payment_intent_id': payment_intent.id,
+                    'client_secret': payment_intent.client_secret,
+                    'status': payment_intent.status
+                })
+            )
+
             return {
                 'client_secret': payment_intent.client_secret,
                 'payment_intent_id': payment_intent.id

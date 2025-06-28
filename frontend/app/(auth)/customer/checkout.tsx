@@ -557,7 +557,7 @@ function CheckoutScreen() {
                 showsVerticalScrollIndicator={false}
                 enableOnAndroid={true}
                 enableAutomaticScroll={true}
-                extraScrollHeight={150}
+                extraScrollHeight={200}
                 keyboardShouldPersistTaps="handled"
                 scrollEventThrottle={10}
                 enableResetScrollToCoords={false}

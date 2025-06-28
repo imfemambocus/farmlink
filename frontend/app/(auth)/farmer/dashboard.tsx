@@ -508,7 +508,7 @@ export default function FarmerDashboard() {
             >
                 <View className="px-5 pt-6 pb-4">
                     <Text className="text-xl font-semibold text-black mb-2">
-                        {tDashboard('welcomeBack')}, {user?.farmer_profile?.first_name.toLowerCase()}!
+                        {tDashboard('welcomeBack')}, {user?.farmer_profile?.first_name}!
                     </Text>
                     <Text className="text-base text-gray-600">
                         {tDashboard('farmPerformance')}
