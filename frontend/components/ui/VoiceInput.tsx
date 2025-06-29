@@ -6,7 +6,7 @@ import {
     Modal,
     ActivityIndicator,
     Animated,
-    Dimensions,
+    Alert,
     ViewStyle
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,6 +59,8 @@ export default function VoiceInput({
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [pulseAnim] = useState(new Animated.Value(1));
     const [waveAnim] = useState(new Animated.Value(0));
+    const [isCheckingVoice, setIsCheckingVoice] = useState(false);
+    const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null);
     const [alert, setAlert] = useState<AlertState>({
         visible: false,
         type: 'info',
@@ -91,10 +93,35 @@ export default function VoiceInput({
     };
 
     useEffect(() => {
+        // Test voice availability on component mount
+        checkVoiceAvailability();
+
         return () => {
             VoiceInputService.cleanup();
         };
     }, []);
+
+    const checkVoiceAvailability = async () => {
+        try {
+            setIsCheckingVoice(true);
+            console.log('🔍 Checking voice availability...');
+
+            const hasPermission = await VoiceInputService.checkAndRequestPermissions();
+            setVoiceAvailable(hasPermission);
+
+            if (!hasPermission) {
+                const reason = VoiceInputService.getVoiceUnavailableReason();
+                console.log('❌ Voice unavailable:', reason);
+            } else {
+                console.log('✅ Voice is available and ready');
+            }
+        } catch (error) {
+            console.error('🔍 Voice availability check failed:', error);
+            setVoiceAvailable(false);
+        } finally {
+            setIsCheckingVoice(false);
+        }
+    };
 
     useEffect(() => {
         if (isListening) {
@@ -140,24 +167,48 @@ export default function VoiceInput({
     };
 
     const handleVoicePress = async () => {
-        if (disabled) return;
+        if (disabled || isCheckingVoice) return;
 
+        // If we haven't checked voice availability yet, do it now
+        if (voiceAvailable === null) {
+            await checkVoiceAvailability();
+            return;
+        }
+
+        // If voice is not available, show appropriate message
+        if (!voiceAvailable) {
+            showVoiceUnavailableAlert();
+            return;
+        }
+
+        // Voice is available, proceed with voice input
+        await initializeVoiceInput();
+    };
+
+    const showVoiceUnavailableAlert = () => {
+        const reason = VoiceInputService.getVoiceUnavailableReason();
+        const isLinkingIssue = !VoiceInputService.isVoiceLinked();
+
+        Alert.alert(
+            isLinkingIssue ? 'Voice Feature Needs Update' : 'Voice Feature Unavailable',
+            reason + ' You can still browse and add products manually.',
+            [
+                {
+                    text: 'Browse Products',
+                    onPress: () => {
+                        router.push('/(auth)/customer/products');
+                    }
+                },
+                {
+                    text: 'OK',
+                    style: 'default'
+                }
+            ]
+        );
+    };
+
+    const initializeVoiceInput = async () => {
         try {
-            const hasPermission = await VoiceInputService.checkPermissions();
-            if (!hasPermission) {
-                showAlert(
-                    'warning',
-                    tVoice('microphonePermission'),
-                    tVoice('enableMicrophone'),
-                    [{
-                        text: t('common.ok'),
-                        style: 'default',
-                        onPress: hideAlert
-                    }]
-                );
-                return;
-            }
-
             setIsVisible(true);
             setIsListening(false);
             setIsProcessing(false);
@@ -167,7 +218,7 @@ export default function VoiceInput({
 
             await startVoiceRecognition();
         } catch (error) {
-            console.error(tVoice('voiceError'), error);
+            console.error('🎤 Error initializing voice input:', error);
             setIsVisible(false);
             onError?.(tVoice('failedToStart'));
         }
@@ -178,6 +229,7 @@ export default function VoiceInput({
             setIsListening(true);
             await VoiceInputService.startListening();
 
+            // Auto-stop after 10 seconds
             setTimeout(async () => {
                 if (isListening) {
                     await stopVoiceRecognition();
@@ -269,27 +321,50 @@ export default function VoiceInput({
         return null;
     }
 
+    // Determine button appearance based on voice status
+    const getButtonStyle = () => {
+        if (voiceAvailable === null || isCheckingVoice) {
+            return { backgroundColor: '#F0F0F0' }; // Gray while checking
+        }
+        if (voiceAvailable === false) {
+            return { backgroundColor: '#FFE6E6' }; // Light red if unavailable
+        }
+        return { backgroundColor: '#EAF3D0' }; // Green if available
+    };
+
+    const getIconColor = () => {
+        if (disabled) return "red";
+        if (voiceAvailable === false) return "#FF6B6B";
+        if (voiceAvailable === null || isCheckingVoice) return "#999999";
+        return iconColor;
+    };
+
     return (
         <>
             <TouchableOpacity
                 onPress={handleVoicePress}
-                disabled={disabled}
+                disabled={disabled || isCheckingVoice}
                 style={style || {
                     width: 48,
                     height: 48,
                     borderRadius: 24,
-                    backgroundColor: '#EAF3D0',
+                    ...getButtonStyle(),
                     justifyContent: 'center',
-                    alignItems: 'center'
+                    alignItems: 'center',
+                    opacity: (disabled || isCheckingVoice) ? 0.6 : 1
                 }}
                 activeOpacity={0.7}
                 className="shadow-lg elevation-8"
             >
-                <Ionicons
-                    name="mic"
-                    size={iconSize}
-                    color={disabled ? "red" : iconColor}
-                />
+                {isCheckingVoice ? (
+                    <ActivityIndicator size="small" color="#999999" />
+                ) : (
+                    <Ionicons
+                        name="mic"
+                        size={iconSize}
+                        color={getIconColor()}
+                    />
+                )}
             </TouchableOpacity>
 
             <Modal

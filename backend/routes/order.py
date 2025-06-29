@@ -4,12 +4,12 @@ from typing import List, Optional
 from models.user import FarmerProfile, User
 from schemas.order import (
     CartItemCreate, CartItemUpdate, CartItemResponse, CartResponse,
-    UnifiedOrderResponse, UnifiedOrderListItem, UnifiedOrderUpdateRequest,
+    UnifiedOrderResponse, UnifiedOrderListItem,
     FarmerOrderSummary, FarmerStatusUpdateRequest
 )
 from services.order_service import OrderService
 from core.security import get_current_user, get_db
-from models.order import OrderStatusEnum, UnifiedOrder, UnifiedOrderItem, FarmerPayment
+from models.order import OrderStatusEnum, UnifiedOrder, UnifiedOrderItem
 
 router = APIRouter()
 

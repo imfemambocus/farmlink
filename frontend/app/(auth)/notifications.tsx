@@ -147,7 +147,7 @@ export default function NotificationsScreen() {
                         <Text className={`text-base font-medium ${
                             !notification.is_read ? 'text-black' : 'text-gray-700'
                         }`}>
-                            {notification.title.toLowerCase()}
+                            {notification.title}
                         </Text>
                         {!notification.is_read && (
                             <View className="w-2 h-2 bg-blue-500 rounded-full ml-2" />
@@ -157,12 +157,12 @@ export default function NotificationsScreen() {
                     <Text className={`text-sm mb-2 ${
                         !notification.is_read ? 'text-gray-700' : 'text-gray-600'
                     }`}>
-                        {notification.message.toLowerCase()}
+                        {notification.message}
                     </Text>
 
                     {notification.farmer_name && (
                         <Text className="text-xs text-gray-500 mb-1">
-                            {tNotifications('from')} {notification.farmer_name.toLowerCase()}
+                            {tNotifications('from')} {notification.farmer_name}
                         </Text>
                     )}
 

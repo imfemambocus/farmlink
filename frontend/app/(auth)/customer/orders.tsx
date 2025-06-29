@@ -457,7 +457,7 @@ export default function OrdersScreen() {
                                                 </View>
                                             </View>
 
-                                            <View className="bg-white border border-gray-100 rounded-lg p-3">
+                                            <View className="bg-white border border-gray-100 rounded-lg p-3 mb-6">
                                                 {farmerGroup.items.map(renderOrderItem)}
                                             </View>
                                         </View>
