@@ -113,6 +113,7 @@ class UnifiedOrderListItem(BaseModel):
     farmer_count: Optional[int] = None
     item_count: int
     created_at: datetime
+    farmer_payment: Optional[dict] = None
 
     class Config:
         from_attributes = True

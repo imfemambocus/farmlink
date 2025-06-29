@@ -44,9 +44,8 @@ export default {
       favicon: "./assets/images/logo.png",
     },
     notification: {
-      icon: "./assets/images/logo.png",
-      // color: "#4CAF50",
-      // sounds: ["./assets/notification.wav"]
+      icon: "./assets/icons/notification.png",
+      sounds: ["./assets/sounds/notification.mp3"]
     },
     plugins: [
       "expo-router",
@@ -64,9 +63,8 @@ export default {
       [
         "expo-notifications",
         {
-          icon: "./assets/images/logo.png",
-          // color: "#4CAF50",
-          // sounds: ["./assets/notification.wav"],
+          icon: "./assets/icons/notification.png",
+          sounds: ["./assets/sounds/notification.mp3"],
           mode: "development", // or "production"
         }
       ],

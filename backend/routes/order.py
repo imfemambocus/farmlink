@@ -112,25 +112,39 @@ def get_my_orders(
     result = []
     for order in orders:
         if current_user.role == 'farmer':
-            # For farmer view - show their individual status and calculate their portion
+            # Get farmer payment data
+            farmer_payment = next(
+                (fp for fp in order.farmer_payments if fp.farmer_id == current_user.id),
+                None
+            )
+
             farmer_items = [item for item in order.items if item.farmer_id == current_user.id]
             farmer_status = order.get_farmer_status(current_user.id)
 
-            result.append(UnifiedOrderListItem(
+            order_data = UnifiedOrderListItem(
                 id=order.id,
                 order_number=order.order_number,
-                status=OrderStatusEnum(farmer_status),  # Individual farmer status
+                status=OrderStatusEnum(farmer_status),
                 final_amount=sum(item.total_price for item in farmer_items),
                 item_count=len(farmer_items),
                 created_at=order.created_at
-            ))
+            )
+
+            if farmer_payment:
+                order_data.farmer_payment = {
+                    "gross_amount": float(farmer_payment.gross_amount),
+                    "platform_fee": float(farmer_payment.platform_fee),
+                    "net_amount": float(farmer_payment.net_amount),
+                    "platform_fee_percentage": farmer_payment.platform_fee_percentage
+                }
+
+            result.append(order_data)
         else:
-            # For customer view - show overall status and all farmers
             farmer_ids = set(item.farmer_id for item in order.items)
             result.append(UnifiedOrderListItem(
                 id=order.id,
                 order_number=order.order_number,
-                status=order.status,  # Overall order status
+                status=order.status,
                 final_amount=order.final_amount,
                 farmer_count=len(farmer_ids),
                 item_count=len(order.items),
@@ -310,35 +324,6 @@ def update_farmer_status(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/{order_id}/farmer-payment")
-def get_farmer_payment_details(
-        order_id: int,
-        current_user=Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    if current_user.role != 'farmer':
-        raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
-
-    farmer_payment = (
-        db.query(FarmerPayment)
-        .filter(
-            FarmerPayment.order_id == order_id,
-            FarmerPayment.farmer_id == current_user.id
-        )
-        .first()
-    )
-
-    if not farmer_payment:
-        raise HTTPException(status_code=404, detail="Payment details not found")
-
-    return {
-        "gross_amount": float(farmer_payment.gross_amount),
-        "platform_fee": float(farmer_payment.platform_fee),
-        "net_amount": float(farmer_payment.net_amount),
-        "platform_fee_percentage": farmer_payment.platform_fee_percentage
-    }
 
 
 @router.get("/farmer/orders/summary", response_model=FarmerOrderSummary)

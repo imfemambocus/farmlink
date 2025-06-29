@@ -34,6 +34,13 @@ interface OrderItem {
     created_at: string;
 }
 
+interface FarmerPayment {
+    gross_amount: number;
+    platform_fee: number;
+    net_amount: number;
+    platform_fee_percentage: number;
+}
+
 interface Order {
     id: number;
     order_number: string;
@@ -41,13 +48,7 @@ interface Order {
     final_amount: number;
     item_count: number;
     created_at: string;
-}
-
-interface FarmerPayment {
-    gross_amount: number;
-    platform_fee: number;
-    net_amount: number;
-    platform_fee_percentage: number;
+    farmer_payment?: FarmerPayment;
 }
 
 interface OrderDetails {
@@ -144,7 +145,6 @@ export default function FarmerOrdersScreen() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            // Orders now come with individual farmer status, so sort accordingly
             const sortedOrders = response.data.sort((a: Order, b: Order) => {
                 if (a.status === 'delivered' && b.status !== 'delivered') return 1;
                 if (a.status !== 'delivered' && b.status === 'delivered') return -1;
@@ -177,15 +177,13 @@ export default function FarmerOrdersScreen() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            const paymentResponse = await api.get(`/orders/${orderId}/farmer-payment`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const orderFromList = orders.find(order => order.id === orderId);
 
             setOrderDetails(prev => ({
                 ...prev,
                 [orderId]: {
                     ...orderResponse.data,
-                    farmer_payment: paymentResponse.data
+                    farmer_payment: orderFromList?.farmer_payment || orderResponse.data.farmer_payment
                 }
             }));
         } catch (error: any) {
@@ -226,7 +224,7 @@ export default function FarmerOrdersScreen() {
                 { headers: { Authorization: `Bearer ${token}` }}
             );
 
-            // Update the order list to show new farmer status
+            // Update the order status in the list
             setOrders(prev => prev.map(order =>
                 order.id === orderId ? { ...order, status: newStatus } : order
             ));
@@ -474,7 +472,7 @@ export default function FarmerOrdersScreen() {
                                 </Text>
                             </View>
                             <Text className="text-lg font-bold text-black">
-                                {t('units.rs')} {formatPrice(order.final_amount)}
+                                {t('units.rs')} {formatPrice(order.farmer_payment?.net_amount || order.final_amount)}
                             </Text>
                         </View>
                     </View>
@@ -547,20 +545,24 @@ export default function FarmerOrdersScreen() {
                                     </View>
                                 )}
 
-                                <View className="bg-gray-50 rounded-lg p-3">
-                                    <View className="flex-row justify-between items-center mb-2 border-gray-200">
-                                        <Text className="text-sm font-medium text-black">{tOrders('orderTotal')}</Text>
-                                        <Text className="text-sm font-medium text-black">{t('units.rs')} {formatPrice(details.final_amount)}</Text>
+                                {details.farmer_payment && (
+                                    <View className="bg-gray-50 rounded-lg p-3">
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <Text className="text-sm font-medium text-black">{tOrders('orderTotal')}</Text>
+                                            <Text className="text-sm font-medium text-black">{t('units.rs')} {formatPrice(details.farmer_payment.gross_amount)}</Text>
+                                        </View>
+                                        <View className="flex-row justify-between items-center mb-2">
+                                            <Text className="text-sm text-gray-600">
+                                                {tOrders('platformFee')} ({details.farmer_payment.platform_fee_percentage}%)
+                                            </Text>
+                                            <Text className="text-sm text-red-600">- {t('units.rs')} {formatPrice(details.farmer_payment.platform_fee)}</Text>
+                                        </View>
+                                        <View className="flex-row justify-between items-center pt-2 border-t border-gray-300">
+                                            <Text className="text-base font-semibold text-black">{tOrders('yourEarnings')}</Text>
+                                            <Text className="text-base font-bold text-green-600">{t('units.rs')} {formatPrice(details.farmer_payment.net_amount)}</Text>
+                                        </View>
                                     </View>
-                                    <View className="flex-row justify-between items-center mb-2">
-                                        <Text className="text-sm text-gray-600">{tOrders('platformFee')}</Text>
-                                        <Text className="text-sm text-red-600">- {t('units.rs')} {formatPrice(details.final_amount)}</Text>
-                                    </View>
-                                    <View className="flex-row justify-between items-center pt-2 border-t border-gray-300">
-                                        <Text className="text-base font-semibold text-black">{tOrders('yourEarnings')}</Text>
-                                        <Text className="text-base font-bold text-green-600">{t('units.rs')} {formatPrice(details.final_amount)}</Text>
-                                    </View>
-                                </View>
+                                )}
                             </View>
                         ) : (
                             <View className="p-4">

@@ -120,8 +120,8 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                     name: 'Default',
                     importance: Notifications.AndroidImportance.MAX,
                     vibrationPattern: [0, 250, 250, 250],
-                    lightColor: '#4CAF50',
-                    sound: 'default',
+                    lightColor: '#F2FBE0',
+                    sound: './assets/sounds/notification.mp3',
                     enableVibrate: true,
                     showBadge: true,
                 });
@@ -131,7 +131,8 @@ export const NotificationProvider = ({ children }: NotificationProviderProps) =>
                     name: 'Order Updates',
                     importance: Notifications.AndroidImportance.HIGH,
                     vibrationPattern: [0, 250, 250, 250],
-                    lightColor: '#4CAF50',
+                    lightColor: '#F2FBE0',
+                    sound: './assets/sounds/notification.mp3',
                 });
             }
 

@@ -297,7 +297,7 @@ export default function CartScreen() {
         const productImage = getProductImage(item.product_name || '');
 
         return (
-            <View key={item.id} className="p-4 border-b border-gray-100 last:border-b-0">
+            <View key={item.id} className="py-4 px-2 border-b border-gray-100 last:border-b-0">
                 <View className="flex-row items-center">
                     <View
                         className="w-16 h-16 rounded-lg items-center justify-center mr-3"
@@ -313,14 +313,23 @@ export default function CartScreen() {
                         />
                     </View>
 
-                    <View className="flex-1">
-                        <Text className="text-base font-medium text-black mb-1">
+                    {/* Product name and unit price */}
+                    <View className="flex-1 mr-4">
+                        <Text
+                            className="text-base font-medium text-black mb-1"
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                        >
                             {item.product_name.toLowerCase() || tCart('unknownProduct')}
+                        </Text>
+                        <Text className="text-[0.5rem] text-gray-500">
+                            rs {formatPrice(item.unit_price_snapshot)} {tCart('perUnit', { unit: item.unit_name || 'unit' })}
                         </Text>
                     </View>
 
-                    <View className="items-center mr-4">
-                        <View className="flex-row items-center bg-gray-100 rounded-lg mb-1">
+                    {/* Quantity controls */}
+                    <View className="items-center w-20 mr-6">
+                        <View className="flex-row items-center bg-gray-100 rounded-lg">
                             <TouchableOpacity
                                 onPress={() => adjustQuantity(item, -1)}
                                 className="w-8 h-10 bg-background rounded items-center justify-center"
@@ -357,15 +366,16 @@ export default function CartScreen() {
                                 />
                             </TouchableOpacity>
                         </View>
-                        <Text className="text-xs text-gray-500 text-center">
-                            rs {formatPrice(item.unit_price_snapshot)} {tCart('perUnit', { unit: item.unit_name || 'unit' })}
+                    </View>
+
+                    {/* Total price */}
+                    <View className="w-16 items-end mr-2">
+                        <Text className="text-xs font-semibold text-black text-right">
+                            rs {formatPrice(item.total_price)}
                         </Text>
                     </View>
 
-                    <Text className="text-xs font-semibold text-black mr-2">
-                        rs {formatPrice(item.total_price)}
-                    </Text>
-
+                    {/* Delete button */}
                     <TouchableOpacity
                         onPress={() => removeItem(item.id)}
                         className="p-2"
