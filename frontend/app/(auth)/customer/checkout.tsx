@@ -179,19 +179,37 @@ function CheckoutScreen() {
     const createPaymentIntent = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await api.post('/payment/create-payment-intent', {
+
+            const payload = {
                 amount: Math.round(cart!.total_amount * 100),
-                currency: 'lkr',
+                currency: 'mur',
                 cart_id: cart!.id,
                 delivery_info: deliveryInfo
-            }, {
+            };
+
+            console.log('Creating payment intent with payload:', payload);
+
+            const response = await api.post('/payment/create-payment-intent', payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
+            console.log('Payment intent created successfully:', response.data);
             return response.data.client_secret;
         } catch (error: any) {
             console.error('Error creating payment intent:', error);
-            throw new Error(tCheckout('failedCreatePayment'));
+
+            // More detailed error logging
+            if (error.response) {
+                console.error('Response data:', error.response.data);
+                console.error('Response status:', error.response.status);
+                console.error('Response headers:', error.response.headers);
+            } else if (error.request) {
+                console.error('Request error:', error.request);
+            } else {
+                console.error('Error message:', error.message);
+            }
+
+            throw new Error(error.response?.data?.detail || tCheckout('failedCreatePayment'));
         }
     };
 
