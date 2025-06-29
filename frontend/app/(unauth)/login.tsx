@@ -4,7 +4,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    Alert,
     ActivityIndicator,
     ScrollView
 } from 'react-native';
@@ -12,10 +11,23 @@ import { AuthContext } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/ui/Header';
+import CustomAlert from '@/components/ui/CustomAlert';
 import { useTranslation } from '@/context/LanguageContext';
 
 interface FormErrors {
     [key: string]: string;
+}
+
+interface AlertState {
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons: Array<{
+        text: string;
+        onPress: () => void;
+        style?: 'default' | 'cancel' | 'destructive';
+    }>;
 }
 
 export default function Login() {
@@ -24,10 +36,40 @@ export default function Login() {
     const [errors, setErrors] = useState<FormErrors>({});
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [alert, setAlert] = useState<AlertState>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+        buttons: []
+    });
 
     const { login } = useContext(AuthContext);
     const router = useRouter();
     const { t, tAuth, tValidation, tCommon, getErrorMessage } = useTranslation();
+
+    const showAlert = (
+        type: 'success' | 'error' | 'warning' | 'info',
+        title: string,
+        message: string,
+        buttons: Array<{
+            text: string;
+            onPress: () => void;
+            style?: 'default' | 'cancel' | 'destructive';
+        }>
+    ) => {
+        setAlert({
+            visible: true,
+            type,
+            title,
+            message,
+            buttons
+        });
+    };
+
+    const hideAlert = () => {
+        setAlert(prev => ({ ...prev, visible: false }));
+    };
 
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {};
@@ -57,10 +99,15 @@ export default function Login() {
         try {
             await login(email, password);
         } catch (err: any) {
-            Alert.alert(
+            showAlert(
+                'error',
                 tAuth('loginFailed'),
                 getErrorMessage(err),
-                [{ text: tCommon('ok'), style: 'default' }]
+                [{
+                    text: tCommon('ok'),
+                    style: 'default',
+                    onPress: hideAlert
+                }]
             );
         } finally {
             setLoading(false);
@@ -222,6 +269,15 @@ export default function Login() {
                     </View>
                 </View>
             </ScrollView>
+
+            <CustomAlert
+                visible={alert.visible}
+                type={alert.type}
+                title={alert.title}
+                message={alert.message}
+                buttons={alert.buttons}
+                onClose={hideAlert}
+            />
         </View>
     );
 }

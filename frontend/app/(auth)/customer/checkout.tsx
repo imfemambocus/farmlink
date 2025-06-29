@@ -4,7 +4,6 @@ import {
     Text,
     TouchableOpacity,
     ActivityIndicator,
-    Alert,
     TextInput,
     Platform
 } from 'react-native';
@@ -14,6 +13,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
+import CustomAlert from '@/components/ui/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/api';
@@ -50,6 +50,18 @@ interface DeliveryInfo {
     notes: string;
 }
 
+interface AlertState {
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons: Array<{
+        text: string;
+        onPress: () => void;
+        style?: 'default' | 'cancel' | 'destructive';
+    }>;
+}
+
 export default function CheckoutScreenWrapper() {
     return (
         <StripeProvider
@@ -65,7 +77,7 @@ function CheckoutScreen() {
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
-    const { tCheckout } = useTranslation();
+    const { tCheckout, tOrders } = useTranslation();
     const { confirmPayment, createPaymentMethod, initPaymentSheet, presentPaymentSheet } = useStripe();
 
     const [cart, setCart] = useState<Cart | null>(null);
@@ -73,6 +85,13 @@ function CheckoutScreen() {
     const [processing, setProcessing] = useState(false);
     const [paymentMethodType, setPaymentMethodType] = useState<'card' | 'payment_sheet'>('card');
     const [paymentSheetEnabled, setPaymentSheetEnabled] = useState(false);
+    const [alert, setAlert] = useState<AlertState>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+        buttons: []
+    });
 
     const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo>({
         full_name: '',
@@ -84,6 +103,29 @@ function CheckoutScreen() {
 
     const [cardComplete, setCardComplete] = useState(false);
     const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+    const showAlert = (
+        type: 'success' | 'error' | 'warning' | 'info',
+        title: string,
+        message: string,
+        buttons: Array<{
+            text: string;
+            onPress: () => void;
+            style?: 'default' | 'cancel' | 'destructive';
+        }>
+    ) => {
+        setAlert({
+            visible: true,
+            type,
+            title,
+            message,
+            buttons
+        });
+    };
+
+    const hideAlert = () => {
+        setAlert(prev => ({ ...prev, visible: false }));
+    };
 
     useEffect(() => {
         if (user?.role !== 'individual' && user?.role !== 'business') {
@@ -135,22 +177,43 @@ function CheckoutScreen() {
                         total_price: Number(item.total_price) || 0
                     }))
                 })),
-                total_amount: Number(cartData.total_amount) || 0,
+                total_amount: Number(cartData.total_amount) + 75 || 0, // Hardcoded delivery fee 75
                 total_items: Number(cartData.total_items) || 0
             };
 
             if (!processedCart.farmer_groups || processedCart.farmer_groups.length === 0) {
-                Alert.alert(tCheckout('emptyCart'), tCheckout('cartIsEmpty'), [
-                    { text: 'OK', onPress: () => router.back() }
-                ]);
+                showAlert(
+                    'warning',
+                    tCheckout('emptyCart'),
+                    tCheckout('cartIsEmpty'),
+                    [{
+                        text: 'OK',
+                        style: 'default',
+                        onPress: () => {
+                            hideAlert();
+                            router.back();
+                        }
+                    }]
+                );
                 return;
             }
 
             setCart(processedCart);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error fetching cart:', error);
-            Alert.alert(tCheckout('error'), tCheckout('failedToLoadCart'));
-            router.back();
+            showAlert(
+                'error',
+                tCheckout('error'),
+                tCheckout('failedToLoadCart'),
+                [{
+                    text: 'OK',
+                    style: 'default',
+                    onPress: () => {
+                        hideAlert();
+                        router.back();
+                    }
+                }]
+            );
         } finally {
             setLoading(false);
         }
@@ -187,29 +250,24 @@ function CheckoutScreen() {
                 delivery_info: deliveryInfo
             };
 
-            console.log('Creating payment intent with payload:', payload);
-
             const response = await api.post('/payment/create-payment-intent', payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            console.log('Payment intent created successfully:', response.data);
             return response.data.client_secret;
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error creating payment intent:', error);
 
-            // More detailed error logging
-            if (error.response) {
-                console.error('Response data:', error.response.data);
-                console.error('Response status:', error.response.status);
-                console.error('Response headers:', error.response.headers);
-            } else if (error.request) {
-                console.error('Request error:', error.request);
-            } else {
-                console.error('Error message:', error.message);
+            if (error && typeof error === 'object' && 'response' in error) {
+                const axiosError = error as { response?: { data?: { detail?: string } } };
+                console.error('Response data:', axiosError.response?.data);
             }
 
-            throw new Error(error.response?.data?.detail || tCheckout('failedCreatePayment'));
+            const errorMessage = error && typeof error === 'object' && 'response' in error
+                ? (error as any).response?.data?.detail || tCheckout('failedCreatePayment')
+                : tCheckout('failedCreatePayment');
+
+            throw new Error(errorMessage);
         }
     };
 
@@ -223,12 +281,12 @@ function CheckoutScreen() {
                 customFlow: false,
                 style: 'alwaysDark',
                 googlePay: {
-                    merchantCountryCode: 'LK',
+                    merchantCountryCode: 'MU',
                     testEnv: true,
-                    currencyCode: 'LKR',
+                    currencyCode: 'MUR',
                 },
                 applePay: {
-                    merchantCountryCode: 'LK',
+                    merchantCountryCode: 'MU',
                     cartItems: cart!.farmer_groups.flatMap(group =>
                         group.items.map(item => ({
                             label: item.product_name,
@@ -245,11 +303,29 @@ function CheckoutScreen() {
                 setPaymentSheetEnabled(true);
             } else {
                 console.error('Payment sheet initialization error:', error);
-                Alert.alert(tCheckout('error'), tCheckout('failedInitializePayment'));
+                showAlert(
+                    'error',
+                    tCheckout('error'),
+                    tCheckout('failedInitializePayment'),
+                    [{
+                        text: 'OK',
+                        style: 'default',
+                        onPress: hideAlert
+                    }]
+                );
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Payment sheet initialization error:', error);
-            Alert.alert(tCheckout('error'), tCheckout('failedInitializePayment'));
+            showAlert(
+                'error',
+                tCheckout('error'),
+                tCheckout('failedInitializePayment'),
+                [{
+                    text: 'OK',
+                    style: 'default',
+                    onPress: hideAlert
+                }]
+            );
         }
     };
 
@@ -289,9 +365,22 @@ function CheckoutScreen() {
 
             await confirmPaymentAndCreateOrder(paymentResult.paymentIntent!.id);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Payment error:', error);
-            Alert.alert(tCheckout('paymentFailed'), error.message || tCheckout('paymentError'));
+            const errorMessage = error && typeof error === 'object' && 'message' in error
+                ? (error.message as string)
+                : tCheckout('paymentError');
+
+            showAlert(
+                'error',
+                tCheckout('paymentFailed'),
+                errorMessage,
+                [{
+                    text: 'OK',
+                    style: 'default',
+                    onPress: hideAlert
+                }]
+            );
         } finally {
             setProcessing(false);
         }
@@ -319,9 +408,18 @@ function CheckoutScreen() {
                 }
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error confirming payment and creating order:', error);
-            Alert.alert(tCheckout('orderError'), tCheckout('orderCreationFailed'));
+            showAlert(
+                'error',
+                tCheckout('orderError'),
+                tCheckout('orderCreationFailed'),
+                [{
+                    text: 'OK',
+                    style: 'default',
+                    onPress: hideAlert
+                }]
+            );
         }
     };
 
@@ -353,9 +451,22 @@ function CheckoutScreen() {
                 }
             });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Payment error:', error);
-            Alert.alert(tCheckout('paymentFailed'), error.message || tCheckout('paymentError'));
+            const errorMessage = error && typeof error === 'object' && 'message' in error
+                ? (error.message as string)
+                : tCheckout('paymentError');
+
+            showAlert(
+                'error',
+                tCheckout('paymentFailed'),
+                errorMessage,
+                [{
+                    text: 'OK',
+                    style: 'default',
+                    onPress: hideAlert
+                }]
+            );
         } finally {
             setProcessing(false);
         }
@@ -539,6 +650,11 @@ function CheckoutScreen() {
                 </View>
             ))}
 
+            <View className="flex-row justify-between items-center py-2 border-t border-gray-200">
+                <Text className="font-medium text-black">{tOrders('deliveryFee')}</Text>
+                <Text className="font-medium text-black">rs 75</Text>
+            </View>
+
             <View className="flex-row justify-between items-center pt-4 border-t border-gray-200">
                 <Text className="text-lg font-semibold text-black">{tCheckout('totalAmount')}</Text>
                 <Text className="text-xl font-bold text-black">rs {formatPrice(cart?.total_amount)}</Text>
@@ -579,7 +695,7 @@ function CheckoutScreen() {
                 keyboardShouldPersistTaps="handled"
                 scrollEventThrottle={10}
                 enableResetScrollToCoords={false}
-                keyboardOpeningTime={250}
+                keyboardOpeningTime={300}
             >
                 {renderOrderSummary()}
                 {renderDeliveryForm()}
@@ -598,6 +714,15 @@ function CheckoutScreen() {
                     </TouchableOpacity>
                 </View>
             </KeyboardAwareScrollView>
+
+            <CustomAlert
+                visible={alert.visible}
+                type={alert.type}
+                title={alert.title}
+                message={alert.message}
+                buttons={alert.buttons}
+                onClose={hideAlert}
+            />
         </View>
     );
 }

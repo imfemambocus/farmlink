@@ -43,6 +43,13 @@ interface Order {
     created_at: string;
 }
 
+interface FarmerPayment {
+    gross_amount: number;
+    platform_fee: number;
+    net_amount: number;
+    platform_fee_percentage: number;
+}
+
 interface OrderDetails {
     id: number;
     order_number: string;
@@ -59,6 +66,7 @@ interface OrderDetails {
     created_at: string;
     updated_at: string;
     delivered_at?: string;
+    farmer_payment?: FarmerPayment;
 }
 
 interface AlertState {
@@ -164,13 +172,21 @@ export default function FarmerOrdersScreen() {
 
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await api.get(`/orders/${orderId}`, {
+
+            const orderResponse = await api.get(`/orders/${orderId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            const paymentResponse = await api.get(`/orders/${orderId}/farmer-payment`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             setOrderDetails(prev => ({
                 ...prev,
-                [orderId]: response.data
+                [orderId]: {
+                    ...orderResponse.data,
+                    farmer_payment: paymentResponse.data
+                }
             }));
         } catch (error: any) {
             console.error('Error fetching order details:', error);
@@ -458,7 +474,7 @@ export default function FarmerOrdersScreen() {
                                 </Text>
                             </View>
                             <Text className="text-lg font-bold text-black">
-                                {t('units.rs')} {formatPrice(order.final_amount * 0.9)}
+                                {t('units.rs')} {formatPrice(order.final_amount)}
                             </Text>
                         </View>
                     </View>
@@ -532,21 +548,17 @@ export default function FarmerOrdersScreen() {
                                 )}
 
                                 <View className="bg-gray-50 rounded-lg p-3">
-                                    <View className="flex-row justify-between items-center mb-2">
-                                        <Text className="text-sm text-gray-600">{tOrders('itemsTotal')}</Text>
-                                        <Text className="text-sm text-black">{t('units.rs')} {formatPrice(details.total_amount)}</Text>
-                                    </View>
-                                    <View className="flex-row justify-between items-center mb-2 pt-2 border-t border-gray-200">
+                                    <View className="flex-row justify-between items-center mb-2 border-gray-200">
                                         <Text className="text-sm font-medium text-black">{tOrders('orderTotal')}</Text>
                                         <Text className="text-sm font-medium text-black">{t('units.rs')} {formatPrice(details.final_amount)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center mb-2">
                                         <Text className="text-sm text-gray-600">{tOrders('platformFee')}</Text>
-                                        <Text className="text-sm text-red-600">- {t('units.rs')} {formatPrice(details.final_amount * 0.1)}</Text>
+                                        <Text className="text-sm text-red-600">- {t('units.rs')} {formatPrice(details.final_amount)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center pt-2 border-t border-gray-300">
                                         <Text className="text-base font-semibold text-black">{tOrders('yourEarnings')}</Text>
-                                        <Text className="text-base font-bold text-green-600">{t('units.rs')} {formatPrice(details.final_amount * 0.9)}</Text>
+                                        <Text className="text-base font-bold text-green-600">{t('units.rs')} {formatPrice(details.final_amount)}</Text>
                                     </View>
                                 </View>
                             </View>

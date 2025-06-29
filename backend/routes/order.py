@@ -9,7 +9,7 @@ from schemas.order import (
 )
 from services.order_service import OrderService
 from core.security import get_current_user, get_db
-from models.order import OrderStatusEnum, UnifiedOrder, UnifiedOrderItem
+from models.order import OrderStatusEnum, UnifiedOrder, UnifiedOrderItem, FarmerPayment
 
 router = APIRouter()
 
@@ -310,6 +310,35 @@ def update_farmer_status(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{order_id}/farmer-payment")
+def get_farmer_payment_details(
+        order_id: int,
+        current_user=Depends(get_current_user),
+        db: Session = Depends(get_db)
+):
+    if current_user.role != 'farmer':
+        raise HTTPException(status_code=403, detail="Only farmers can access this endpoint")
+
+    farmer_payment = (
+        db.query(FarmerPayment)
+        .filter(
+            FarmerPayment.order_id == order_id,
+            FarmerPayment.farmer_id == current_user.id
+        )
+        .first()
+    )
+
+    if not farmer_payment:
+        raise HTTPException(status_code=404, detail="Payment details not found")
+
+    return {
+        "gross_amount": float(farmer_payment.gross_amount),
+        "platform_fee": float(farmer_payment.platform_fee),
+        "net_amount": float(farmer_payment.net_amount),
+        "platform_fee_percentage": farmer_payment.platform_fee_percentage
+    }
 
 
 @router.get("/farmer/orders/summary", response_model=FarmerOrderSummary)

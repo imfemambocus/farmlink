@@ -7,7 +7,6 @@ import {
     ActivityIndicator,
     Animated,
     Dimensions,
-    Alert,
     ViewStyle
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +15,7 @@ import { useCart } from '@/context/CartContext';
 import { useRouter } from 'expo-router';
 import VoiceInputService from '@/services/voiceService';
 import { useTranslation } from '@/context/LanguageContext';
+import CustomAlert from '@/components/ui/CustomAlert';
 
 interface VoiceInputProps {
     onResult?: (result: any) => void;
@@ -26,14 +26,26 @@ interface VoiceInputProps {
     iconColor?: string;
 }
 
+interface AlertState {
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons: Array<{
+        text: string;
+        onPress: () => void;
+        style?: 'default' | 'cancel' | 'destructive';
+    }>;
+}
+
 export default function VoiceInput({
-   onResult,
-   onError,
-   disabled = false,
-   style,
-   iconSize = 20,
-   iconColor = "black"
-}: VoiceInputProps) {
+                                       onResult,
+                                       onError,
+                                       disabled = false,
+                                       style,
+                                       iconSize = 20,
+                                       iconColor = "black"
+                                   }: VoiceInputProps) {
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
@@ -47,6 +59,36 @@ export default function VoiceInput({
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [pulseAnim] = useState(new Animated.Value(1));
     const [waveAnim] = useState(new Animated.Value(0));
+    const [alert, setAlert] = useState<AlertState>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+        buttons: []
+    });
+
+    const showAlert = (
+        type: 'success' | 'error' | 'warning' | 'info',
+        title: string,
+        message: string,
+        buttons: Array<{
+            text: string;
+            onPress: () => void;
+            style?: 'default' | 'cancel' | 'destructive';
+        }>
+    ) => {
+        setAlert({
+            visible: true,
+            type,
+            title,
+            message,
+            buttons
+        });
+    };
+
+    const hideAlert = () => {
+        setAlert(prev => ({ ...prev, visible: false }));
+    };
 
     useEffect(() => {
         return () => {
@@ -103,10 +145,15 @@ export default function VoiceInput({
         try {
             const hasPermission = await VoiceInputService.checkPermissions();
             if (!hasPermission) {
-                Alert.alert(
+                showAlert(
+                    'warning',
                     tVoice('microphonePermission'),
                     tVoice('enableMicrophone'),
-                    [{ text: t('common.ok') }]
+                    [{
+                        text: t('common.ok'),
+                        style: 'default',
+                        onPress: hideAlert
+                    }]
                 );
                 return;
             }
@@ -415,6 +462,15 @@ export default function VoiceInput({
                     </View>
                 </View>
             </Modal>
+
+            <CustomAlert
+                visible={alert.visible}
+                type={alert.type}
+                title={alert.title}
+                message={alert.message}
+                buttons={alert.buttons}
+                onClose={hideAlert}
+            />
         </>
     );
 }
