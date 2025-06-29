@@ -1,6 +1,6 @@
 import Voice, { SpeechResultsEvent, SpeechErrorEvent } from 'react-native-voice-enhanced';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '@/services/api';
+import api from '@/services/apiService';
 import { Platform } from 'react-native';
 import { translations, getNestedTranslation } from '@/constants/translations';
 

@@ -10,7 +10,7 @@ import { getProductBackgroundColor } from "@/utils/products";
 import { UnitPrice } from "@/types";
 import { useCart } from '@/context/CartContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '@/services/api';
+import api from '@/services/apiService';
 
 interface Product {
     id: number;

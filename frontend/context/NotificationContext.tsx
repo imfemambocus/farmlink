@@ -4,7 +4,7 @@ import { AuthContext } from '@/context/AuthContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, AppState } from 'react-native';
-import api from '@/services/api';
+import api from '@/services/apiService';
 import { useLanguage } from '@/context/LanguageContext';
 import Constants from 'expo-constants';
 import {router} from "expo-router";

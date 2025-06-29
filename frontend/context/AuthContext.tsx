@@ -1,7 +1,7 @@
 import { createContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import api from '@/services/api';
+import api from '@/services/apiService';
 import {User, AuthContextType, ProfileUpdateData} from '@/types';
 
 export const AuthContext = createContext<AuthContextType>({

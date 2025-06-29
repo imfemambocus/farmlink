@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '@/services/api';
+import api from '@/services/apiService';
 import { translations, getNestedTranslation } from '@/constants/translations';
 import {
     MAURITIAN_RECIPES,

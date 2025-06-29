@@ -30,15 +30,15 @@ interface AlertState {
 }
 
 export default function FloatingActionButton({
-                                                 onPress,
-                                                 icon = 'add',
-                                                 size = 56,
-                                                 backgroundColor = '#EAF3D0',
-                                                 iconColor = '#000000',
-                                                 showVoice = false,
-                                                 onResult,
-                                                 onError
-                                             }: FloatingActionButtonProps) {
+     onPress,
+     icon = 'add',
+     size = 56,
+     backgroundColor = '#EAF3D0',
+     iconColor = '#000000',
+     showVoice = false,
+     onResult,
+     onError
+ }: FloatingActionButtonProps) {
     const { user } = useContext(AuthContext);
     const router = useRouter();
     const [alert, setAlert] = useState<AlertState>({

@@ -16,7 +16,7 @@ import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '@/services/api';
+import api from '@/services/apiService';
 import { StripeProvider, useStripe, CardField } from '@stripe/stripe-react-native';
 import Constants from 'expo-constants';
 

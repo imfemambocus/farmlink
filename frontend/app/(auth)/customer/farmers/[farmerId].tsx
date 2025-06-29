@@ -15,7 +15,7 @@ import { useTranslation } from '@/context/LanguageContext';
 import Header from '@/components/ui/Header';
 import ProductCard from '@/components/customer/ProductCard';
 import CustomAlert from '@/components/ui/CustomAlert';
-import api from '@/services/api';
+import api from '@/services/apiService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import {AlertState, UnitPrice} from "@/types";

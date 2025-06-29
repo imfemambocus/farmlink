@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import { getProductBackgroundColor } from '@/utils/products';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '@/services/api';
+import api from '@/services/apiService';
 
 type OrderStatus = 'confirmed' | 'processing' | 'out_for_delivery' | 'delivered' | 'cancelled';
 

@@ -4,7 +4,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming } fr
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import CustomAlert from '@/components/ui/CustomAlert';
-import api from '@/services/api';
+import api from '@/services/apiService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getProductBackgroundColor} from "@/utils/products";
 import {UnitPrice} from "@/types";
