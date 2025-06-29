@@ -4,7 +4,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    ScrollView,
     ActivityIndicator,
     Pressable,
     Image
@@ -17,6 +16,7 @@ import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProductImage } from '@/constants/images';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 interface UnitPrice {
     id: number;
@@ -544,7 +544,17 @@ export default function EditProduct() {
         <View className="flex-1 bg-surface">
             <Header title={tProducts('editProduct')} showBackButton={true} />
 
-            <ScrollView className="flex-1 bg-white px-6 pt-6" showsVerticalScrollIndicator={false}>
+            <KeyboardAwareScrollView
+                className="flex-1 bg-white px-6 pt-6"
+                showsVerticalScrollIndicator={false}
+                enableOnAndroid={true}
+                enableAutomaticScroll={true}
+                extraScrollHeight={150}
+                keyboardShouldPersistTaps="handled"
+                scrollEventThrottle={10}
+                enableResetScrollToCoords={false}
+                keyboardOpeningTime={250}
+            >
                 <View className="flex-row items-center mb-6 p-2 bg-gray-50 rounded-xl border border-gray-100">
                     <View
                         className="w-20 h-20 rounded-2xl items-center justify-center mr-4"
@@ -638,7 +648,7 @@ export default function EditProduct() {
                         {tProducts('description')}
                     </Text>
                     <TextInput
-                        className="border rounded-xl px-4 py-3 text-base bg-gray-50 border-gray-200 text-black"
+                        className="border leading-[1.2] rounded-xl px-4 py-3 text-base bg-gray-50 border-gray-200 text-black"
                         placeholder={tProducts('organicExample')}
                         placeholderTextColor="#666666"
                         value={description}
@@ -720,7 +730,7 @@ export default function EditProduct() {
                                             {tProducts('price')}
                                         </Text>
                                         <TextInput
-                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                            className={`border leading-[1.2] rounded-lg px-3 py-2 text-sm bg-white ${
                                                 errors[`individual_price_${index}`] ? 'border-red-500' : 'border-gray-200'
                                             }`}
                                             placeholder="0.00"
@@ -741,7 +751,7 @@ export default function EditProduct() {
                                             {tProducts('quantity')}
                                         </Text>
                                         <TextInput
-                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                            className={`border leading-[1.2] rounded-lg px-3 py-2 text-sm bg-white ${
                                                 errors[`individual_quantity_${index}`] ? 'border-red-500' : 'border-gray-200'
                                             }`}
                                             placeholder="0"
@@ -762,7 +772,7 @@ export default function EditProduct() {
                                             {tProducts('minOrder')}
                                         </Text>
                                         <TextInput
-                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                            className={`border leading-[1.2] rounded-lg px-3 py-2 text-sm bg-white ${
                                                 errors[`individual_minimum_${index}`] ? 'border-red-500' : 'border-gray-200'
                                             }`}
                                             placeholder="1"
@@ -794,7 +804,7 @@ export default function EditProduct() {
                                             {tProducts('price')}
                                         </Text>
                                         <TextInput
-                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                            className={`border leading-[1.2] rounded-lg px-3 py-2 text-sm bg-white ${
                                                 errors[`business_price_${index}`] ? 'border-red-500' : 'border-gray-200'
                                             }`}
                                             placeholder="0.00"
@@ -815,7 +825,7 @@ export default function EditProduct() {
                                             {tProducts('quantity')}
                                         </Text>
                                         <TextInput
-                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                            className={`border leading-[1.2] rounded-lg px-3 py-2 text-sm bg-white ${
                                                 errors[`business_quantity_${index}`] ? 'border-red-500' : 'border-gray-200'
                                             }`}
                                             placeholder="0"
@@ -836,7 +846,7 @@ export default function EditProduct() {
                                             {tProducts('minOrder')}
                                         </Text>
                                         <TextInput
-                                            className={`border rounded-lg px-3 py-2 text-sm bg-white ${
+                                            className={`border leading-[1.2] rounded-lg px-3 py-2 text-sm bg-white ${
                                                 errors[`business_minimum_${index}`] ? 'border-red-500' : 'border-gray-200'
                                             }`}
                                             placeholder="25"
@@ -885,7 +895,7 @@ export default function EditProduct() {
                         <Ionicons name="trash" size={32} color="#000000" />
                     </TouchableOpacity>
                 </View>
-            </ScrollView>
+            </KeyboardAwareScrollView>
 
             <CustomAlert
                 visible={alert.visible}

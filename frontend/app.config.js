@@ -69,13 +69,6 @@ export default {
         }
       ],
       [
-        "@react-native-voice/voice",
-        {
-          microphonePermission: "CUSTOM: Farmlink needs microphone access for voice commands to search products and add items to cart.",
-          speechRecognitionPermission: "CUSTOM: Farmlink uses speech recognition to process your voice commands for easier shopping."
-        }
-      ],
-      [
         "expo-build-properties",
         {
           android: {
@@ -85,7 +78,7 @@ export default {
             minSdkVersion: 24
           },
           ios: {
-            deploymentTarget: "15.1"
+            deploymentTarget: "18.5"
           }
         }
       ]

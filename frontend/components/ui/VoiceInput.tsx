@@ -6,8 +6,9 @@ import {
     Modal,
     ActivityIndicator,
     Animated,
-    Alert,
-    ViewStyle
+    ViewStyle,
+    Linking,
+    Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '@/context/AuthContext';
@@ -26,26 +27,14 @@ interface VoiceInputProps {
     iconColor?: string;
 }
 
-interface AlertState {
-    visible: boolean;
-    type: 'success' | 'error' | 'warning' | 'info';
-    title: string;
-    message: string;
-    buttons: Array<{
-        text: string;
-        onPress: () => void;
-        style?: 'default' | 'cancel' | 'destructive';
-    }>;
-}
-
 export default function VoiceInput({
-                                       onResult,
-                                       onError,
-                                       disabled = false,
-                                       style,
-                                       iconSize = 20,
-                                       iconColor = "black"
-                                   }: VoiceInputProps) {
+   onResult,
+   onError,
+   disabled = false,
+   style,
+   iconSize = 20,
+   iconColor = "black"
+}: VoiceInputProps) {
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
@@ -59,69 +48,21 @@ export default function VoiceInput({
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [pulseAnim] = useState(new Animated.Value(1));
     const [waveAnim] = useState(new Animated.Value(0));
-    const [isCheckingVoice, setIsCheckingVoice] = useState(false);
-    const [voiceAvailable, setVoiceAvailable] = useState<boolean | null>(null);
-    const [alert, setAlert] = useState<AlertState>({
-        visible: false,
-        type: 'info',
+
+    // CustomAlert state
+    const [alertVisible, setAlertVisible] = useState(false);
+    const [alertConfig, setAlertConfig] = useState({
+        type: 'info' as 'success' | 'error' | 'warning' | 'info',
         title: '',
         message: '',
-        buttons: []
+        buttons: [] as Array<{text: string, onPress: () => void, style?: 'default' | 'cancel' | 'destructive'}>
     });
 
-    const showAlert = (
-        type: 'success' | 'error' | 'warning' | 'info',
-        title: string,
-        message: string,
-        buttons: Array<{
-            text: string;
-            onPress: () => void;
-            style?: 'default' | 'cancel' | 'destructive';
-        }>
-    ) => {
-        setAlert({
-            visible: true,
-            type,
-            title,
-            message,
-            buttons
-        });
-    };
-
-    const hideAlert = () => {
-        setAlert(prev => ({ ...prev, visible: false }));
-    };
-
     useEffect(() => {
-        // Test voice availability on component mount
-        checkVoiceAvailability();
-
         return () => {
             VoiceInputService.cleanup();
         };
     }, []);
-
-    const checkVoiceAvailability = async () => {
-        try {
-            setIsCheckingVoice(true);
-            console.log('🔍 Checking voice availability...');
-
-            const hasPermission = await VoiceInputService.checkAndRequestPermissions();
-            setVoiceAvailable(hasPermission);
-
-            if (!hasPermission) {
-                const reason = VoiceInputService.getVoiceUnavailableReason();
-                console.log('❌ Voice unavailable:', reason);
-            } else {
-                console.log('✅ Voice is available and ready');
-            }
-        } catch (error) {
-            console.error('🔍 Voice availability check failed:', error);
-            setVoiceAvailable(false);
-        } finally {
-            setIsCheckingVoice(false);
-        }
-    };
 
     useEffect(() => {
         if (isListening) {
@@ -166,49 +107,96 @@ export default function VoiceInput({
         waveAnim.setValue(0);
     };
 
-    const handleVoicePress = async () => {
-        if (disabled || isCheckingVoice) return;
-
-        // If we haven't checked voice availability yet, do it now
-        if (voiceAvailable === null) {
-            await checkVoiceAvailability();
-            return;
-        }
-
-        // If voice is not available, show appropriate message
-        if (!voiceAvailable) {
-            showVoiceUnavailableAlert();
-            return;
-        }
-
-        // Voice is available, proceed with voice input
-        await initializeVoiceInput();
+    const showCustomAlert = (
+        type: 'success' | 'error' | 'warning' | 'info',
+        title: string,
+        message: string,
+        buttons: Array<{text: string, onPress: () => void, style?: 'default' | 'cancel' | 'destructive'}>
+    ) => {
+        setAlertConfig({ type, title, message, buttons });
+        setAlertVisible(true);
     };
 
-    const showVoiceUnavailableAlert = () => {
-        const reason = VoiceInputService.getVoiceUnavailableReason();
-        const isLinkingIssue = !VoiceInputService.isVoiceLinked();
-
-        Alert.alert(
-            isLinkingIssue ? 'Voice Feature Needs Update' : 'Voice Feature Unavailable',
-            reason + ' You can still browse and add products manually.',
-            [
-                {
-                    text: 'Browse Products',
-                    onPress: () => {
-                        router.push('/(auth)/customer/products');
-                    }
-                },
-                {
-                    text: 'OK',
-                    style: 'default'
-                }
-            ]
-        );
-    };
-
-    const initializeVoiceInput = async () => {
+    const openDeviceSettings = async () => {
         try {
+            if (Platform.OS === 'android') {
+                await Linking.openSettings();
+            } else {
+                await Linking.openURL('app-settings:');
+            }
+        } catch (error) {
+            console.error('Error opening settings:', error);
+            // Fallback: open general settings
+            await Linking.openSettings();
+        }
+    };
+
+    const checkAndRequestPermissions = async (): Promise<boolean> => {
+        try {
+            const hasPermission = await VoiceInputService.checkPermissions();
+
+            if (!hasPermission) {
+                // First, try to start voice recognition to trigger permission request
+                try {
+                    await VoiceInputService.startListening();
+                    await VoiceInputService.stopListening();
+                    return true;
+                } catch (error: any) {
+                    // If permission was denied, show custom alert with settings option
+                    if (error.message?.includes('permission') || error.message?.includes('denied')) {
+                        showCustomAlert(
+                            'warning',
+                            tVoice('microphonePermission'),
+                            tVoice('enableMicrophone') + '\n\n' + 'Please enable microphone and speech recognition permissions in your device settings.',
+                            [
+                                {
+                                    text: 'Cancel',
+                                    onPress: () => setAlertVisible(false),
+                                    style: 'cancel'
+                                },
+                                {
+                                    text: 'Open Settings',
+                                    onPress: () => {
+                                        setAlertVisible(false);
+                                        openDeviceSettings();
+                                    },
+                                    style: 'default'
+                                }
+                            ]
+                        );
+                        return false;
+                    }
+                    throw error;
+                }
+            }
+            return true;
+        } catch (error) {
+            console.error('Permission check failed:', error);
+            showCustomAlert(
+                'error',
+                'Permission Error',
+                'Unable to check microphone permissions. Please ensure your device supports voice recognition.',
+                [
+                    {
+                        text: t('common.ok'),
+                        onPress: () => setAlertVisible(false),
+                        style: 'default'
+                    }
+                ]
+            );
+            return false;
+        }
+    };
+
+    const handleVoicePress = async () => {
+        if (disabled) return;
+
+        try {
+            const hasPermission = await checkAndRequestPermissions();
+            if (!hasPermission) {
+                return; // Custom alert will be shown by checkAndRequestPermissions
+            }
+
             setIsVisible(true);
             setIsListening(false);
             setIsProcessing(false);
@@ -218,7 +206,7 @@ export default function VoiceInput({
 
             await startVoiceRecognition();
         } catch (error) {
-            console.error('🎤 Error initializing voice input:', error);
+            console.error(tVoice('voiceError'), error);
             setIsVisible(false);
             onError?.(tVoice('failedToStart'));
         }
@@ -229,12 +217,21 @@ export default function VoiceInput({
             setIsListening(true);
             await VoiceInputService.startListening();
 
-            // Auto-stop after 10 seconds
-            setTimeout(async () => {
+            // Auto-stop listening after 10 seconds with enhanced error handling
+            const timeout = setTimeout(async () => {
                 if (isListening) {
-                    await stopVoiceRecognition();
+                    try {
+                        await stopVoiceRecognition();
+                    } catch (error) {
+                        console.error('Auto-stop error:', error);
+                        setIsListening(false);
+                        setResult(tVoice('didntHear'));
+                    }
                 }
             }, 10000);
+
+            // Clear timeout if stopped manually
+            return () => clearTimeout(timeout);
 
         } catch (error) {
             console.error(tVoice('voiceError'), error);
@@ -321,50 +318,27 @@ export default function VoiceInput({
         return null;
     }
 
-    // Determine button appearance based on voice status
-    const getButtonStyle = () => {
-        if (voiceAvailable === null || isCheckingVoice) {
-            return { backgroundColor: '#F0F0F0' }; // Gray while checking
-        }
-        if (voiceAvailable === false) {
-            return { backgroundColor: '#FFE6E6' }; // Light red if unavailable
-        }
-        return { backgroundColor: '#EAF3D0' }; // Green if available
-    };
-
-    const getIconColor = () => {
-        if (disabled) return "red";
-        if (voiceAvailable === false) return "#FF6B6B";
-        if (voiceAvailable === null || isCheckingVoice) return "#999999";
-        return iconColor;
-    };
-
     return (
         <>
             <TouchableOpacity
                 onPress={handleVoicePress}
-                disabled={disabled || isCheckingVoice}
+                disabled={disabled}
                 style={style || {
                     width: 48,
                     height: 48,
                     borderRadius: 24,
-                    ...getButtonStyle(),
+                    backgroundColor: '#EAF3D0',
                     justifyContent: 'center',
-                    alignItems: 'center',
-                    opacity: (disabled || isCheckingVoice) ? 0.6 : 1
+                    alignItems: 'center'
                 }}
                 activeOpacity={0.7}
                 className="shadow-lg elevation-8"
             >
-                {isCheckingVoice ? (
-                    <ActivityIndicator size="small" color="#999999" />
-                ) : (
-                    <Ionicons
-                        name="mic"
-                        size={iconSize}
-                        color={getIconColor()}
-                    />
-                )}
+                <Ionicons
+                    name="mic"
+                    size={iconSize}
+                    color={disabled ? "red" : iconColor}
+                />
             </TouchableOpacity>
 
             <Modal
@@ -539,12 +513,12 @@ export default function VoiceInput({
             </Modal>
 
             <CustomAlert
-                visible={alert.visible}
-                type={alert.type}
-                title={alert.title}
-                message={alert.message}
-                buttons={alert.buttons}
-                onClose={hideAlert}
+                visible={alertVisible}
+                type={alertConfig.type}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                buttons={alertConfig.buttons}
+                onClose={() => setAlertVisible(false)}
             />
         </>
     );

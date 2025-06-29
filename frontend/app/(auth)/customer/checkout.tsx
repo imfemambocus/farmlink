@@ -580,12 +580,12 @@ function CheckoutScreen() {
                             number: '4242 4242 4242 4242',
                         }}
                         cardStyle={{
-                            backgroundColor: Platform.OS === 'ios' ? '#FFFFFF' : '#000000',
-                            textColor: Platform.OS === 'ios' ? '#000000' : '#FFFFFF',
+                            backgroundColor: '#000000',
+                            textColor: '#FFFFFF',
                             borderRadius: 8,
-                            placeholderColor: '#CCCCCC',
+                            placeholderColor: '#323640',
                             borderWidth: 1,
-                            borderColor: Platform.OS === 'ios' ? '#D1D5DB' : '#000000',
+                            borderColor: '#000000',
                         }}
                         style={{
                             width: '100%',
@@ -691,11 +691,11 @@ function CheckoutScreen() {
                 showsVerticalScrollIndicator={false}
                 enableOnAndroid={true}
                 enableAutomaticScroll={true}
-                extraScrollHeight={200}
+                extraScrollHeight={300}
                 keyboardShouldPersistTaps="handled"
                 scrollEventThrottle={10}
                 enableResetScrollToCoords={false}
-                keyboardOpeningTime={300}
+                keyboardOpeningTime={250}
             >
                 {renderOrderSummary()}
                 {renderDeliveryForm()}
