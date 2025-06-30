@@ -15,21 +15,18 @@ import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useRouter } from 'expo-router';
 import VoiceInputService from '@/services/voiceService';
-import { useTranslation } from '@/context/LanguageContext';
 import CustomAlert from '@/components/ui/CustomAlert';
 
 interface VoiceInputProps {
-    onResult?: (result: any) => void;
-    onError?: (error: string) => void;
     disabled?: boolean;
     style?: ViewStyle;
     iconSize?: number;
     iconColor?: string;
 }
 
+type VoiceState = 'idle' | 'listening' | 'processing' | 'result';
+
 export default function VoiceInput({
-   onResult,
-   onError,
    disabled = false,
    style,
    iconSize = 20,
@@ -38,25 +35,15 @@ export default function VoiceInput({
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
-    const { t, tVoice } = useTranslation();
 
     const [isVisible, setIsVisible] = useState(false);
-    const [isListening, setIsListening] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [voiceState, setVoiceState] = useState<VoiceState>('idle');
     const [recognizedText, setRecognizedText] = useState('');
-    const [result, setResult] = useState<string>('');
-    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [resultMessage, setResultMessage] = useState('');
     const [pulseAnim] = useState(new Animated.Value(1));
-    const [waveAnim] = useState(new Animated.Value(0));
 
-    // CustomAlert state
+    // Permission alert state
     const [alertVisible, setAlertVisible] = useState(false);
-    const [alertConfig, setAlertConfig] = useState({
-        type: 'info' as 'success' | 'error' | 'warning' | 'info',
-        title: '',
-        message: '',
-        buttons: [] as Array<{text: string, onPress: () => void, style?: 'default' | 'cancel' | 'destructive'}>
-    });
 
     useEffect(() => {
         return () => {
@@ -65,56 +52,33 @@ export default function VoiceInput({
     }, []);
 
     useEffect(() => {
-        if (isListening) {
+        if (voiceState === 'listening') {
             startPulseAnimation();
-            startWaveAnimation();
         } else {
-            stopAnimations();
+            stopPulseAnimation();
         }
-    }, [isListening]);
+    }, [voiceState]);
 
     const startPulseAnimation = () => {
         Animated.loop(
             Animated.sequence([
                 Animated.timing(pulseAnim, {
-                    toValue: 1.2,
-                    duration: 800,
+                    toValue: 1.3,
+                    duration: 1000,
                     useNativeDriver: true,
                 }),
                 Animated.timing(pulseAnim, {
                     toValue: 1,
-                    duration: 800,
+                    duration: 1000,
                     useNativeDriver: true,
                 }),
             ])
         ).start();
     };
 
-    const startWaveAnimation = () => {
-        Animated.loop(
-            Animated.timing(waveAnim, {
-                toValue: 1,
-                duration: 1500,
-                useNativeDriver: true,
-            })
-        ).start();
-    };
-
-    const stopAnimations = () => {
+    const stopPulseAnimation = () => {
         pulseAnim.stopAnimation();
-        waveAnim.stopAnimation();
         pulseAnim.setValue(1);
-        waveAnim.setValue(0);
-    };
-
-    const showCustomAlert = (
-        type: 'success' | 'error' | 'warning' | 'info',
-        title: string,
-        message: string,
-        buttons: Array<{text: string, onPress: () => void, style?: 'default' | 'cancel' | 'destructive'}>
-    ) => {
-        setAlertConfig({ type, title, message, buttons });
-        setAlertVisible(true);
     };
 
     const openDeviceSettings = async () => {
@@ -125,198 +89,277 @@ export default function VoiceInput({
                 await Linking.openURL('app-settings:');
             }
         } catch (error) {
-            console.error('Error opening settings:', error);
-            // Fallback: open general settings
             await Linking.openSettings();
-        }
-    };
-
-    const checkAndRequestPermissions = async (): Promise<boolean> => {
-        try {
-            const hasPermission = await VoiceInputService.checkPermissions();
-
-            if (!hasPermission) {
-                // First, try to start voice recognition to trigger permission request
-                try {
-                    await VoiceInputService.startListening();
-                    await VoiceInputService.stopListening();
-                    return true;
-                } catch (error: any) {
-                    // If permission was denied, show custom alert with settings option
-                    if (error.message?.includes('permission') || error.message?.includes('denied')) {
-                        showCustomAlert(
-                            'warning',
-                            tVoice('microphonePermission'),
-                            tVoice('enableMicrophone') + '\n\n' + 'Please enable microphone and speech recognition permissions in your device settings.',
-                            [
-                                {
-                                    text: 'Cancel',
-                                    onPress: () => setAlertVisible(false),
-                                    style: 'cancel'
-                                },
-                                {
-                                    text: 'Open Settings',
-                                    onPress: () => {
-                                        setAlertVisible(false);
-                                        openDeviceSettings();
-                                    },
-                                    style: 'default'
-                                }
-                            ]
-                        );
-                        return false;
-                    }
-                    throw error;
-                }
-            }
-            return true;
-        } catch (error) {
-            console.error('Permission check failed:', error);
-            showCustomAlert(
-                'error',
-                'Permission Error',
-                'Unable to check microphone permissions. Please ensure your device supports voice recognition.',
-                [
-                    {
-                        text: t('common.ok'),
-                        onPress: () => setAlertVisible(false),
-                        style: 'default'
-                    }
-                ]
-            );
-            return false;
         }
     };
 
     const handleVoicePress = async () => {
         if (disabled) return;
 
-        try {
-            const hasPermission = await checkAndRequestPermissions();
+        // Platform-specific permission handling
+        if (Platform.OS === 'android') {
+            const hasPermission = await VoiceInputService.checkPermissions();
             if (!hasPermission) {
-                return; // Custom alert will be shown by checkAndRequestPermissions
+                setAlertVisible(true);
+                return;
             }
-
-            setIsVisible(true);
-            setIsListening(false);
-            setIsProcessing(false);
-            setRecognizedText('');
-            setResult('');
-            setSuggestions([]);
-
-            await startVoiceRecognition();
-        } catch (error) {
-            console.error(tVoice('voiceError'), error);
-            setIsVisible(false);
-            onError?.(tVoice('failedToStart'));
         }
+
+        // iOS: Skip permission check - iOS will show native prompt when Voice.start() is called
+
+        setIsVisible(true);
+        setVoiceState('idle');
+        setRecognizedText('');
+        setResultMessage('');
     };
 
-    const startVoiceRecognition = async () => {
+    const startListening = async () => {
         try {
-            setIsListening(true);
+            setVoiceState('listening');
             await VoiceInputService.startListening();
 
-            // Auto-stop listening after 10 seconds with enhanced error handling
-            const timeout = setTimeout(async () => {
-                if (isListening) {
-                    try {
-                        await stopVoiceRecognition();
-                    } catch (error) {
-                        console.error('Auto-stop error:', error);
-                        setIsListening(false);
-                        setResult(tVoice('didntHear'));
-                    }
+            // Auto-stop after 8 seconds
+            setTimeout(async () => {
+                if (voiceState === 'listening') {
+                    await stopListening();
                 }
-            }, 10000);
+            }, 8000);
 
-            // Clear timeout if stopped manually
-            return () => clearTimeout(timeout);
+        } catch (error: any) {
+            console.log('Voice start error:', error);
+            setVoiceState('idle');
 
-        } catch (error) {
-            console.error(tVoice('voiceError'), error);
-            setIsListening(false);
-            setResult(tVoice('failedToStart'));
+            if (Platform.OS === 'ios' &&
+                (error.message?.includes('permission') ||
+                    error.message?.includes('denied') ||
+                    error.message?.includes('not granted'))) {
+                setAlertVisible(true);
+            } else {
+                // Android or other iOS errors: Show generic error
+                setResultMessage('Failed to start listening. Please try again.');
+                setVoiceState('result');
+                autoCloseModal();
+            }
         }
     };
 
-    const stopVoiceRecognition = async () => {
+    const stopListening = async () => {
         try {
-            setIsListening(false);
-            const recognizedText = await VoiceInputService.stopListening();
+            const text = await VoiceInputService.stopListening();
+            setRecognizedText(text);
 
-            if (recognizedText.trim()) {
-                setRecognizedText(recognizedText);
-                await processVoiceCommand(recognizedText);
+            if (text.trim()) {
+                setVoiceState('processing');
+                await processCommand(text);
             } else {
-                setResult(tVoice('didntHear'));
-                setSuggestions([
-                    tVoice('makesSure'),
-                    tVoice('checkPermissions'),
-                    tVoice('tryQuieter')
-                ]);
+                setResultMessage("I didn't hear anything. Please try again.");
+                setVoiceState('result');
             }
         } catch (error) {
-            console.error(tVoice('voiceError'), error);
-            setResult(tVoice('didntUnderstand'));
+            setResultMessage('Something went wrong. Please try again.');
+            setVoiceState('result');
+            autoCloseModal();
         }
     };
 
-    const processVoiceCommand = async (text: string) => {
+    const processCommand = async (text: string) => {
         try {
-            setIsProcessing(true);
-
             const customerType = user?.role as 'individual' | 'business';
             const result = await VoiceInputService.processVoiceCommand(text, customerType);
 
-            setResult(result.message);
-            setSuggestions(result.suggestions || []);
+            setResultMessage(result.message);
+            setVoiceState('result');
 
             if (result.success) {
                 if (result.data?.action === 'navigate_to_checkout') {
                     setTimeout(() => {
-                        setIsVisible(false);
+                        closeModal();
                         router.push('/(auth)/customer/checkout');
                     }, 2000);
                 } else if (result.data?.products) {
-                    onResult?.(result.data);
+                    setTimeout(() => {
+                        closeModal();
+                        router.push({
+                            pathname: '/(auth)/customer/products',
+                            params: { searchTerm: result.data.searchTerm || '' }
+                        });
+                    }, 2000);
                 } else {
                     await refreshCartCount();
-                    onResult?.(result.data);
+                    autoCloseModal();
+                }
+            } else {
+                if (result.message.includes("didn't understand") ||
+                    result.message.includes("Try commands like")) {
+                    // Command not recognized - keep modal open for retry
+                } else {
+                    autoCloseModal();
                 }
             }
 
         } catch (error) {
-            console.error(tVoice('voiceError'), error);
-            setResult(tVoice('didntUnderstand'));
-            setSuggestions([tVoice('tryAgain')]);
-        } finally {
-            setIsProcessing(false);
+            setResultMessage('Something went wrong. Please try again.');
+            setVoiceState('result');
+            autoCloseModal();
         }
     };
 
-    const retryVoiceInput = async () => {
-        setRecognizedText('');
-        setResult('');
-        setSuggestions([]);
-        await startVoiceRecognition();
+    const autoCloseModal = () => {
+        setTimeout(() => {
+            closeModal();
+        }, 3000);
     };
 
     const closeModal = () => {
         setIsVisible(false);
-        setIsListening(false);
-        setIsProcessing(false);
+        setVoiceState('idle');
+        setRecognizedText('');
+        setResultMessage('');
         VoiceInputService.stopListening().catch(console.error);
     };
 
-    const trySuggestion = (suggestion: string) => {
-        setRecognizedText(suggestion);
-        processVoiceCommand(suggestion);
+    const retryListening = async () => {
+        setRecognizedText('');
+        setResultMessage('');
+        await startListening();
     };
 
     if (!user || (user.role !== 'individual' && user.role !== 'business')) {
         return null;
     }
+
+    const renderModalContent = () => {
+        switch (voiceState) {
+            case 'listening':
+                return (
+                    <View className="items-center">
+                        <Animated.View
+                            className="w-24 h-24 rounded-full bg-green-100 items-center justify-center mb-6"
+                            style={{ transform: [{ scale: pulseAnim }] }}
+                        >
+                            <Ionicons name="mic" size={40} color="#22c55e" />
+                        </Animated.View>
+
+                        <Text className="text-lg font-semibold text-center mb-2">
+                            listening...
+                        </Text>
+                        <Text className="text-sm text-gray-600 text-center mb-6">
+                            Say your command now
+                        </Text>
+
+                        <TouchableOpacity
+                            onPress={stopListening}
+                            className="bg-red-500 px-9 py-3 rounded-lg"
+                        >
+                            <Text className="text-white font-medium">stop</Text>
+                        </TouchableOpacity>
+                    </View>
+                );
+
+            case 'processing':
+                return (
+                    <View className="items-center">
+                        <View className="w-24 h-24 rounded-full bg-blue-100 items-center justify-center mb-6">
+                            <ActivityIndicator size="large" color="#3b82f6" />
+                        </View>
+
+                        <Text className="text-lg font-semibold text-center mb-2">
+                            processing...
+                        </Text>
+                        {recognizedText && (
+                            <Text className="text-sm text-gray-600 text-center italic">
+                                &#34;{recognizedText}&#34;
+                            </Text>
+                        )}
+                    </View>
+                );
+
+            case 'result':
+                return (
+                    <View className="items-center">
+                        <View className="w-24 h-24 rounded-full bg-gray-100 items-center justify-center mb-6">
+                            <Ionicons name={recognizedText ? 'checkmark-circle' : 'close-circle'} size={40} color="#6b7280" />
+                        </View>
+
+                        {recognizedText && (
+                            <View className="mb-4">
+                                <Text className="text-sm text-gray-500 text-center mb-1">
+                                    You said:
+                                </Text>
+                                <Text className="text-base italic text-gray-700 text-center">
+                                    &#34;{recognizedText}&#34;
+                                </Text>
+                            </View>
+                        )}
+
+                        <Text className="text-base text-center mb-6 leading-6">
+                            {resultMessage}
+                        </Text>
+
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity
+                                onPress={retryListening}
+                                className="bg-background p-3 rounded-lg flex-1"
+                            >
+                                <Text className="text-black font-medium text-center">try again</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={closeModal}
+                                className="bg-gray-500 p-3 rounded-lg flex-1"
+                            >
+                                <Text className="text-white font-medium text-center">close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                );
+
+            default:
+                return (
+                    <View className="items-center">
+                        <View className="w-24 h-24 rounded-full bg-gray-100 items-center justify-center mb-6">
+                            <Ionicons name="mic" size={40} color="#6b7280" />
+                        </View>
+
+                        <Text className="text-lg font-semibold text-center mb-2">
+                            voice commands
+                        </Text>
+                        <Text className="text-sm text-gray-600 text-center mb-6">
+                            Tap &#34;Start Listening&#34; and say a command
+                        </Text>
+
+                        <View className="mb-6 p-3 bg-blue-50 rounded-lg w-full">
+                            <Text className="text-xs text-blue-700 text-center">
+                                <Text className="font-semibold mb-1">examples:</Text>
+                                {'\n'}&#34;Search for tomatoes&#34;
+                                {'\n'}&#34;Add 2 kg carrots to cart&#34;
+                                {'\n'}&#34;Checkout my items&#34;
+                            </Text>
+                        </View>
+
+                        <View className="flex-row gap-3 items-center">
+                            <TouchableOpacity
+                                onPress={startListening}
+                                className="bg-background p-3 rounded-lg flex-1"
+                            >
+                                <Text className="text-black font-medium text-center">
+                                    start listening
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={closeModal}
+                                className="bg-gray-500 p-3 rounded-lg flex-1"
+                            >
+                                <Text className="text-white font-medium text-center">
+                                    close
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                );
+        }
+    };
 
     return (
         <>
@@ -337,7 +380,7 @@ export default function VoiceInput({
                 <Ionicons
                     name="mic"
                     size={iconSize}
-                    color={disabled ? "red" : iconColor}
+                    color={disabled ? "#9ca3af" : iconColor}
                 />
             </TouchableOpacity>
 
@@ -347,177 +390,33 @@ export default function VoiceInput({
                 animationType="fade"
                 onRequestClose={closeModal}
             >
-                <View
-                    className="flex-1 bg-black bg-opacity-50 justify-center items-center"
-                    style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}
-                >
-                    <View className="bg-white rounded-2xl p-6 mx-6 w-full max-w-sm">
-
-                        <View className="items-center mb-6">
-                            {isListening ? (
-                                <View className="relative items-center justify-center my-8">
-                                    <Animated.View
-                                        className="absolute w-32 h-32 rounded-full"
-                                        style={{
-                                            backgroundColor: '#EAF3D0',
-                                            opacity: 0.55,
-                                            transform: [{ scale: pulseAnim }],
-                                        }}
-                                    />
-
-                                    <Animated.View
-                                        className="absolute w-24 h-24 rounded-full border-2"
-                                        style={{
-                                            borderColor: '#000000',
-                                            opacity: waveAnim.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [0.8, 0],
-                                            }),
-                                            transform: [{
-                                                scale: waveAnim.interpolate({
-                                                    inputRange: [0, 1],
-                                                    outputRange: [1, 1.5],
-                                                }),
-                                            }],
-                                        }}
-                                    />
-
-                                    <View className="w-20 h-20 rounded-full bg-background items-center justify-center">
-                                        <Ionicons name="mic" size={32} color="black" />
-                                    </View>
-                                </View>
-                            ) : isProcessing ? (
-                                <View className="w-20 h-20 rounded-full bg-blue-500 items-center justify-center">
-                                    <ActivityIndicator size="large" color="white" />
-                                </View>
-                            ) : (
-                                <View className="w-20 h-20 rounded-full bg-background items-center justify-center">
-                                    <Ionicons name="mic" size={32} color="black" />
-                                </View>
-                            )}
-                        </View>
-
-                        <View className="mb-4">
-                            {isListening ? (
-                                <View className="items-center">
-                                    <Text className="text-base font-medium text-black mb-2">
-                                        {tVoice('listening')}
-                                    </Text>
-                                    <Text className="text-xs text-gray-600 text-center my-4">
-                                        {tVoice('addToCart')} {tVoice('findCarrots')}
-                                    </Text>
-                                </View>
-                            ) : isProcessing ? (
-                                <View className="items-center">
-                                    <Text className="text-base font-medium text-black mb-2">
-                                        {tVoice('processing')}
-                                    </Text>
-                                    {recognizedText && (
-                                        <Text className="text-sm text-gray-600 text-center italic">
-                                            &#34;{recognizedText}&#34;
-                                        </Text>
-                                    )}
-                                </View>
-                            ) : (
-                                <View>
-                                    {recognizedText && (
-                                        <View className="mb-3">
-                                            <Text className="text-sm text-gray-500 mb-1">{tVoice('youSaid')}</Text>
-                                            <Text className="text-base italic text-gray-700">
-                                                &#34;{recognizedText}&#34;
-                                            </Text>
-                                        </View>
-                                    )}
-
-                                    {result && (
-                                        <View className="mb-3">
-                                            <Text className="text-base text-black leading-5">
-                                                {result}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-                            )}
-                        </View>
-
-                        {suggestions.length > 0 && !isListening && !isProcessing && (
-                            <View className="mb-4">
-                                <Text className="text-sm font-medium text-gray-700 mb-2">
-                                    {tVoice('tryTheseCommands')}
-                                </Text>
-                                {suggestions.map((suggestion, index) => (
-                                    <TouchableOpacity
-                                        key={index}
-                                        onPress={() => trySuggestion(suggestion)}
-                                        className="bg-gray-100 rounded-lg p-3 mb-2"
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text className="text-sm text-gray-700">
-                                            &#34;{suggestion}&#34;
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        )}
-
-                        <View className="flex-row gap-3">
-                            {!isListening && !isProcessing && (
-                                <TouchableOpacity
-                                    onPress={retryVoiceInput}
-                                    className="flex-1 bg-background py-3 rounded-lg"
-                                    activeOpacity={0.7}
-                                >
-                                    <Text className="text-black font-medium text-center">
-                                        {tVoice('tryAgain')}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-
-                            {isListening && (
-                                <TouchableOpacity
-                                    onPress={stopVoiceRecognition}
-                                    className="flex-1 bg-red-500 py-3 rounded-lg"
-                                    activeOpacity={0.7}
-                                >
-                                    <Text className="text-white font-medium text-center">
-                                        {tVoice('stopListening')}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-
-                            <TouchableOpacity
-                                onPress={closeModal}
-                                className="flex-1 bg-gray-200 py-3 rounded-lg"
-                                activeOpacity={0.7}
-                                disabled={isProcessing}
-                            >
-                                <Text className="text-black font-medium text-center">
-                                    {isProcessing ? tVoice('processing') : tVoice('close')}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {!isListening && !isProcessing && !result && (
-                            <View className="mt-4 p-3 bg-blue-50 rounded-lg">
-                                <Text className="text-xs text-blue-700 text-center">
-                                    <Text className="font-semibold">{tVoice('voiceCommands')}</Text>
-                                    {'\n'}• &#34;{tVoice('searchForTomatoes')}&#34;
-                                    {'\n'}• &#34;{tVoice('addToCart')}&#34;
-                                    {'\n'}• &#34;{tVoice('findCarrots')}&#34;
-                                    {'\n'}• &#34;{tVoice('checkoutItems')}&#34;
-                                </Text>
-                            </View>
-                        )}
+                <View className="flex-1 bg-black/75 justify-center items-center px-6">
+                    <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
+                        {renderModalContent()}
                     </View>
                 </View>
             </Modal>
 
             <CustomAlert
                 visible={alertVisible}
-                type={alertConfig.type}
-                title={alertConfig.title}
-                message={alertConfig.message}
-                buttons={alertConfig.buttons}
+                type="warning"
+                title="microphone permission"
+                message="Voice commands need microphone permission. Please enable it in your device settings."
+                buttons={[
+                    {
+                        text: 'cancel',
+                        onPress: () => setAlertVisible(false),
+                        style: 'cancel'
+                    },
+                    {
+                        text: 'open settings',
+                        onPress: () => {
+                            setAlertVisible(false);
+                            openDeviceSettings();
+                        },
+                        style: 'default'
+                    }
+                ]}
                 onClose={() => setAlertVisible(false)}
             />
         </>

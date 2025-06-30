@@ -123,7 +123,11 @@ export default function OrderSuccessScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title={tOrders('orderConfirmation')} showBackButton={false} />
+                <Header
+                    title={tOrders('orderConfirmation')}
+                    showHomeButton={true}
+                    showOrdersButton={true}
+                />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tOrders('loadingOrderDetails')}</Text>
@@ -135,7 +139,11 @@ export default function OrderSuccessScreen() {
     if (!order) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title={tOrders('orderConfirmation')} showBackButton={false} />
+                <Header
+                    title={tOrders('orderConfirmation')}
+                    showHomeButton={true}
+                    showOrdersButton={true}
+                />
                 <View className="flex-1 justify-center items-center px-6">
                     <Ionicons name="alert-circle-outline" size={80} color="#ef4444" />
                     <Text className="text-xl font-medium text-black mt-4 mb-2">

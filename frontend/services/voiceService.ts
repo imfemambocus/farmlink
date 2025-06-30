@@ -2,7 +2,6 @@ import Voice, { SpeechResultsEvent, SpeechErrorEvent } from 'react-native-voice-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/apiService';
 import { Platform } from 'react-native';
-import { translations, getNestedTranslation } from '@/constants/translations';
 
 interface VoiceCommand {
     action: 'search' | 'add' | 'checkout' | 'unknown';
@@ -10,7 +9,6 @@ interface VoiceCommand {
     quantity?: number;
     unit?: string;
     district?: string;
-    farmer?: string;
     confidence: number;
 }
 
@@ -19,74 +17,57 @@ interface VoiceResult {
     command?: VoiceCommand;
     message: string;
     data?: any;
-    suggestions?: string[];
-}
-
-interface ProductMatch {
-    id: number;
-    item: string;
-    farmer_name: string;
-    farmer_district: string;
-    unit_prices: Array<{
-        id: number;
-        unit: string;
-        customer_type: string;
-        price_per_unit: number;
-        quantity_available: number;
-        minimum_order: number;
-    }>;
 }
 
 class VoiceInputService {
     private isListening = false;
     private recognizedText = '';
-    private isInitialized = false;
 
     private productMappings = new Map([
-        ['tomato', ['tomato', 'tomate']],
-        ['potato', ['potato', 'pomme de terre']],
-        ['onion', ['onion', 'oignon']],
-        ['carrot', ['carrot', 'carotte']],
-        ['cabbage', ['cabbage', 'chou']],
-        ['lettuce', ['lettuce', 'laitue']],
-        ['spinach', ['spinach', 'épinard']],
-        ['broccoli', ['broccoli', 'brocoli']],
-        ['cauliflower', ['cauliflower', 'chou-fleur']],
-        ['bell pepper', ['bell pepper', 'pepper', 'capsicum', 'poivron']],
-        ['chili', ['chili', 'chilli', 'hot pepper', 'piment']],
-        ['cucumber', ['cucumber', 'concombre']],
+        ['tomato', ['tomato', 'tomatoes']],
+        ['potato', ['potato', 'potatoes']],
+        ['onion', ['onion', 'onions']],
+        ['carrot', ['carrot', 'carrots']],
+        ['cabbage', ['cabbage']],
+        ['lettuce', ['lettuce']],
+        ['spinach', ['spinach']],
+        ['broccoli', ['broccoli']],
+        ['cauliflower', ['cauliflower']],
+        ['bell pepper', ['bell pepper', 'pepper', 'capsicum']],
+        ['chili', ['chili', 'chilli', 'hot pepper']],
+        ['cucumber', ['cucumber', 'cucumbers']],
         ['eggplant', ['eggplant', 'aubergine', 'brinjal']],
-        ['okra', ['okra', 'lady finger', 'gombo']],
-        ['green beans', ['green beans', 'beans', 'haricots verts']],
-        ['pumpkin', ['pumpkin', 'citrouille']],
-        ['beetroot', ['beetroot', 'beet', 'betterave']],
-        ['radish', ['radish', 'radis']],
-        ['ginger', ['ginger', 'gingembre']],
-        ['garlic', ['garlic', 'ail']],
-        ['apple', ['apple', 'pomme']],
-        ['banana', ['banana', 'banane']],
-        ['orange', ['orange']],
-        ['mango', ['mango', 'mangue']],
-        ['pineapple', ['pineapple', 'ananas']],
-        ['papaya', ['papaya', 'papaye']],
-        ['guava', ['guava', 'goyave']],
-        ['lychee', ['lychee', 'litchi']],
-        ['coconut', ['coconut', 'coco']],
-        ['lemon', ['lemon', 'citron']],
-        ['lime', ['lime', 'citron vert']],
-        ['watermelon', ['watermelon', 'pastèque']],
+        ['okra', ['okra', 'lady finger']],
+        ['green beans', ['green beans', 'beans']],
+        ['pumpkin', ['pumpkin']],
+        ['beetroot', ['beetroot', 'beet']],
+        ['radish', ['radish']],
+        ['ginger', ['ginger']],
+        ['garlic', ['garlic']],
+        ['apple', ['apple', 'apples']],
+        ['banana', ['banana', 'bananas']],
+        ['orange', ['orange', 'oranges']],
+        ['mango', ['mango', 'mangoes']],
+        ['pineapple', ['pineapple']],
+        ['papaya', ['papaya']],
+        ['guava', ['guava']],
+        ['lychee', ['lychee']],
+        ['coconut', ['coconut']],
+        ['lemon', ['lemon', 'lemons']],
+        ['lime', ['lime', 'limes']],
+        ['watermelon', ['watermelon']],
         ['melon', ['melon']],
-        ['grapes', ['grapes', 'raisin']],
-        ['strawberry', ['strawberry', 'fraise']]
+        ['grapes', ['grapes']],
+        ['strawberry', ['strawberry', 'strawberries']]
     ]);
 
     private unitMappings = new Map([
         ['kilogram', ['kg', 'kilo', 'kilogram', 'kilograms']],
-        ['gram', ['g', 'gram', 'grams', 'gramme', 'grammes']],
+        ['gram', ['g', 'gram', 'grams']],
         ['piece', ['piece', 'pieces', 'unit', 'units', 'each']],
-        ['bunch', ['bunch', 'bunches', 'bouquet']],
-        ['dozen', ['dozen', 'douzaine']],
-        ['basket', ['basket', 'baskets', 'panier']]
+        ['bunch', ['bunch', 'bunches']],
+        ['dozen', ['dozen']],
+        ['basket', ['basket', 'baskets']]
     ]);
 
     private districts = [
@@ -96,113 +77,73 @@ class VoiceInputService {
         'moka', 'plaines wilhems', 'riviere noire', 'savanne', 'flacq'
     ];
 
-    constructor() {}
-
-    private getCurrentLanguage(): 'en' | 'fr' {
-        return 'en';
+    constructor() {
+        this.setupVoiceListeners();
     }
 
-    private t(key: string, params?: Record<string, string | number>): string {
-        const language = this.getCurrentLanguage();
-        const translation = getNestedTranslation(translations[language], key);
+    private setupVoiceListeners() {
+        Voice.onSpeechResults = (event: SpeechResultsEvent) => {
+            if (event.value && event.value.length > 0) {
+                this.recognizedText = event.value[0];
+            }
+        };
 
-        if (!params) {
-            return translation;
-        }
+        Voice.onSpeechError = (error: SpeechErrorEvent) => {
+            console.log('Voice error:', error);
+            this.isListening = false;
+        };
 
-        let result = translation;
-        Object.entries(params).forEach(([paramKey, paramValue]) => {
-            const placeholder = `{${paramKey}}`;
-            result = result.replace(new RegExp(placeholder, 'g'), String(paramValue));
-        });
-
-        return result;
+        Voice.onSpeechEnd = () => {
+            this.isListening = false;
+        };
     }
 
-    private async initializeVoice() {
-        if (this.isInitialized) return;
-
+    async checkPermissions(): Promise<boolean> {
         try {
-            if (Platform.OS === 'web') {
-                console.warn('Voice recognition not available on web platform');
-                return;
+            // Check if voice recognition is available on device
+            const available = await Voice.isAvailable();
+            if (available !== 1) {
+                return false;
             }
 
-            // Set up event listeners for react-native-voice-enhanced
-            Voice.onSpeechStart = this.onSpeechStart;
-            Voice.onSpeechRecognized = this.onSpeechRecognized;
-            Voice.onSpeechEnd = this.onSpeechEnd;
-            Voice.onSpeechError = this.onSpeechError;
-            Voice.onSpeechResults = this.onSpeechResults;
+            // For Android: Test actual permission by trying to start voice recognition
+            if (Platform.OS === 'android') {
+                try {
+                    await Voice.start('en-US');
+                    await Voice.stop();
+                    return true;
+                } catch (error: any) {
+                    // If permission was denied, return false
+                    if (error.message?.includes('permission') || error.message?.includes('denied')) {
+                        return false;
+                    }
+                    // For other errors, assume permission is granted but something else failed
+                    return true;
+                }
+            }
 
-            this.isInitialized = true;
-            console.log('🎤 Voice service initialized successfully with react-native-voice-enhanced');
+            // For iOS: Just return true since permissions are handled when actually starting
+            return true;
         } catch (error) {
-            console.error('Voice initialization error:', error);
-            throw new Error(this.t('voice.voiceNotAvailable'));
+            return false;
         }
     }
-
-    private onSpeechStart = () => {
-        console.log('🎤 Voice: Speech started');
-        this.isListening = true;
-    };
-
-    private onSpeechRecognized = () => {
-        console.log('🎤 Voice: Speech recognized');
-    };
-
-    private onSpeechEnd = () => {
-        console.log('🎤 Voice: Speech ended');
-        this.isListening = false;
-    };
-
-    private onSpeechError = (error: SpeechErrorEvent) => {
-        console.error('🎤 Voice: Speech error', error);
-        this.isListening = false;
-    };
-
-    private onSpeechResults = (event: SpeechResultsEvent) => {
-        if (event.value && event.value.length > 0) {
-            this.recognizedText = event.value[0];
-            console.log('🎤 Voice: Recognized text:', this.recognizedText);
-        }
-    };
 
     async startListening(): Promise<void> {
         try {
-            await this.initializeVoice();
-
             if (this.isListening) {
-                await this.stopListening();
+                await Voice.stop();
             }
 
             this.recognizedText = '';
-
-            // Enhanced error handling for Android compatibility
-            try {
-                await Voice.start('en-US');
-                this.isListening = true;
-            } catch (error: any) {
-                // Handle specific Android errors
-                if (error.message?.includes('recognizer_busy')) {
-                    await Voice.cancel();
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    await Voice.start('en-US');
-                    this.isListening = true;
-                } else if (error.message?.includes('permission') || error.message?.includes('denied')) {
-                    // Re-throw permission errors so they can be handled by the UI
-                    throw new Error('Microphone permission denied. Please grant microphone and speech recognition permissions in your device settings.');
-                } else {
-                    throw error;
-                }
-            }
+            await Voice.start('en-US');
+            this.isListening = true;
         } catch (error: any) {
-            console.error('Error starting voice recognition:', error);
-            if (error.message?.includes('permission') || error.message?.includes('denied')) {
-                throw error; // Re-throw permission errors
+            this.isListening = false;
+            if (error.message?.includes('permission')) {
+                throw new Error('Microphone permission denied');
             }
-            throw new Error(this.t('voice.failedToStart'));
+            throw new Error('Failed to start voice recognition');
         }
     }
 
@@ -214,102 +155,76 @@ class VoiceInputService {
             this.isListening = false;
             return this.recognizedText;
         } catch (error) {
-            console.error('Error stopping voice recognition:', error);
             this.isListening = false;
             return this.recognizedText;
         }
     }
 
-    async processVoiceCommand(
-        recognizedText: string,
-        customerType: 'individual' | 'business'
-    ): Promise<VoiceResult> {
+    async processVoiceCommand(text: string, customerType: 'individual' | 'business'): Promise<VoiceResult> {
         try {
-            console.log('🤖 Processing voice command:', recognizedText);
-
-            if (!recognizedText || recognizedText.trim().length === 0) {
+            if (!text?.trim()) {
                 return {
                     success: false,
-                    message: this.t('voice.didntHear'),
-                    suggestions: [
-                        this.t('voice.makesSure'),
-                        this.t('voice.checkPermissions'),
-                        this.t('voice.tryQuieter')
-                    ]
+                    message: "I didn't hear anything. Please try again."
                 };
             }
 
-            const command = this.parseVoiceCommand(recognizedText);
-            console.log('🧠 Parsed command:', command);
+            const command = this.parseCommand(text);
 
             if (command.confidence < 0.3) {
                 return {
                     success: false,
-                    message: this.t('voice.didntUnderstand'),
-                    suggestions: [
-                        this.t('voice.searchForTomatoes'),
-                        this.t('voice.addToCart'),
-                        this.t('voice.findCarrots'),
-                        this.t('voice.checkoutItems')
-                    ]
+                    message: "I didn't understand that command. Try 'search for tomatoes' or 'add 2 kg carrots'."
                 };
             }
 
             switch (command.action) {
                 case 'search':
-                    return await this.executeSearch(command, customerType);
+                    return await this.handleSearch(command, customerType);
                 case 'add':
-                    return await this.executeAddToCart(command, customerType);
+                    return await this.handleAddToCart(command, customerType);
                 case 'checkout':
-                    return await this.executeCheckout();
+                    return await this.handleCheckout();
                 default:
                     return {
                         success: false,
-                        message: this.t('voice.understoodButNoAction'),
-                        suggestions: [
-                            this.t('voice.searchForProduct'),
-                            this.t('voice.addQuantityProduct'),
-                            this.t('voice.checkoutItems')
-                        ]
+                        message: "Try commands like 'search for vegetables', 'add 2 kg tomatoes', or 'checkout'."
                     };
             }
         } catch (error) {
-            console.error('Error processing voice command:', error);
             return {
                 success: false,
-                message: this.t('voice.errorProcessing')
+                message: "Something went wrong. Please try again."
             };
         }
     }
 
-    private parseVoiceCommand(text: string): VoiceCommand {
-        const normalizedText = text.toLowerCase().trim();
-        console.log('🔍 Parsing:', normalizedText);
+    private parseCommand(text: string): VoiceCommand {
+        const lowerText = text.toLowerCase().trim();
+        let command: VoiceCommand = { action: 'unknown', confidence: 0 };
 
-        let command: VoiceCommand = {
-            action: 'unknown',
-            confidence: 0
-        };
-
-        if (this.containsWords(normalizedText, ['search', 'find', 'look for', 'show me'])) {
+        // Determine action
+        if (this.containsAny(lowerText, ['search', 'find', 'look for', 'show me'])) {
             command.action = 'search';
             command.confidence += 0.4;
-        } else if (this.containsWords(normalizedText, ['add', 'put', 'include', 'cart'])) {
+        } else if (this.containsAny(lowerText, ['add', 'put', 'include'])) {
             command.action = 'add';
             command.confidence += 0.4;
-        } else if (this.containsWords(normalizedText, ['checkout', 'check out', 'buy', 'purchase', 'order now'])) {
+        } else if (this.containsAny(lowerText, ['checkout', 'buy', 'purchase', 'order', 'proceed'])) {
             command.action = 'checkout';
-            command.confidence += 0.8;
+            command.confidence = 0.8;
             return command;
         }
 
-        const detectedProduct = this.detectProduct(normalizedText);
+        // Find product
+        const detectedProduct = this.detectProduct(lowerText);
         if (detectedProduct) {
             command.product = detectedProduct;
             command.confidence += 0.3;
         }
 
-        const { quantity, unit } = this.detectQuantityAndUnit(normalizedText);
+        // Find quantity and unit
+        const { quantity, unit } = this.detectQuantityAndUnit(lowerText);
         if (quantity) {
             command.quantity = quantity;
             command.confidence += 0.2;
@@ -319,214 +234,138 @@ class VoiceInputService {
             command.confidence += 0.1;
         }
 
-        const detectedDistrict = this.detectDistrict(normalizedText);
+        // Find district
+        const detectedDistrict = this.detectDistrict(lowerText);
         if (detectedDistrict) {
             command.district = detectedDistrict;
             command.confidence += 0.1;
         }
 
-        console.log('📊 Final command confidence:', command.confidence);
         return command;
     }
 
-    private async executeSearch(command: VoiceCommand, customerType: 'individual' | 'business'): Promise<VoiceResult> {
+    private async handleSearch(command: VoiceCommand, customerType: 'individual' | 'business'): Promise<VoiceResult> {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
-                return { success: false, message: this.t('voice.pleaseLoginSearch') };
+                return { success: false, message: "Please log in first." };
             }
 
-            const searchParams: any = { limit: 20 };
-
-            if (command.product) {
-                searchParams.search = command.product;
-            }
-            if (command.district) {
-                searchParams.district = command.district;
-            }
-
-            console.log('🔍 Searching with params:', searchParams);
+            const params: any = { limit: 20 };
+            if (command.product) params.search = command.product;
+            if (command.district) params.district = command.district;
 
             const response = await api.get('/browse/products/search', {
-                params: searchParams,
+                params,
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             const products = response.data.items || [];
-
-            const filteredProducts = products.filter((product: any) =>
-                product.unit_prices.some((up: any) =>
+            const availableProducts = products.filter((p: any) =>
+                p.unit_prices.some((up: any) =>
                     up.customer_type === customerType && up.quantity_available > 0
                 )
             );
 
-            if (filteredProducts.length === 0) {
-                let message = this.t('voice.noProductsFound', {
-                    product: command.product || this.t('common.products')
-                });
-                if (command.district) {
-                    message += ` ${this.t('voice.fromFarmersIn', { district: command.district })}`;
-                }
-                message += ` ${this.t('voice.forCustomerType', { customerType })}`;
-
+            if (availableProducts.length === 0) {
                 return {
                     success: false,
-                    message,
-                    suggestions: [
-                        this.t('voice.tryWithoutDistrict'),
-                        this.t('voice.searchDifferentProduct'),
-                        this.t('voice.searchVegetables')
-                    ]
+                    message: `No ${command.product || 'products'} found${command.district ? ` in ${command.district}` : ''}.`
                 };
             }
-
-            const productNames = filteredProducts.slice(0, 5).map((p: any) => p.item).join(', ');
-            let message = this.t('voice.foundResults', {
-                count: filteredProducts.length,
-                plural: filteredProducts.length > 1 ? 's' : ''
-            });
-            if (command.district) {
-                message += ` ${this.t('voice.fromDistrict', { district: command.district })}`;
-            }
-            message += `: ${productNames}${filteredProducts.length > 5 ? ` ${this.t('voice.andMore')}` : ''}`;
 
             return {
                 success: true,
-                message,
-                data: { products: filteredProducts, searchTerm: command.product }
+                message: `Found ${availableProducts.length} product${availableProducts.length > 1 ? 's' : ''}.`,
+                data: { products: availableProducts, searchTerm: command.product }
             };
 
         } catch (error) {
-            console.error('Search error:', error);
-            return {
-                success: false,
-                message: this.t('voice.searchError')
-            };
+            return { success: false, message: "Search failed. Please try again." };
         }
     }
 
-    private async executeAddToCart(command: VoiceCommand, customerType: 'individual' | 'business'): Promise<VoiceResult> {
+    private async handleAddToCart(command: VoiceCommand, customerType: string): Promise<VoiceResult> {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
-                return { success: false, message: this.t('voice.pleaseLoginCart') };
+                return { success: false, message: "Please log in first." };
             }
 
             if (!command.product) {
-                return {
-                    success: false,
-                    message: this.t('voice.specifyProduct')
-                };
+                return { success: false, message: "Please specify a product to add." };
             }
 
+            // Search for the product
             const searchResponse = await api.get('/browse/products/search', {
-                params: { search: command.product, limit: 10 },
+                params: { search: command.product, limit: 5 },
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            const products: ProductMatch[] = searchResponse.data.items || [];
-
-            const suitableProducts = products.filter(product =>
-                product.unit_prices.some(up =>
+            const products = searchResponse.data.items || [];
+            const availableProduct = products.find((p: any) =>
+                p.unit_prices.some((up: any) =>
                     up.customer_type === customerType && up.quantity_available > 0
                 )
             );
 
-            if (suitableProducts.length === 0) {
+            if (!availableProduct) {
                 return {
                     success: false,
-                    message: this.t('voice.productNotAvailable', {
-                        product: command.product,
-                        customerType
-                    }),
-                    suggestions: [
-                        this.t('voice.searchProductFirst'),
-                        this.t('voice.searchSimilarProducts'),
-                        this.t('voice.tryAgainLater')
-                    ]
+                    message: `${command.product} is not available.`
                 };
             }
 
-            const bestMatch = this.findBestProductMatch(suitableProducts, command, customerType);
-            if (!bestMatch) {
-                return {
-                    success: false,
-                    message: this.t('voice.foundButCouldntMatch', { product: command.product })
-                };
-            }
-
-            const finalQuantity = this.calculateFinalQuantity(
-                command.quantity || 1,
-                bestMatch.unitPrice.minimum_order,
+            // Find best unit price with proper unit matching
+            const bestMatch = this.findBestProductMatch(
+                [availableProduct],
+                command,
                 customerType
             );
 
-            if (finalQuantity > bestMatch.unitPrice.quantity_available) {
+            if (!bestMatch) {
                 return {
                     success: false,
-                    message: this.t('voice.onlyAvailable', {
-                        available: bestMatch.unitPrice.quantity_available,
-                        unit: bestMatch.unitPrice.unit,
-                        product: bestMatch.product.item,
-                        farmer: bestMatch.product.farmer_name
-                    }),
-                    suggestions: [
-                        this.t('voice.trySmallerQuantity'),
-                        this.t('voice.searchOtherFarmers')
-                    ]
+                    message: `Found ${command.product} but couldn't match the requested unit.`
                 };
             }
 
+            const quantity = Math.max(command.quantity || 1, bestMatch.unitPrice.minimum_order);
+
+            if (quantity > bestMatch.unitPrice.quantity_available) {
+                return {
+                    success: false,
+                    message: `Only ${bestMatch.unitPrice.quantity_available} ${bestMatch.unitPrice.unit} available.`
+                };
+            }
+
+            // Add to cart
             await api.post('/orders/cart/items', {
-                farmer_product_id: bestMatch.product.id,
+                farmer_product_id: availableProduct.id,
                 unit_price_id: bestMatch.unitPrice.id,
-                quantity: finalQuantity
+                quantity: quantity
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            const totalCost = (finalQuantity * bestMatch.unitPrice.price_per_unit).toFixed(2);
+            const cost = (quantity * bestMatch.unitPrice.price_per_unit).toFixed(2);
 
             return {
                 success: true,
-                message: this.t('voice.addedToCart', {
-                    quantity: finalQuantity,
-                    unit: bestMatch.unitPrice.unit,
-                    product: bestMatch.product.item,
-                    farmer: bestMatch.product.farmer_name,
-                    cost: totalCost
-                }),
-                data: {
-                    product: bestMatch.product.item,
-                    farmer: bestMatch.product.farmer_name,
-                    quantity: finalQuantity,
-                    unit: bestMatch.unitPrice.unit,
-                    cost: totalCost
-                }
+                message: `Added ${quantity} ${bestMatch.unitPrice.unit} of ${availableProduct.item} - Rs ${cost}`,
+                data: { product: availableProduct.item, quantity, cost }
             };
 
-        } catch (error: any) {
-            console.error('Add to cart error:', error);
-
-            if (error.response?.status === 400) {
-                return {
-                    success: false,
-                    message: error.response.data.detail || this.t('voice.unableToAddItem')
-                };
-            }
-
-            return {
-                success: false,
-                message: this.t('voice.errorAddingItem')
-            };
+        } catch (error) {
+            return { success: false, message: "Failed to add item to cart." };
         }
     }
 
-    private async executeCheckout(): Promise<VoiceResult> {
+    private async handleCheckout(): Promise<VoiceResult> {
         try {
             const token = await AsyncStorage.getItem('token');
             if (!token) {
-                return { success: false, message: this.t('voice.pleaseLoginCheckout') };
+                return { success: false, message: "Please log in first." };
             }
 
             const cartResponse = await api.get('/orders/cart', {
@@ -534,46 +373,27 @@ class VoiceInputService {
             });
 
             const cart = cartResponse.data;
+            const itemCount = Number(cart.total_items) || 0;
 
-            if (!cart.farmer_groups || cart.farmer_groups.length === 0) {
+            if (itemCount === 0) {
                 return {
                     success: false,
-                    message: this.t('voice.cartEmpty'),
-                    suggestions: [
-                        this.t('voice.addTomatoesToCart'),
-                        this.t('voice.searchForVegetables')
-                    ]
+                    message: "Your cart is empty. Add some items first."
                 };
             }
 
-            const itemCount = Number(cart.total_items) || 0;
-            const totalAmount = Number(cart.total_amount) || 0;
-            const farmerCount = cart.farmer_groups ? cart.farmer_groups.length : 0;
-
             return {
                 success: true,
-                message: this.t('voice.proceedingToCheckout', {
-                    items: itemCount,
-                    farmers: farmerCount,
-                    plural: farmerCount > 1 ? 's' : '',
-                    amount: totalAmount.toFixed(2)
-                }),
-                data: {
-                    action: 'navigate_to_checkout',
-                    cart: cart
-                }
+                message: `Proceeding to checkout with ${itemCount} item${itemCount > 1 ? 's' : ''}.`,
+                data: { action: 'navigate_to_checkout', cart }
             };
 
         } catch (error) {
-            console.error('Checkout error:', error);
-            return {
-                success: false,
-                message: this.t('voice.checkoutError')
-            };
+            return { success: false, message: "Checkout failed. Please try again." };
         }
     }
 
-    private containsWords(text: string, words: string[]): boolean {
+    private containsAny(text: string, words: string[]): boolean {
         return words.some(word => text.includes(word));
     }
 
@@ -627,17 +447,17 @@ class VoiceInputService {
     }
 
     private findBestProductMatch(
-        products: ProductMatch[],
+        products: any[],
         command: VoiceCommand,
-        customerType: 'individual' | 'business'
+        customerType: string, // 'individual' | 'business'
     ) {
         for (const product of products) {
-            const suitableUnitPrices = product.unit_prices.filter(up =>
+            const suitableUnitPrices = product.unit_prices.filter((up: any) =>
                 up.customer_type === customerType && up.quantity_available > 0
             );
 
             if (command.unit) {
-                const matchingUnitPrice = suitableUnitPrices.find(up =>
+                const matchingUnitPrice = suitableUnitPrices.find((up: any) =>
                     up.unit.toLowerCase() === command.unit?.toLowerCase() ||
                     this.unitMappings.get(command.unit || '')?.includes(up.unit.toLowerCase())
                 );
@@ -648,7 +468,9 @@ class VoiceInputService {
             }
 
             if (suitableUnitPrices.length > 0) {
-                const bestUnitPrice = suitableUnitPrices.sort((a, b) => a.price_per_unit - b.price_per_unit)[0];
+                const bestUnitPrice = suitableUnitPrices.sort((a: any, b: any) =>
+                    a.price_per_unit - b.price_per_unit
+                )[0];
                 return { product, unitPrice: bestUnitPrice };
             }
         }
@@ -656,84 +478,15 @@ class VoiceInputService {
         return null;
     }
 
-    private calculateFinalQuantity(
-        requestedQuantity: number,
-        minimumOrder: number,
-        customerType: 'individual' | 'business'
-    ): number {
-        const quantityStep = customerType === 'business' ? 25 : 1;
-        const adjustedMinimum = Math.ceil(minimumOrder / quantityStep) * quantityStep;
-        return Math.max(requestedQuantity, adjustedMinimum);
-    }
-
-    async checkPermissions(): Promise<boolean> {
-        try {
-            if (Platform.OS === 'web') {
-                return false;
-            }
-
-            await this.initializeVoice();
-
-            // Enhanced permission checking for react-native-voice-enhanced
-            try {
-                const available = await Voice.isAvailable();
-                if (available !== 1) {
-                    return false;
-                }
-
-                // Additional check: try to get speech recognition services (Android)
-                if (Platform.OS === 'android') {
-                    try {
-                        // This method exists in react-native-voice-enhanced
-                        const services = await (Voice as any).getSpeechRecognitionServices?.();
-                        if (!services || services.length === 0) {
-                            console.log('No speech recognition services found on Android device');
-                            return false;
-                        }
-                    } catch (serviceError) {
-                        console.log('Could not check speech recognition services:', serviceError);
-                        // Don't fail here, continue with other checks
-                    }
-                }
-
-                return true;
-            } catch (error) {
-                console.log('Voice availability check failed, trying alternative method');
-                // Fallback: try to start and immediately stop to test permissions
-                try {
-                    await Voice.start('en-US');
-                    await Voice.stop();
-                    return true;
-                } catch (startError: any) {
-                    if (startError.message?.includes('permission') || startError.message?.includes('denied')) {
-                        return false; // Permission definitely denied
-                    }
-                    return false;
-                }
-            }
-        } catch (error) {
-            console.error('Permission check error:', error);
-            return false;
-        }
-    }
-
     async cleanup(): Promise<void> {
         try {
             if (this.isListening) {
                 await Voice.stop();
             }
-            if (this.isInitialized) {
-                await Voice.destroy();
-                Voice.removeAllListeners();
-                this.isInitialized = false;
-            }
+            Voice.removeAllListeners();
         } catch (error) {
-            console.error('Cleanup error:', error);
+            console.log('Cleanup error:', error);
         }
-    }
-
-    getIsListening(): boolean {
-        return this.isListening;
     }
 }
 

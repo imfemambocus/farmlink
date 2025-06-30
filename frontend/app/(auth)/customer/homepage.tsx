@@ -142,7 +142,7 @@ export default function CustomerHomePage() {
                 api.get('/browse/farmers?limit=10', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
-                api.get('/browse/products/latest?limit=20', {
+                api.get('/browse/products/latest?limit=10', {
                     headers: { Authorization: `Bearer ${token}` }
                 }),
                 api.get('/browse/products/recommendations', {
@@ -218,12 +218,6 @@ export default function CustomerHomePage() {
             </View>
         );
     };
-
-    const renderRecommendationItem = ({ item }: { item: Product }) => (
-        <View style={{ width: screenWidth * 0.45, marginRight: 12 }}>
-            <ProductCard product={item} />
-        </View>
-    );
 
     if (loading) {
         return (

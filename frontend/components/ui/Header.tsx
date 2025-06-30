@@ -128,6 +128,8 @@ export default function Header({
                             <TouchableOpacity
                                 onPress={handleHomePress}
                                 activeOpacity={0.7}
+                                className="p-1"
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                                 <Ionicons
                                     name="home-sharp"
@@ -140,7 +142,8 @@ export default function Header({
                             <TouchableOpacity
                                 onPress={handleNotificationPress}
                                 activeOpacity={0.7}
-                                className="relative"
+                                className="relative p-1"
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                                 <Ionicons
                                     name="notifications"
@@ -181,7 +184,8 @@ export default function Header({
                             <TouchableOpacity
                                 onPress={handleCartPress}
                                 activeOpacity={0.7}
-                                className="relative"
+                                className="relative p-1"
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                                 <Ionicons
                                     name="cart"
@@ -224,7 +228,8 @@ export default function Header({
                             <TouchableOpacity
                                 onPress={handleOrdersPress}
                                 activeOpacity={0.7}
-                                className="relative"
+                                className="relative p-1"
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                                 <Ionicons
                                     name="receipt"
@@ -265,6 +270,8 @@ export default function Header({
                             <TouchableOpacity
                                 onPress={handleOrdersPress}
                                 activeOpacity={0.7}
+                                className="p-1"
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                                 <Ionicons
                                     name="receipt"
@@ -277,6 +284,8 @@ export default function Header({
                             <TouchableOpacity
                                 onPress={handleSettingsPress}
                                 activeOpacity={0.7}
+                                className="p-1"
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                                 <Ionicons
                                     name="settings"
@@ -289,6 +298,8 @@ export default function Header({
                             <TouchableOpacity
                                 onPress={handleLogout}
                                 activeOpacity={0.7}
+                                className="p-1"
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                                 <Ionicons
                                     name="log-out"
@@ -301,6 +312,8 @@ export default function Header({
                             <TouchableOpacity
                                 onPress={handleBackPress}
                                 activeOpacity={0.7}
+                                className="p-1"
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             >
                                 <Ionicons
                                     name="arrow-back-sharp"

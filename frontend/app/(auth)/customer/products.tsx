@@ -66,6 +66,7 @@ export default function ProductsScreen() {
     const { tDashboard, tCustomer, tCommon } = useTranslation();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchLoading, setSearchLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -119,28 +120,15 @@ export default function ProductsScreen() {
         setAlert(prev => ({ ...prev, visible: false }));
     };
 
-    const handleVoiceResult = (data: any) => {
-        if (data?.searchTerm) {
-            setSearchText(data.searchTerm);
-        }
-        if (data?.products) {
-            showAlert(
-                'success',
-                tCustomer('voiceSearch'),
-                tCustomer('foundProductsMatching', { count: data.products.length }),
-                [{ text: tCommon('ok'), onPress: hideAlert, style: 'cancel' }]
-            );
-        }
-    };
-
     const debounceSearch = useCallback(
         (() => {
             let timeoutId: number;
             return (searchValue: string) => {
+                setSearchLoading(true);
                 clearTimeout(timeoutId);
                 timeoutId = setTimeout(() => {
                     setActiveFilters(prev => ({ ...prev, search: searchValue }));
-                }, 500);
+                }, 300);
             };
         })(),
         []
@@ -243,6 +231,8 @@ export default function ProductsScreen() {
                     hasMore: response.data.has_next || false
                 }));
             }
+
+            setSearchLoading(false);
 
         } catch (error: any) {
             console.error('Error fetching products:', error);
@@ -511,33 +501,41 @@ export default function ProductsScreen() {
                     </Text>
                 </View>
 
-                <CategoryFilter />
+                {searchLoading ? (
+                    <View className="flex-1 justify-center items-center mt-8">
+                        <ActivityIndicator size="large" color="#4CAF50" />
+                        <Text className="text-gray-600 mt-4">{tCustomer('loadingProducts')}</Text>
+                    </View>
+                ) : (
+                    <>
+                        <CategoryFilter />
 
-                <DistrictFilter />
+                        <DistrictFilter />
 
-                <View className="px-5">
-                    {products.length === 0 ? (
-                        <EmptyProductsComponent />
-                    ) : (
-                        <FlatList
-                            data={products}
-                            renderItem={renderProductItem}
-                            keyExtractor={(item) => item.id.toString()}
-                            numColumns={getNumColumns()}
-                            key={getNumColumns()}
-                            scrollEnabled={false}
-                            showsVerticalScrollIndicator={false}
-                            ListFooterComponent={renderFooter}
-                            onEndReached={handleLoadMore}
-                            onEndReachedThreshold={0.1}
-                        />
-                    )}
-                </View>
+                        <View className="px-5">
+                            {products.length === 0 ? (
+                                <EmptyProductsComponent />
+                            ) : (
+                                <FlatList
+                                    data={products}
+                                    renderItem={renderProductItem}
+                                    keyExtractor={(item) => item.id.toString()}
+                                    numColumns={getNumColumns()}
+                                    key={getNumColumns()}
+                                    scrollEnabled={false}
+                                    showsVerticalScrollIndicator={false}
+                                    ListFooterComponent={renderFooter}
+                                    onEndReached={handleLoadMore}
+                                    onEndReachedThreshold={0.1}
+                                />
+                            )}
+                        </View>
+                    </>
+                )}
             </ScrollView>
 
             <FloatingActionButton
                 showVoice={true}
-                onResult={handleVoiceResult}
             />
 
             <CustomAlert

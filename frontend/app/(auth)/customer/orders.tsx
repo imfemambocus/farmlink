@@ -497,7 +497,6 @@ export default function OrdersScreen() {
                     title={tOrders('myOrders')}
                     showBackButton={true}
                     showNotificationButton={true}
-                    showHomeButton={true}
                     showCartButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
@@ -514,7 +513,6 @@ export default function OrdersScreen() {
                 title={tOrders('myOrders')}
                 showBackButton={true}
                 showNotificationButton={true}
-                showHomeButton={true}
                 showCartButton={true}
             />
 

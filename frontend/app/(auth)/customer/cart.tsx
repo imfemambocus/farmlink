@@ -423,6 +423,8 @@ export default function CartScreen() {
                 <Header
                     title={tCart('myCart')}
                     showBackButton={true}
+                    showOrdersButton={true}
+                    showNotificationButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -439,7 +441,6 @@ export default function CartScreen() {
             <Header
                 title={tCart('myCart')}
                 showBackButton={true}
-                showHomeButton={true}
                 showOrdersButton={true}
                 showNotificationButton={true}
             />

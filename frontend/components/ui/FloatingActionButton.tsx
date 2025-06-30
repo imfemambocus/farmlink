@@ -75,34 +75,10 @@ export default function FloatingActionButton({
     const isCustomer = user?.role === 'individual' || user?.role === 'business';
     const shouldShowVoice = showVoice && isCustomer;
 
-    const handleVoiceResult = onResult || ((data: any) => {
-        if (data?.products) {
-            router.push({
-                pathname: '/(auth)/customer/products',
-                params: { searchTerm: data.searchTerm || '' }
-            });
-        }
-    });
-
-    const handleVoiceError = onError || ((error: string) => {
-        showAlert(
-            'error',
-            'Voice Command Error',
-            error,
-            [{
-                text: 'OK',
-                style: 'default',
-                onPress: hideAlert
-            }]
-        );
-    });
-
     if (shouldShowVoice) {
         return (
             <>
                 <VoiceInput
-                    onResult={handleVoiceResult}
-                    onError={handleVoiceError}
                     style={{
                         position: 'absolute',
                         bottom: 48,
