@@ -251,7 +251,7 @@ export default function FarmerDetailScreen() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title={t('farmers.farmerDetails')}
+                    title={t('farmers.farmerTitle')}
                     showBackButton={true}
                     showCartButton={true}
                     showNotificationButton={true}
@@ -268,7 +268,7 @@ export default function FarmerDetailScreen() {
         return (
             <View className="flex-1 bg-surface">
                 <Header
-                    title={t('farmers.farmerDetails')}
+                    title={t('farmers.farmerTitle')}
                     showBackButton={true}
                     showCartButton={true}
                     showNotificationButton={true}
@@ -291,7 +291,7 @@ export default function FarmerDetailScreen() {
     return (
         <View className="flex-1 bg-surface">
             <Header
-                title={farmer.name}
+                title={t('farmers.farmerTitle')}
                 showBackButton={true}
                 showCartButton={true}
                 showOrdersButton={true}
@@ -311,25 +311,26 @@ export default function FarmerDetailScreen() {
                 contentContainerStyle={{ paddingBottom: 100 }}
             >
                 <View className="px-5 pt-6 pb-4">
-                    <View className="bg-background rounded-xl py-6 px-4 flex-row gap-2 justify-between">
-                        <View className="flex-row items-center gap-2">
-                            <Ionicons name="location" size={18} color="#000000" />
-                            <Text className="text-base text-gray-600">
-                                {farmer.district}
-                            </Text>
+                    <View className="bg-background rounded-xl overflow-hidden relative">
+                        <View
+                            className="absolute top-0 left-0"
+                            style={{
+                                width: 40,
+                                height: 40,
+                                backgroundColor: 'black',
+                                borderBottomRightRadius: 40,
+                            }}
+                        />
+                        <View className="absolute top-2.5 left-2.5">
+                            <Ionicons name="person" size={16} color="white" />
                         </View>
 
-                        <View className="flex-row items-center gap-2">
-                            <Ionicons name="call" size={18} color="#000000" />
-                            <Text className="text-base text-gray-600">
-                                {farmer.phone}
+                        <View className="p-5 ml-12">
+                            <Text className="text-lg font-semibold text-black mb-1">
+                                {farmer.name}
                             </Text>
-                        </View>
-
-                        <View className="flex-row items-center gap-2">
-                            <Ionicons name="leaf" size={18} color="#000000" />
-                            <Text className="text-base text-gray-600">
-                                {farmer.product_count} {t('farmers.products')}
+                            <Text className="text-sm text-gray-600 flex-1">
+                                {`${farmer.district} • ${farmer.phone} • ${farmer.product_count} ${t('farmers.products')}`}
                             </Text>
                         </View>
                     </View>

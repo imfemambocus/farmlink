@@ -24,7 +24,7 @@ export default {
       package: "com.imfestudio.farmlink",
       adaptiveIcon: {
         foregroundImage: "./assets/images/logo.png",
-        backgroundColor: "#F2FBE0",
+        backgroundColor: "#FFFFFF",
       },
       permissions: [
         "RECEIVE_BOOT_COMPLETED",
@@ -57,7 +57,7 @@ export default {
           image: "./assets/images/logo.png",
           imageWidth: 128,
           resizeMode: "contain",
-          backgroundColor: "#F2FBE0",
+          backgroundColor: "#FFFFFF",
         }
       ],
       [
