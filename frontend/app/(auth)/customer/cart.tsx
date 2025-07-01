@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations'; // Import our new utility
+import { useProductTranslations } from '@/utils/translations';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import RecipeSuggestions from '@/components/customer/RecipeSuggestions';
@@ -68,7 +68,7 @@ export default function CartScreen() {
     const { refreshCartCount } = useCart();
     const router = useRouter();
     const { tCart } = useTranslation();
-    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
+    const { translateProduct, translateUnit } = useProductTranslations();
     const [cart, setCart] = useState<Cart | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -82,9 +82,7 @@ export default function CartScreen() {
         buttons: []
     });
 
-    // Helper function to convert formatted product name back to backend format for translation lookup
     const getBackendProductName = (formattedName: string): string => {
-        // Convert "Green Beans" back to "green_beans" for translation lookup
         return formattedName.toLowerCase().replace(/\s+/g, '_');
     };
 
@@ -302,11 +300,9 @@ export default function CartScreen() {
     };
 
     const renderCartItem = (item: CartItem) => {
-        // Get the backend product name for image and background color
         const backendProductName = getBackendProductName(item.product_name || '');
         const productImage = getProductImage(backendProductName);
 
-        // Get translated names
         const translatedProductName = translateProduct(backendProductName);
         const translatedUnitName = translateUnit(item.unit_name, item.quantity);
 
@@ -327,7 +323,6 @@ export default function CartScreen() {
                         />
                     </View>
 
-                    {/* Product name and unit price */}
                     <View className="flex-1 mr-4">
                         <Text
                             className="text-base font-medium text-black mb-1"
@@ -341,7 +336,6 @@ export default function CartScreen() {
                         </Text>
                     </View>
 
-                    {/* Quantity controls */}
                     <View className="items-center w-20 mr-6">
                         <View className="flex-row items-center bg-gray-100 rounded-lg">
                             <TouchableOpacity
@@ -382,14 +376,12 @@ export default function CartScreen() {
                         </View>
                     </View>
 
-                    {/* Total price */}
                     <View className="w-16 items-end mr-2">
                         <Text className="text-xs font-semibold text-black text-right">
                             {translateUnit('rs')} {formatPrice(item.total_price)}
                         </Text>
                     </View>
 
-                    {/* Delete button */}
                     <TouchableOpacity
                         onPress={() => removeItem(item.id)}
                         className="p-2"
@@ -462,10 +454,10 @@ export default function CartScreen() {
             {isEmpty ? (
                 <View className="flex-1 justify-center items-center px-6">
                     <Ionicons name="basket-outline" size={64} color="#d1d5db" />
-                    <Text className="text-xl font-medium text-black mt-4 mb-2">
+                    <Text className="text-lg font-medium text-black mt-4 mb-2">
                         {tCart('cartIsEmpty')}
                     </Text>
-                    <Text className="text-gray-600 text-center mb-8">
+                    <Text className="text-gray-600 text-sm text-center mb-8">
                         {tCart('browseProductsDescription')}
                     </Text>
                 </View>

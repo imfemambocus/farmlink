@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations'; // Import our translation utility
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/apiService';
@@ -56,6 +57,7 @@ const UNITS = ['kg', 'bunch', 'piece', 'dozen', 'basket'];
 export default function AddProduct() {
     const router = useRouter();
     const { t, tProducts, tCommon } = useTranslation();
+    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
     const [availableItems, setAvailableItems] = useState<AvailableItems>({ fruits: [], vegetables: [] });
     const [selectedCategory, setSelectedCategory] = useState<'fruits' | 'vegetables'>('vegetables');
     const [selectedItem, setSelectedItem] = useState<string>('');
@@ -122,8 +124,11 @@ export default function AddProduct() {
         }
     };
 
-    const formatItemName = (item: string) => {
-        return item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
+    // Helper function to translate product names from backend format
+    const getTranslatedProductName = (backendName: string): string => {
+        const translatedName = translateProduct(backendName);
+        // Fallback to formatted name if translation not available
+        return translatedName || backendName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
     };
 
     const validateForm = (): boolean => {
@@ -386,7 +391,7 @@ export default function AddProduct() {
                                 <Text className={`text-sm font-medium ${
                                     selectedItem === item ? 'text-black' : 'text-gray-600'
                                 }`}>
-                                    {formatItemName(item)}
+                                    {getTranslatedProductName(item)}
                                 </Text>
                             </Pressable>
                         ))}
@@ -464,7 +469,7 @@ export default function AddProduct() {
                                             <Text className={`text-sm font-medium ${
                                                 unitPricing.unit === unit ? 'text-black' : 'text-gray-600'
                                             }`}>
-                                                {t(`units.${unit}`)}
+                                                {translateUnit(unit)}
                                             </Text>
                                         </Pressable>
                                     ))}

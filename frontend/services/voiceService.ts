@@ -174,7 +174,7 @@ class VoiceInputService {
             if (command.confidence < 0.3) {
                 return {
                     success: false,
-                    message: "I didn't understand that command. Try 'search for tomatoes' or 'add 2 kg carrots'."
+                    message: "I didn't understand that command."
                 };
             }
 
@@ -316,7 +316,6 @@ class VoiceInputService {
                 };
             }
 
-            // Find best unit price with proper unit matching
             const bestMatch = this.findBestProductMatch(
                 [availableProduct],
                 command,

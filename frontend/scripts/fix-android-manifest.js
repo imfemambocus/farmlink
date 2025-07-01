@@ -118,6 +118,39 @@ configurations.all {
         console.log('ℹ️  configurations.all block already exists');
     }
 
+    // Add packagingOptions for voice package fix if not present
+    if (!buildGradleContent.includes('packagingOptions')) {
+        console.log('🔧 Adding packagingOptions for voice package fix...');
+
+        // Find the android block and add packagingOptions inside it
+        const androidBlockStart = buildGradleContent.indexOf('android {');
+        if (androidBlockStart !== -1) {
+            // Find the first opening brace after "android"
+            const openBraceIndex = buildGradleContent.indexOf('{', androidBlockStart);
+            if (openBraceIndex !== -1) {
+                const packagingOptionsBlock = `
+    packagingOptions {
+        pickFirst '**/BuildConfig.class'
+        pickFirst '**/com/wenkesj/voice/BuildConfig.class'
+    }
+`;
+
+                const beforeAndroid = buildGradleContent.substring(0, openBraceIndex + 1);
+                const afterAndroid = buildGradleContent.substring(openBraceIndex + 1);
+
+                buildGradleContent = beforeAndroid + packagingOptionsBlock + afterAndroid;
+                modified = true;
+                console.log('✅ Added packagingOptions for voice package fix');
+            } else {
+                console.log('❌ Could not find android block opening brace');
+            }
+        } else {
+            console.log('❌ Could not find android block for packagingOptions');
+        }
+    } else {
+        console.log('ℹ️  packagingOptions already exists');
+    }
+
     // Add androidx.core dependency if not present
     if (!buildGradleContent.includes("implementation 'androidx.core:core:1.13.1'")) {
         console.log('🔧 Adding androidx.core dependency...');

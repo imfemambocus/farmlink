@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations';
 import ruleBasedAIService from '@/services/aiRecipeService';
 
 interface CartItem {
@@ -24,6 +25,7 @@ interface Recipe {
     description: string;
     prep_time: string;
     difficulty: 'easy' | 'medium' | 'hard';
+    difficulty_translated?: string;
     cuisine_type: 'mauritian' | 'creole' | 'indian' | 'chinese';
     ingredients: any[];
     missing_ingredients: any[];
@@ -51,6 +53,7 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
      onAlert
  }) => {
     const { t, tCart } = useTranslation();
+    const { translateProduct, translateUnit } = useProductTranslations();
     const [recipes, setRecipes] = useState<Recipe[]>([]);
     const [loading, setLoading] = useState(false);
     const [addingIngredients, setAddingIngredients] = useState<string | null>(null);
@@ -87,6 +90,12 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
         }
     };
 
+    const getTranslatedProductName = (productName: string): string => {
+        const backendName = productName.toLowerCase().replace(/\s+/g, '_');
+        const translatedName = translateProduct(backendName);
+        return translatedName || productName.replace(/_/g, ' ');
+    };
+
     const handleAddMissingIngredients = async (recipe: Recipe) => {
         if (recipe.available_missing_ingredients.length === 0) {
             if (recipe.missing_ingredients.length === 0) {
@@ -107,7 +116,11 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
 
             if (result.success) {
                 const ingredientsList = result.addedItems
-                    .map(item => `${item.quantity} ${item.unit} ${item.product}`)
+                    .map(item => {
+                        const translatedProduct = getTranslatedProductName(item.product);
+                        const translatedUnit = translateUnit(item.unit, item.quantity);
+                        return `${item.quantity} ${translatedUnit} ${translatedProduct}`;
+                    })
                     .join(', ');
 
                 const plural = result.addedItems.length !== 1 ? 's' : '';
@@ -194,6 +207,7 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
     const renderRecipeCard = ({ item: recipe }: { item: Recipe }) => {
         const isExpanded = expandedRecipe === recipe.id;
         const animationValue = getAnimationValue(recipe.id);
+        const difficultyText = recipe.difficulty_translated || t(`ai.${recipe.difficulty}`);
 
         return (
             <View
@@ -204,10 +218,10 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
                     <View className="flex-row items-start justify-between mb-2">
                         <View className="flex-1 mr-2">
                             <Text className="text-base font-semibold text-black mb-1" numberOfLines={2}>
-                                {recipe.name.toLowerCase()}
+                                {recipe.name}
                             </Text>
                             <Text className="text-xs text-gray-600" numberOfLines={2}>
-                                {recipe.description.toLowerCase()}
+                                {recipe.description}
                             </Text>
                         </View>
                         <View className="bg-green-100 px-2 py-1 rounded-full">
@@ -245,7 +259,7 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
                                 className="text-xs font-medium ml-1"
                                 style={{ color: getDifficultyColor(recipe.difficulty) }}
                             >
-                                {t(`ai.${recipe.difficulty}`)}
+                                {difficultyText}
                             </Text>
                         </View>
                     </View>
@@ -263,7 +277,7 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
                                 >
                                     {addingIngredients === recipe.id ? (
                                         <>
-                                            <ActivityIndicator size="small" color="white" />
+                                            <ActivityIndicator size="small" color="black" />
                                             <Text className="text-black text-sm font-medium ml-2">{tCart('adding')}</Text>
                                         </>
                                     ) : (
@@ -275,8 +289,7 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
                             ) : (
                                 <View className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
                                     <View className="flex-row items-center">
-                                        <Ionicons name="alert-circle" size={16} color="#f59e0b" />
-                                        <Text className="text-orange-700 text-sm font-medium ml-2">
+                                        <Text className="text-orange-700 text-sm font-medium">
                                             {tCart('missingIngredientsNotAvailable')}
                                         </Text>
                                     </View>

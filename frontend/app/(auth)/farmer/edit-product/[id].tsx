@@ -11,6 +11,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations'; // Import our translation utility
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/apiService';
@@ -77,6 +78,7 @@ export default function EditProduct() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { t, tProducts, tCommon } = useTranslation();
+    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
 
     const [product, setProduct] = useState<Product | null>(null);
     const [description, setDescription] = useState('');
@@ -99,6 +101,13 @@ export default function EditProduct() {
             fetchProduct();
         }
     }, [id]);
+
+    // Helper function to translate product names from backend format
+    const getTranslatedProductName = (backendName: string): string => {
+        const translatedName = translateProduct(backendName);
+        // Fallback to formatted name if translation not available
+        return translatedName || backendName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
+    };
 
     const showAlert = (
         type: 'success' | 'error' | 'warning' | 'info',
@@ -205,10 +214,6 @@ export default function EditProduct() {
         } finally {
             setLoadingProduct(false);
         }
-    };
-
-    const formatItemName = (item: string) => {
-        return item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
     };
 
     const getProductBackgroundColor = (item: string) => {
@@ -579,7 +584,7 @@ export default function EditProduct() {
 
                     <View className="flex-1">
                         <Text className="text-lg font-medium text-black mb-1">
-                            {formatItemName(product.item)}
+                            {getTranslatedProductName(product.item)}
                         </Text>
                         <Text className="text-sm text-gray-600 mb-2">
                             {tProducts('created')}: {new Date(product.created_at).toLocaleDateString()}
@@ -709,7 +714,7 @@ export default function EditProduct() {
                                             <Text className={`text-sm font-medium ${
                                                 unitPricing.unit === unit ? 'text-black' : 'text-gray-600'
                                             }`}>
-                                                {t(`units.${unit}`)}
+                                                {translateUnit(unit)}
                                             </Text>
                                         </Pressable>
                                     ))}

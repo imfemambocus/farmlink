@@ -214,10 +214,10 @@ export default function NotificationsScreen() {
             {notifications.length === 0 ? (
                 <View className="flex-1 justify-center items-center px-6">
                     <Ionicons name="notifications-outline" size={64} color="#d1d5db" />
-                    <Text className="text-xl font-medium text-black mt-4 mb-2">
+                    <Text className="text-lg font-medium text-black mt-4 mb-2">
                         {tNotifications('noNotificationsYet')}
                     </Text>
-                    <Text className="text-gray-600 text-center">
+                    <Text className="text-gray-600 text-sm text-center">
                         {tNotifications('notificationsAppearHere')}
                     </Text>
                 </View>

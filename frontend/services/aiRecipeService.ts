@@ -5,6 +5,7 @@ import {
     MAURITIAN_RECIPES,
     INGREDIENT_CATEGORIES,
     CUISINE_AFFINITIES,
+    DIFFICULTY_TRANSLATIONS,
     RecipeRule,
     RecipeIngredient
 } from '@/constants/recipes';
@@ -21,6 +22,7 @@ interface Recipe {
     description: string;
     prep_time: string;
     difficulty: 'easy' | 'medium' | 'hard';
+    difficulty_translated: string;
     cuisine_type: 'mauritian' | 'creole' | 'indian' | 'chinese';
     ingredients: RecipeIngredient[];
     missing_ingredients: RecipeIngredient[];
@@ -53,14 +55,17 @@ class RuleBasedAIService {
         this.initializeKnowledgeBase();
     }
 
-    private getCurrentLanguage(): 'en' | 'fr' {
-        // In a real app, this would get the current language from AsyncStorage or context
-        // For now, defaulting to 'en' - you may need to adjust this based on your app structure
-        return 'en';
+    async getCurrentLanguage(): Promise<'en' | 'fr'> {
+        try {
+            const storedLanguage = await AsyncStorage.getItem('user_language_preference');
+            return (storedLanguage === 'fr') ? 'fr' : 'en';
+        } catch (error) {
+            return 'en';
+        }
     }
 
-    private t(key: string, params?: Record<string, string | number>): string {
-        const language = this.getCurrentLanguage();
+    private async t(key: string, params?: Record<string, string | number>): Promise<string> {
+        const language = await this.getCurrentLanguage();
         const translation = getNestedTranslation(translations[language], key);
 
         if (!params) {
@@ -74,6 +79,65 @@ class RuleBasedAIService {
         });
 
         return result;
+    }
+
+    // Helper function to translate product names
+    private async translateProduct(productName: string): Promise<string> {
+        const translated = await this.t(`products.${productName}`);
+        // Fallback to formatted name if translation not found
+        return translated !== `products.${productName}` ? translated : productName.replace(/_/g, ' ');
+    }
+
+    // Helper function to translate units
+    private async translateUnit(unit: string, quantity: number = 1): Promise<string> {
+        if (quantity === 1) {
+            const translated = await this.t(`units.${unit}`);
+            return translated !== `units.${unit}` ? translated : unit;
+        } else {
+            // Handle plural forms
+            const pluralUnit = this.getPluralUnit(unit, quantity);
+            const translated = await this.t(`units.${pluralUnit}`);
+            return translated !== `units.${pluralUnit}` ? translated : pluralUnit;
+        }
+    }
+
+    private getPluralUnit(unit: string, quantity: number): string {
+        if (quantity === 1) {
+            return unit;
+        }
+
+        switch (unit) {
+            case 'piece':
+                return 'pieces';
+            case 'bunch':
+                return 'bunches';
+            case 'dozen':
+                return 'dozens';
+            case 'basket':
+                return 'baskets';
+            case 'kg':
+                return 'kgs';
+            default:
+                return unit + 's';
+        }
+    }
+
+    // Translate recipe ingredients
+    private async translateIngredients(ingredients: RecipeIngredient[]): Promise<RecipeIngredient[]> {
+        const translatedIngredients: RecipeIngredient[] = [];
+
+        for (const ingredient of ingredients) {
+            const translatedName = await this.translateProduct(ingredient.name);
+            const translatedUnit = await this.translateUnit(ingredient.unit, parseFloat(ingredient.quantity));
+
+            translatedIngredients.push({
+                ...ingredient,
+                name: translatedName,
+                unit: translatedUnit
+            });
+        }
+
+        return translatedIngredients;
     }
 
     private initializeKnowledgeBase() {
@@ -105,7 +169,7 @@ class RuleBasedAIService {
             this.cartUpdateTimer = setTimeout(async () => {
                 try {
                     const cartAnalysis = this.analyzeCartContents(cartItems);
-                    const candidateRecipes = this.applyRecipeRules(cartItems, cartAnalysis);
+                    const candidateRecipes = await this.applyRecipeRules(cartItems, cartAnalysis);
                     const scoredRecipes = this.scoreAndRankRecipes(candidateRecipes, cartItems, customerType, userPreferences);
                     const topRecipes = scoredRecipes.slice(0, 3);
 
@@ -146,47 +210,64 @@ class RuleBasedAIService {
         const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
 
         const allMissingIngredients = new Set<string>();
-        const recipeIngredientMap = new Map<string, { recipe: Recipe, ingredients: RecipeIngredient[] }>();
+        const recipeIngredientMap = new Map<string, { recipe: Recipe, ingredients: RecipeIngredient[], originalIngredients: RecipeIngredient[] }>();
 
-        recipes.forEach(recipe => {
+        for (const recipe of recipes) {
             const missingIngredients: RecipeIngredient[] = [];
+            const originalMissingIngredients: RecipeIngredient[] = [];
 
-            recipe.ingredients.forEach(ingredient => {
-                const ingredientName = ingredient.name.toLowerCase();
-                const isInCart = cartItemNames.some(cartItem =>
-                    cartItem.includes(ingredientName) || ingredientName.includes(cartItem)
-                );
+            // Find the original recipe rule to get English ingredient names
+            const originalRule = this.recipeRules.find(rule =>
+                recipe.id.includes(rule.translations.en.name.toLowerCase().replace(/\s+/g, '_')) ||
+                recipe.id.includes(rule.translations.fr.name.toLowerCase().replace(/\s+/g, '_'))
+            );
 
-                if (!isInCart) {
-                    missingIngredients.push(ingredient);
-                    allMissingIngredients.add(ingredientName);
+            if (originalRule) {
+                for (let i = 0; i < originalRule.ingredients.length; i++) {
+                    const originalIngredient = originalRule.ingredients[i];
+                    const translatedIngredient = recipe.ingredients[i];
+                    const ingredientName = originalIngredient.name.toLowerCase(); // Use original English name
+
+                    const isInCart = cartItemNames.some(cartItem =>
+                        cartItem.includes(ingredientName) || ingredientName.includes(cartItem)
+                    );
+
+                    if (!isInCart) {
+                        originalMissingIngredients.push(originalIngredient); // Store original for API calls
+                        missingIngredients.push(translatedIngredient); // Store translated for display
+                        allMissingIngredients.add(ingredientName); // Use English name for API
+                    }
                 }
-            });
+            }
 
-            recipeIngredientMap.set(recipe.id, { recipe, ingredients: missingIngredients });
-        });
+            recipeIngredientMap.set(recipe.id, {
+                recipe,
+                ingredients: missingIngredients,
+                originalIngredients: originalMissingIngredients
+            });
+        }
 
         const ingredientAvailabilityMap = await this.batchCheckIngredientsAvailability(
-            Array.from(allMissingIngredients),
+            Array.from(allMissingIngredients), // English names for API
             customerType
         );
 
         const processedRecipes: Recipe[] = [];
 
-        for (const [recipeId, { recipe, ingredients: missingIngredients }] of recipeIngredientMap) {
-            const availableMissingIngredients = missingIngredients.filter(ingredient =>
-                ingredientAvailabilityMap.has(ingredient.name.toLowerCase())
+        for (const [recipeId, { recipe, ingredients: missingIngredients, originalIngredients }] of recipeIngredientMap) {
+            const availableMissingIngredients = missingIngredients.filter((ingredient, index) =>
+                ingredientAvailabilityMap.has(originalIngredients[index].name.toLowerCase()) // Check using English names
             );
 
             const estimatedCost = this.estimateCostFromAvailabilityMap(
-                availableMissingIngredients,
+                originalIngredients, // Use original ingredients for cost calculation
                 ingredientAvailabilityMap
             );
 
             processedRecipes.push({
                 ...recipe,
-                missing_ingredients: missingIngredients,
-                available_missing_ingredients: availableMissingIngredients,
+                missing_ingredients: missingIngredients, // Translated for display
+                available_missing_ingredients: availableMissingIngredients, // Translated for display
                 estimated_total_cost: estimatedCost
             });
         }
@@ -363,12 +444,6 @@ class RuleBasedAIService {
         }
     }
 
-    clearCache() {
-        this.productSearchCache.clear();
-        this.lastCartHash = '';
-        this.lastRecipesResult = [];
-    }
-
     private analyzeCartContents(cartItems: CartItem[]) {
         const analysis = {
             vegetableCount: 0,
@@ -401,15 +476,16 @@ class RuleBasedAIService {
         return analysis;
     }
 
-    private applyRecipeRules(cartItems: CartItem[], cartAnalysis: any): Recipe[] {
+    private async applyRecipeRules(cartItems: CartItem[], cartAnalysis: any): Promise<Recipe[]> {
         const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
         const matchingRecipes: Recipe[] = [];
 
         for (const rule of this.recipeRules) {
+            // Use original English ingredient names for matching logic
             const matchScore = this.calculateRuleMatchScore(rule, cartItemNames);
 
             if (matchScore > 0.1) {
-                const recipe = this.createRecipeFromRule(rule, cartItems, matchScore);
+                const recipe = await this.createRecipeFromRule(rule, cartItems, matchScore);
                 matchingRecipes.push(recipe);
             }
         }
@@ -440,12 +516,42 @@ class RuleBasedAIService {
         let score = 0;
         const cartItemNames = cartItems.map(item => item.product_name.toLowerCase());
 
-        const ingredientOverlap = recipe.ingredients.filter(ingredient =>
-            cartItemNames.some(cartItem =>
-                cartItem.includes(ingredient.name) || ingredient.name.includes(cartItem)
-            )
-        ).length;
-        score += (ingredientOverlap / recipe.ingredients.length) * 0.4;
+        // Find the original recipe rule to use English ingredient names for matching
+        const originalRule = this.recipeRules.find(rule =>
+            recipe.id.includes(rule.translations.en.name.toLowerCase().replace(/\s+/g, '_')) ||
+            recipe.id.includes(rule.translations.fr.name.toLowerCase().replace(/\s+/g, '_'))
+        );
+
+        if (originalRule) {
+            const ingredientOverlap = originalRule.ingredients.filter(ingredient =>
+                cartItemNames.some(cartItem =>
+                    cartItem.includes(ingredient.name) || ingredient.name.includes(cartItem)
+                )
+            ).length;
+            score += (ingredientOverlap / originalRule.ingredients.length) * 0.4;
+
+            const missingCount = originalRule.ingredients.filter(ing =>
+                !cartItemNames.some(cartItem =>
+                    cartItem.includes(ing.name) || ing.name.includes(cartItem)
+                )
+            ).length;
+            score += (1 - (missingCount / originalRule.ingredients.length)) * 0.2;
+        } else {
+            // Fallback to using translated ingredients if original rule not found
+            const ingredientOverlap = recipe.ingredients.filter(ingredient =>
+                cartItemNames.some(cartItem =>
+                    cartItem.includes(ingredient.name) || ingredient.name.includes(cartItem)
+                )
+            ).length;
+            score += (ingredientOverlap / recipe.ingredients.length) * 0.4;
+
+            const missingCount = recipe.ingredients.filter(ing =>
+                !cartItemNames.some(cartItem =>
+                    cartItem.includes(ing.name) || ing.name.includes(cartItem)
+                )
+            ).length;
+            score += (1 - (missingCount / recipe.ingredients.length)) * 0.2;
+        }
 
         if (customerType === 'business' && recipe.difficulty !== 'hard') {
             score += 0.2;
@@ -456,13 +562,6 @@ class RuleBasedAIService {
         if (userPreferences?.preferredCuisine?.includes(recipe.cuisine_type)) {
             score += 0.2;
         }
-
-        const missingCount = recipe.ingredients.filter(ing =>
-            !cartItemNames.some(cartItem =>
-                cartItem.includes(ing.name) || ing.name.includes(cartItem)
-            )
-        ).length;
-        score += (1 - (missingCount / recipe.ingredients.length)) * 0.2;
 
         return Math.min(score, 1.0);
     }
@@ -503,22 +602,55 @@ class RuleBasedAIService {
         return hints;
     }
 
-    private createRecipeFromRule(rule: RecipeRule, cartItems: CartItem[], matchScore: number): Recipe {
+    private async createRecipeFromRule(rule: RecipeRule, cartItems: CartItem[], matchScore: number): Promise<Recipe> {
+        const language = await this.getCurrentLanguage();
+        const translation = rule.translations[language];
+
+        // Translate ingredients
+        const translatedIngredients = await this.translateIngredients(rule.ingredients);
+
+        // Get translated difficulty
+        const translatedDifficulty = DIFFICULTY_TRANSLATIONS[language][rule.difficulty];
+
         return {
-            id: `rule_${rule.name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
-            name: rule.name,
-            description: rule.description,
+            id: `rule_${translation.name.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`,
+            name: translation.name,
+            description: translation.description,
             prep_time: rule.prep_time,
-            difficulty: rule.difficulty,
+            difficulty: rule.difficulty, // Keep original for logic
+            difficulty_translated: translatedDifficulty, // For display
             cuisine_type: rule.cuisine_type,
-            ingredients: rule.ingredients,
+            ingredients: translatedIngredients,
             missing_ingredients: [],
             available_missing_ingredients: [],
             estimated_total_cost: 0,
-            instructions: rule.instructions,
-            nutritional_benefits: rule.nutritional_benefits,
+            instructions: translation.instructions,
+            nutritional_benefits: translation.nutritional_benefits,
             confidence_score: matchScore
         };
+    }
+
+    // Helper method to find original English ingredient name from translated name
+    private async findOriginalIngredientName(translatedName: string): Promise<string> {
+        const language = await this.getCurrentLanguage();
+
+        if (language === 'en') {
+            return translatedName; // Already in English
+        }
+
+        // Search through recipe rules to find the English equivalent
+        for (const rule of this.recipeRules) {
+            const translatedIngredients = await this.translateIngredients(rule.ingredients);
+            const matchingIngredient = translatedIngredients.find(ing =>
+                ing.name.toLowerCase() === translatedName.toLowerCase()
+            );
+            if (matchingIngredient) {
+                const originalIndex = translatedIngredients.indexOf(matchingIngredient);
+                return rule.ingredients[originalIndex].name;
+            }
+        }
+
+        return translatedName; // Fallback to translated name if not found
     }
 
     async addMissingIngredientsToCart(
@@ -527,14 +659,17 @@ class RuleBasedAIService {
     ): Promise<{success: boolean, addedItems: any[], errors: string[]}> {
         try {
             const token = await AsyncStorage.getItem('token');
-            if (!token) throw new Error(this.t('common.noAuthToken'));
+            if (!token) throw new Error(await this.t('common.noAuthToken'));
 
             const addedItems: any[] = [];
             const errors: string[] = [];
 
             for (const ingredient of missingIngredients) {
                 try {
-                    const bestMatch = await this.findBestProductMatch(ingredient.name, customerType);
+                    // Get the original English ingredient name for API call
+                    const englishIngredientName = await this.findOriginalIngredientName(ingredient.name);
+
+                    const bestMatch = await this.findBestProductMatch(englishIngredientName, customerType);
 
                     if (bestMatch) {
                         const finalQuantity = Math.max(1, bestMatch.minimum_order);
@@ -548,7 +683,7 @@ class RuleBasedAIService {
                         });
 
                         addedItems.push({
-                            name: ingredient.name,
+                            name: ingredient.name, // Keep translated name for display
                             product: bestMatch.product_name,
                             farmer: bestMatch.farmer_name,
                             price: bestMatch.price_per_unit,
@@ -556,10 +691,10 @@ class RuleBasedAIService {
                             unit: bestMatch.unit
                         });
                     } else {
-                        errors.push(this.t('common.couldNotFind', { item: ingredient.name }));
+                        errors.push(await this.t('common.couldNotFind', { item: ingredient.name }));
                     }
                 } catch (itemError: any) {
-                    errors.push(this.t('common.failedToAdd', {
+                    errors.push(await this.t('common.failedToAdd', {
                         item: ingredient.name,
                         error: itemError.response?.data?.detail || itemError.message
                     }));
@@ -572,7 +707,7 @@ class RuleBasedAIService {
             return {
                 success: false,
                 addedItems: [],
-                errors: [this.t('common.fatalErrorAdding', { error: error.message })]
+                errors: [await this.t('common.fatalErrorAdding', { error: error.message })]
             };
         }
     }

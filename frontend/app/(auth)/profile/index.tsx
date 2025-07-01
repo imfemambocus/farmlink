@@ -4,7 +4,6 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    ScrollView,
     ActivityIndicator,
     SafeAreaView,
 } from 'react-native';
@@ -15,6 +14,7 @@ import Header from '@/components/ui/Header';
 import LanguageSelector from '@/components/ui/LanguageSelector';
 import CustomAlert from '@/components/ui/CustomAlert';
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import ruleBasedAIService from '@/services/aiRecipeService';
 
 interface FormErrors {
     [key: string]: string;
@@ -271,6 +271,24 @@ export default function ProfileEditScreen() {
         }
     };
 
+    const getLanguageForAccountTypeOrder = async () => {
+        const lang = await ruleBasedAIService.getCurrentLanguage();
+
+        if (lang === 'en') {
+            return (
+                <Text className="text-sm text-black font-medium">
+                    {t(`auth.${user?.role}`)} {tProfile('account')}
+                </Text>
+            );
+        }
+
+        return (
+            <Text className="text-sm text-black font-medium">
+                {tProfile('account')} {t(`auth.${user?.role}`)}
+            </Text>
+        );
+    }
+
     if (!user) {
         return (
             <SafeAreaView className="flex-1 bg-background">
@@ -310,9 +328,7 @@ export default function ProfileEditScreen() {
                                     color="#FFFFFF"
                                 />
                             </View>
-                            <Text className="text-sm text-black font-medium">
-                                {t(`auth.${user.role}`)} {tProfile('account')}
-                            </Text>
+                            {getLanguageForAccountTypeOrder()}
                         </View>
                         <Text className="text-base text-gray-900 font-sans">
                             {user.role === 'business'

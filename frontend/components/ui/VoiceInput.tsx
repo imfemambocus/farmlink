@@ -16,6 +16,7 @@ import { useCart } from '@/context/CartContext';
 import { useRouter } from 'expo-router';
 import VoiceInputService from '@/services/voiceService';
 import CustomAlert from '@/components/ui/CustomAlert';
+import {useTranslation} from "@/context/LanguageContext";
 
 interface VoiceInputProps {
     disabled?: boolean;
@@ -35,14 +36,12 @@ export default function VoiceInput({
     const { user } = useContext(AuthContext);
     const { refreshCartCount } = useCart();
     const router = useRouter();
-
+    const { tVoice, tCommon } = useTranslation();
     const [isVisible, setIsVisible] = useState(false);
     const [voiceState, setVoiceState] = useState<VoiceState>('idle');
     const [recognizedText, setRecognizedText] = useState('');
     const [resultMessage, setResultMessage] = useState('');
     const [pulseAnim] = useState(new Animated.Value(1));
-
-    // Permission alert state
     const [alertVisible, setAlertVisible] = useState(false);
 
     useEffect(() => {
@@ -136,7 +135,7 @@ export default function VoiceInput({
                 setAlertVisible(true);
             } else {
                 // Android or other iOS errors: Show generic error
-                setResultMessage('Failed to start listening. Please try again.');
+                setResultMessage(tVoice('voiceNotAvailable'));
                 setVoiceState('result');
                 autoCloseModal();
             }
@@ -152,11 +151,11 @@ export default function VoiceInput({
                 setVoiceState('processing');
                 await processCommand(text);
             } else {
-                setResultMessage("I didn't hear anything. Please try again.");
+                setResultMessage(tVoice('didntHear'));
                 setVoiceState('result');
             }
         } catch (error) {
-            setResultMessage('Something went wrong. Please try again.');
+            setResultMessage(tVoice('didntUnderstand'));
             setVoiceState('result');
             autoCloseModal();
         }
@@ -198,7 +197,7 @@ export default function VoiceInput({
             }
 
         } catch (error) {
-            setResultMessage('Something went wrong. Please try again.');
+            setResultMessage(tVoice('errorProcessing'));
             setVoiceState('result');
             autoCloseModal();
         }
@@ -241,17 +240,17 @@ export default function VoiceInput({
                         </Animated.View>
 
                         <Text className="text-lg font-semibold text-center mb-2">
-                            listening...
+                            {tVoice('listening')}
                         </Text>
                         <Text className="text-sm text-gray-600 text-center mb-6">
-                            Say your command now
+                            {tVoice('sayYourCommand')}
                         </Text>
 
                         <TouchableOpacity
                             onPress={stopListening}
                             className="bg-red-500 px-9 py-3 rounded-lg"
                         >
-                            <Text className="text-white font-medium">stop</Text>
+                            <Text className="text-white font-medium">{tVoice('stopListening')}</Text>
                         </TouchableOpacity>
                     </View>
                 );
@@ -264,7 +263,7 @@ export default function VoiceInput({
                         </View>
 
                         <Text className="text-lg font-semibold text-center mb-2">
-                            processing...
+                            {tVoice('processing')}
                         </Text>
                         {recognizedText && (
                             <Text className="text-sm text-gray-600 text-center italic">
@@ -284,7 +283,7 @@ export default function VoiceInput({
                         {recognizedText && (
                             <View className="mb-4">
                                 <Text className="text-sm text-gray-500 text-center mb-1">
-                                    You said:
+                                    {tVoice('youSaid')}
                                 </Text>
                                 <Text className="text-base italic text-gray-700 text-center">
                                     &#34;{recognizedText}&#34;
@@ -301,14 +300,14 @@ export default function VoiceInput({
                                 onPress={retryListening}
                                 className="bg-background p-3 rounded-lg flex-1"
                             >
-                                <Text className="text-black font-medium text-center">try again</Text>
+                                <Text className="text-black font-medium text-center">{tVoice('tryAgain')}</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
                                 onPress={closeModal}
                                 className="bg-gray-500 p-3 rounded-lg flex-1"
                             >
-                                <Text className="text-white font-medium text-center">close</Text>
+                                <Text className="text-white font-medium text-center">{tVoice('close')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -322,18 +321,18 @@ export default function VoiceInput({
                         </View>
 
                         <Text className="text-lg font-semibold text-center mb-2">
-                            voice commands
+                            {tVoice('voiceCommand')}
                         </Text>
                         <Text className="text-sm text-gray-600 text-center mb-6">
-                            Tap &#34;Start Listening&#34; and say a command
+                            {tVoice('whatToDo')}
                         </Text>
 
                         <View className="mb-6 p-3 bg-blue-50 rounded-lg w-full">
+                            <Text className="font-semibold text-xs text-blue-700 text-center">{tVoice('tryTheseCommands')}</Text>
                             <Text className="text-xs text-blue-700 text-center">
-                                <Text className="font-semibold mb-1">examples:</Text>
-                                {'\n'}&#34;Search for tomatoes&#34;
-                                {'\n'}&#34;Add 2 kg carrots to cart&#34;
-                                {'\n'}&#34;Checkout my items&#34;
+                                {'\n'}&#34;{tVoice('searchForTomatoes')}&#34;
+                                {'\n'}&#34;{tVoice('addToCart')}&#34;
+                                {'\n'}&#34;{tVoice('checkoutItems')}&#34;
                             </Text>
                         </View>
 
@@ -343,7 +342,7 @@ export default function VoiceInput({
                                 className="bg-background p-3 rounded-lg flex-1"
                             >
                                 <Text className="text-black font-medium text-center">
-                                    start listening
+                                    {tVoice('startListening')}
                                 </Text>
                             </TouchableOpacity>
 
@@ -352,7 +351,7 @@ export default function VoiceInput({
                                 className="bg-gray-500 p-3 rounded-lg flex-1"
                             >
                                 <Text className="text-white font-medium text-center">
-                                    close
+                                    {tVoice('close')}
                                 </Text>
                             </TouchableOpacity>
                         </View>
@@ -400,16 +399,16 @@ export default function VoiceInput({
             <CustomAlert
                 visible={alertVisible}
                 type="warning"
-                title="microphone permission"
-                message="Voice commands need microphone permission. Please enable it in your device settings."
+                title={tVoice('microphonePermission')}
+                message={tVoice('enableMicrophone')}
                 buttons={[
                     {
-                        text: 'cancel',
+                        text: tCommon('cancel'),
                         onPress: () => setAlertVisible(false),
                         style: 'cancel'
                     },
                     {
-                        text: 'open settings',
+                        text: tCommon('setings'),
                         onPress: () => {
                             setAlertVisible(false);
                             openDeviceSettings();
