@@ -81,7 +81,8 @@ export default {
             deploymentTarget: "18.5"
           }
         }
-      ]
+      ],
+      "react-native-voice-enhanced",
     ],
     assetBundlePatterns: [
       "assets/fonts/*",
