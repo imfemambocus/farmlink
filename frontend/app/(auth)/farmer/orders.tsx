@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations'; // Import our translation utility
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
@@ -85,6 +86,7 @@ interface AlertState {
 export default function FarmerOrdersScreen() {
     const { user } = useContext(AuthContext);
     const { t, tOrders, tCommon } = useTranslation();
+    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
     const router = useRouter();
     const [orders, setOrders] = useState<Order[]>([]);
     const [orderDetails, setOrderDetails] = useState<{ [key: number]: OrderDetails }>({});
@@ -101,6 +103,12 @@ export default function FarmerOrdersScreen() {
         message: '',
         buttons: []
     });
+
+    // Helper function to convert formatted product name back to backend format for translation lookup
+    const getBackendProductName = (formattedName: string): string => {
+        // Convert "Green Beans" back to "green_beans" for translation lookup
+        return formattedName.toLowerCase().replace(/\s+/g, '_');
+    };
 
     const showAlert = (
         type: 'success' | 'error' | 'warning' | 'info',
@@ -401,13 +409,19 @@ export default function FarmerOrdersScreen() {
     };
 
     const renderOrderItem = (item: OrderItem) => {
-        const productImage = getProductImage(item.item_name || '');
+        // Get the backend product name for image and background color
+        const backendProductName = getBackendProductName(item.item_name || '');
+        const productImage = getProductImage(backendProductName);
+
+        // Get translated names
+        const translatedProductName = translateProduct(backendProductName);
+        const translatedUnitName = translateUnit(item.unit, item.quantity);
 
         return (
             <View key={item.id} className="flex-row items-center py-3 border-b border-gray-100 last:border-b-0">
                 <View
                     className="w-10 h-10 rounded-lg items-center justify-center mr-3"
-                    style={{ backgroundColor: getProductBackgroundColor(item.item_name.toLowerCase() || '') }}
+                    style={{ backgroundColor: getProductBackgroundColor(backendProductName) }}
                 >
                     <Image
                         source={productImage}
@@ -421,15 +435,15 @@ export default function FarmerOrdersScreen() {
 
                 <View className="flex-1">
                     <Text className="text-sm font-medium text-black">
-                        {item.item_name || tOrders('unknownProduct')}
+                        {translatedProductName || tOrders('unknownProduct')}
                     </Text>
                     <Text className="text-xs text-gray-600">
-                        {item.quantity} {item.unit} × {t('units.rs')} {formatPrice(item.unit_price)}
+                        {item.quantity} {translatedUnitName} × {translateUnit('rs')} {formatPrice(item.unit_price)}
                     </Text>
                 </View>
 
                 <Text className="text-sm font-semibold text-black">
-                    {t('units.rs')} {formatPrice(item.total_price)}
+                    {translateUnit('rs')} {formatPrice(item.total_price)}
                 </Text>
             </View>
         );
@@ -472,16 +486,13 @@ export default function FarmerOrdersScreen() {
                                 </Text>
                             </View>
                             <Text className="text-lg font-bold text-black">
-                                {t('units.rs')} {formatPrice(order.farmer_payment?.net_amount || order.final_amount)}
+                                {translateUnit('rs')} {formatPrice(order.farmer_payment?.net_amount || order.final_amount)}
                             </Text>
                         </View>
                     </View>
 
                     <Text className="text-sm text-gray-600">
-                        {order.item_count} {order.item_count === 1 ?
-                        t('common.products').slice(0, -1) :
-                        t('common.products')
-                    }
+                        {order.item_count} {order.item_count === 1 ? tOrders('item') : tOrders('items')}
                     </Text>
                 </TouchableOpacity>
 
@@ -549,17 +560,17 @@ export default function FarmerOrdersScreen() {
                                     <View className="bg-gray-50 rounded-lg p-3">
                                         <View className="flex-row justify-between items-center mb-2">
                                             <Text className="text-sm font-medium text-black">{tOrders('orderTotal')}</Text>
-                                            <Text className="text-sm font-medium text-black">{t('units.rs')} {formatPrice(details.farmer_payment.gross_amount)}</Text>
+                                            <Text className="text-sm font-medium text-black">{translateUnit('rs')} {formatPrice(details.farmer_payment.gross_amount)}</Text>
                                         </View>
                                         <View className="flex-row justify-between items-center mb-2">
                                             <Text className="text-sm text-gray-600">
                                                 {tOrders('platformFee')} ({details.farmer_payment.platform_fee_percentage}%)
                                             </Text>
-                                            <Text className="text-sm text-red-600">- {t('units.rs')} {formatPrice(details.farmer_payment.platform_fee)}</Text>
+                                            <Text className="text-sm text-red-600">- {translateUnit('rs')} {formatPrice(details.farmer_payment.platform_fee)}</Text>
                                         </View>
                                         <View className="flex-row justify-between items-center pt-2 border-t border-gray-300">
                                             <Text className="text-base font-semibold text-black">{tOrders('yourEarnings')}</Text>
-                                            <Text className="text-base font-bold text-green-600">{t('units.rs')} {formatPrice(details.farmer_payment.net_amount)}</Text>
+                                            <Text className="text-base font-bold text-green-600">{translateUnit('rs')} {formatPrice(details.farmer_payment.net_amount)}</Text>
                                         </View>
                                     </View>
                                 )}
@@ -582,7 +593,6 @@ export default function FarmerOrdersScreen() {
                     title={tOrders('myOrders')}
                     showBackButton={true}
                     showNotificationButton={true}
-                    showHomeButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#4CAF50" />
@@ -598,7 +608,6 @@ export default function FarmerOrdersScreen() {
                 title={tOrders('myOrders')}
                 showBackButton={true}
                 showNotificationButton={true}
-                showHomeButton={true}
             />
 
             {orders.length === 0 ? (

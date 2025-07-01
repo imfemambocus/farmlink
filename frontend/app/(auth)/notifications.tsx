@@ -34,7 +34,7 @@ export default function NotificationsScreen() {
     const { notifications, unreadCount, refreshNotifications, markAsRead, markAllAsRead } = useNotifications();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const { t, tNotifications } = useTranslation();
+    const { tNotifications } = useTranslation();
 
     useEffect(() => {
         loadNotifications();

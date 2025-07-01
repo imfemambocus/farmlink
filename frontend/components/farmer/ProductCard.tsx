@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getProductBackgroundColor} from "@/utils/products";
 import {UnitPrice} from "@/types";
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations'; // Import our new utility
 
 interface ProductCardProps {
     product: {
@@ -51,6 +52,7 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
     const backgroundOpacity = useSharedValue(0);
     const modalTranslateY = useSharedValue(1000);
     const { tCommon, tProducts, tAuth, tCustomer, t } = useTranslation();
+    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
 
     const showAlert = (
         type: 'success' | 'error' | 'warning' | 'info',
@@ -73,10 +75,6 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
 
     const hideAlert = () => {
         setAlert(prev => ({ ...prev, visible: false }));
-    };
-
-    const formatItemName = (item: string) => {
-        return item.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
     };
 
     const getIndividualPrices = () => {
@@ -180,12 +178,13 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
     }));
 
     const productImage = getProductImage(product.item);
+    const translatedProductName = translateProduct(product.item);
 
     return (
         <>
             <TouchableOpacity
                 onPress={openModal}
-                className="bg-surface rounded-xl border border-gray-200 mb-4 p-4"
+                className="bg-surface rounded-xl border border-gray-200 p-4"
                 activeOpacity={0.7}
             >
                 <View className="w-1/2 aspect-square rounded-[40px] items-center justify-center mb-3 self-center">
@@ -207,8 +206,8 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                 </View>
 
                 <View className="flex-row items-center justify-between mb-3">
-                    <Text className="text-sm font-medium text-black flex-1">
-                        {formatItemName(product.item)}
+                    <Text className="text-sm font-medium text-black flex-1" numberOfLines={1}>
+                        {translatedProductName}
                     </Text>
                     <View className={`px-3 py-1 rounded-full ${
                         product.is_active ? 'bg-background' : 'bg-gray-400'
@@ -290,7 +289,7 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
 
                             <View className="flex-row items-center justify-between mb-4">
                                 <Text className="text-xl font-medium text-black flex-1">
-                                    {formatItemName(currentProduct.item)}
+                                    {translateProduct(currentProduct.item)}
                                 </Text>
                                 <View className={`px-3 py-2 rounded-full ${
                                     currentProduct.is_active ? 'bg-light-100' : 'bg-gray-400'
@@ -308,67 +307,71 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
                                     {tProducts('pricingStock')}
                                 </Text>
 
-                                {Object.entries(getGroupedPrices()).map(([unit, prices]) => (
-                                    <View key={unit} className="mb-4 p-3 bg-gray-50 rounded-xl">
-                                        <Text className="text-sm font-medium text-black mb-3 text-center">
-                                            {unit}
-                                        </Text>
+                                {Object.entries(getGroupedPrices()).map(([unit, prices]) => {
+                                    const translatedUnit = translateUnit(unit);
 
-                                        <View className="flex-row gap-3">
-                                            <View className="flex-1 p-3 bg-white rounded-lg border border-green-200">
-                                                <View className="flex-row items-center mb-2">
-                                                    <Ionicons name="person" size={14} color="#10B981" />
-                                                    <Text className="text-xs font-medium text-green-700 ml-1">
-                                                        {tAuth('individual')}
-                                                    </Text>
-                                                </View>
-                                                {prices.individual ? (
-                                                    <>
-                                                        <Text className="text-sm font-semibold text-black mb-1">
-                                                            rs {prices.individual.price_per_unit}
-                                                        </Text>
-                                                        <Text className="text-xs text-gray-600 mb-1">
-                                                            {prices.individual.quantity_available} {t('status.available')}
-                                                        </Text>
-                                                        <Text className="text-xs text-gray-500">
-                                                            {t('customer.min')}: {prices.individual.minimum_order}
-                                                        </Text>
-                                                    </>
-                                                ) : (
-                                                    <Text className="text-xs text-gray-500 italic">
-                                                        {t('status.unavailable')}
-                                                    </Text>
-                                                )}
-                                            </View>
+                                    return (
+                                        <View key={unit} className="mb-4 p-3 bg-gray-50 rounded-xl">
+                                            <Text className="text-sm font-medium text-black mb-3 text-center">
+                                                {translatedUnit}
+                                            </Text>
 
-                                            <View className="flex-1 p-3 bg-white rounded-lg border border-blue-200">
-                                                <View className="flex-row items-center mb-2">
-                                                    <Ionicons name="business" size={14} color="#3B82F6" />
-                                                    <Text className="text-xs font-medium text-blue-700 ml-1">
-                                                        {tAuth('business')}
-                                                    </Text>
+                                            <View className="flex-row gap-3">
+                                                <View className="flex-1 p-3 bg-white rounded-lg border border-green-200">
+                                                    <View className="flex-row items-center mb-2">
+                                                        <Ionicons name="person" size={14} color="#10B981" />
+                                                        <Text className="text-xs font-medium text-green-700 ml-1">
+                                                            {tAuth('individual')}
+                                                        </Text>
+                                                    </View>
+                                                    {prices.individual ? (
+                                                        <>
+                                                            <Text className="text-sm font-semibold text-black mb-1">
+                                                                {translateUnit('rs')} {prices.individual.price_per_unit}
+                                                            </Text>
+                                                            <Text className="text-xs text-gray-600 mb-1">
+                                                                {prices.individual.quantity_available} {t('status.available')}
+                                                            </Text>
+                                                            <Text className="text-xs text-gray-500">
+                                                                {t('customer.min')}: {prices.individual.minimum_order}
+                                                            </Text>
+                                                        </>
+                                                    ) : (
+                                                        <Text className="text-xs text-gray-500 italic">
+                                                            {t('status.unavailable')}
+                                                        </Text>
+                                                    )}
                                                 </View>
-                                                {prices.business ? (
-                                                    <>
-                                                        <Text className="text-sm font-semibold text-black mb-1">
-                                                            rs {prices.business.price_per_unit}
+
+                                                <View className="flex-1 p-3 bg-white rounded-lg border border-blue-200">
+                                                    <View className="flex-row items-center mb-2">
+                                                        <Ionicons name="business" size={14} color="#3B82F6" />
+                                                        <Text className="text-xs font-medium text-blue-700 ml-1">
+                                                            {tAuth('business')}
                                                         </Text>
-                                                        <Text className="text-xs text-gray-600 mb-1">
-                                                            {prices.business.quantity_available} {t('status.available')}
+                                                    </View>
+                                                    {prices.business ? (
+                                                        <>
+                                                            <Text className="text-sm font-semibold text-black mb-1">
+                                                                {translateUnit('rs')} {prices.business.price_per_unit}
+                                                            </Text>
+                                                            <Text className="text-xs text-gray-600 mb-1">
+                                                                {prices.business.quantity_available} {t('status.available')}
+                                                            </Text>
+                                                            <Text className="text-xs text-gray-500">
+                                                                {t('customer.min')}: {prices.business.minimum_order}
+                                                            </Text>
+                                                        </>
+                                                    ) : (
+                                                        <Text className="text-xs text-gray-500 italic">
+                                                            {t('status.unavailable')}
                                                         </Text>
-                                                        <Text className="text-xs text-gray-500">
-                                                            {t('customer.min')}: {prices.business.minimum_order}
-                                                        </Text>
-                                                    </>
-                                                ) : (
-                                                    <Text className="text-xs text-gray-500 italic">
-                                                        {t('status.unavailable')}
-                                                    </Text>
-                                                )}
+                                                    )}
+                                                </View>
                                             </View>
                                         </View>
-                                    </View>
-                                ))}
+                                    );
+                                })}
                             </View>
 
                             {currentProduct.description && (

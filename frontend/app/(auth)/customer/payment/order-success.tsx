@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations'; // Import our new utility
 import Header from '@/components/ui/Header';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,9 +54,16 @@ export default function OrderSuccessScreen() {
     const router = useRouter();
     const { order_id } = useLocalSearchParams();
     const { tOrders } = useTranslation();
+    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
 
     const [order, setOrder] = useState<OrderDetails | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // Helper function to convert formatted product name back to backend format for translation lookup
+    const getBackendProductName = (formattedName: string): string => {
+        // Convert "Green Beans" back to "green_beans" for translation lookup
+        return formattedName.toLowerCase().replace(/\s+/g, '_');
+    };
 
     useEffect(() => {
         if (!order_id) {
@@ -216,7 +224,7 @@ export default function OrderSuccessScreen() {
                         <View className="flex-row justify-between items-center">
                             <Text className="text-gray-600">{tOrders('totalPaid')}</Text>
                             <Text className="text-lg font-semibold text-black">
-                                rs {order.final_amount.toFixed(2)}
+                                {translateUnit('rs')} {order.final_amount.toFixed(2)}
                             </Text>
                         </View>
                     </View>
@@ -262,31 +270,38 @@ export default function OrderSuccessScreen() {
                                 <View className="items-end">
                                     <Text className="text-sm text-gray-600">{tOrders('subtotal')}</Text>
                                     <Text className="text-lg font-semibold text-black">
-                                        rs {group.subtotal.toFixed(2)}
+                                        {translateUnit('rs')} {group.subtotal.toFixed(2)}
                                     </Text>
                                 </View>
                             </View>
 
-                            {group.items.map((item, index) => (
-                                <View key={index} className="flex-row justify-between items-start py-2">
-                                    <View className="flex-1">
-                                        <Text className="font-medium text-black mb-1">
-                                            {item.item_name.toLowerCase()}
-                                        </Text>
-                                        <Text className="text-sm text-gray-600">
-                                            {item.quantity} {item.unit} × rs {item.unit_price.toFixed(2)}
-                                        </Text>
-                                        {item.description && (
-                                            <Text className="text-xs text-gray-500 mt-1">
-                                                {item.description}
+                            {group.items.map((item, index) => {
+                                // Get translated names
+                                const backendProductName = getBackendProductName(item.item_name || '');
+                                const translatedProductName = translateProduct(backendProductName);
+                                const translatedUnitName = translateUnit(item.unit, item.quantity);
+
+                                return (
+                                    <View key={index} className="flex-row justify-between items-start py-2">
+                                        <View className="flex-1">
+                                            <Text className="font-medium text-black mb-1">
+                                                {translatedProductName}
                                             </Text>
-                                        )}
+                                            <Text className="text-sm text-gray-600">
+                                                {item.quantity} {translatedUnitName} × {translateUnit('rs')} {item.unit_price.toFixed(2)}
+                                            </Text>
+                                            {item.description && (
+                                                <Text className="text-xs text-gray-500 mt-1">
+                                                    {item.description}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <Text className="font-medium text-black ml-4">
+                                            {translateUnit('rs')} {item.total_price.toFixed(2)}
+                                        </Text>
                                     </View>
-                                    <Text className="font-medium text-black ml-4">
-                                        rs {item.total_price.toFixed(2)}
-                                    </Text>
-                                </View>
-                            ))}
+                                );
+                            })}
                         </View>
                     ))}
 
@@ -295,18 +310,18 @@ export default function OrderSuccessScreen() {
 
                         <View className="flex-row justify-between items-center py-2">
                             <Text className="text-gray-600">{tOrders('subtotal')}</Text>
-                            <Text className="font-medium">rs {order.total_amount.toFixed(2)}</Text>
+                            <Text className="font-medium">{translateUnit('rs')} {order.total_amount.toFixed(2)}</Text>
                         </View>
 
                         <View className="flex-row justify-between items-center py-2">
                             <Text className="text-gray-600">{tOrders('deliveryFee')}</Text>
-                            <Text className="font-medium">rs {order.delivery_fee.toFixed(2)}</Text>
+                            <Text className="font-medium">{translateUnit('rs')} {order.delivery_fee.toFixed(2)}</Text>
                         </View>
 
                         <View className="flex-row justify-between items-center py-3 border-t border-gray-200">
                             <Text className="text-lg font-semibold text-black">{tOrders('totalPaid')}</Text>
                             <Text className="text-xl font-bold text-black">
-                                rs {order.final_amount.toFixed(2)}
+                                {translateUnit('rs')} {order.final_amount.toFixed(2)}
                             </Text>
                         </View>
 

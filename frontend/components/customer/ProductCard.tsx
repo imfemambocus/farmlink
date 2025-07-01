@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import { AuthContext } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations'; // Import our new utility
 import { useRouter } from "expo-router";
 import { getProductBackgroundColor } from "@/utils/products";
 import { UnitPrice } from "@/types";
@@ -63,7 +64,8 @@ const getUnitPriceLayout = (unitPrices: UnitPrice[]) => {
 export default function ProductCard({ product }: ProductCardProps) {
     const { user } = useContext(AuthContext);
     const { triggerCartFlash } = useCart();
-    const { t, tCustomer } = useTranslation();
+    const { t, tCustomer, tCommon } = useTranslation();
+    const { translateProduct, translateUnit, translateCategory } = useProductTranslations(); // Use our translation utilities
     const router = useRouter();
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedUnitPrice, setSelectedUnitPrice] = useState<UnitPrice | null>(null);
@@ -80,6 +82,10 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     const filteredUnitPrices = getFilteredUnitPrices(product.unit_prices, userRole);
     const unitPriceLayout = getUnitPriceLayout(filteredUnitPrices);
+
+    // Get translated names
+    const translatedProductName = translateProduct(product.item);
+    const translatedCategory = translateCategory(product.category);
 
     const addToCart = async (unitPriceId: number, selectedQuantity: number) => {
         try {
@@ -205,11 +211,11 @@ export default function ProductCard({ product }: ProductCardProps) {
 
                 <View className="flex-row items-center justify-between mb-3">
                     <Text className="text-sm font-medium text-black flex-1" numberOfLines={1}>
-                        {product.item.toLowerCase()}
+                        {translatedProductName}
                     </Text>
                     <View className="px-3 py-1 bg-light-100 rounded-full">
                         <Text className="text-xs text-black font-medium">
-                            {product.category}
+                            {translatedCategory}
                         </Text>
                     </View>
                 </View>
@@ -219,23 +225,23 @@ export default function ProductCard({ product }: ProductCardProps) {
                         <View className="flex-row items-center mb-1">
                             <Text className="text-xs text-gray-500">
                                 {(() => {
-                                    const units = filteredUnitPrices.map(up => up.unit);
+                                    const units = filteredUnitPrices.map(up => translateUnit(up.unit));
                                     if (units.length === 1) {
                                         return units[0];
                                     } else if (units.length === 2) {
                                         return units.join(', ');
                                     } else {
-                                        return `${units.slice(0, 2).join(', ')}, more...`;
+                                        return `${units.slice(0, 1).join(', ')}, ${tCommon('more')}`;
                                     }
                                 })()}
                             </Text>
                         </View>
                         <View className="flex-row items-baseline">
                             <Text className="text-base font-bold text-black">
-                                {t('units.rs')} {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].price_per_unit : product.lowest_price}
+                                {translateUnit('rs')} {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].price_per_unit : product.lowest_price}
                             </Text>
                             <Text className="text-xs text-gray-500 ml-1">
-                                / {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].unit : t('units.unit')}
+                                / {filteredUnitPrices.length > 0 ? translateUnit(filteredUnitPrices[0].unit) : translateUnit('unit')}
                             </Text>
                         </View>
                     </View>
@@ -326,7 +332,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                 <View className="mb-3">
                                     <View className="flex-row items-center justify-between mb-1">
                                         <Text className="text-xl font-medium text-black flex-1">
-                                            {product.item.toLowerCase()}
+                                            {translatedProductName}
                                         </Text>
                                         <View className="flex-row items-center gap-2">
                                             {userRole === 'business' && (
@@ -397,6 +403,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                                 {row.map((unitIndex) => {
                                                     const unitPrice = filteredUnitPrices[unitIndex];
                                                     const isFullWidth = row.length === 1;
+                                                    const translatedUnit = translateUnit(unitPrice.unit);
 
                                                     return (
                                                         <TouchableOpacity
@@ -414,7 +421,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                                                     ? 'text-black font-medium'
                                                                     : 'text-black'
                                                             }`}>
-                                                                {t('units.rs')} {unitPrice.price_per_unit} / {unitPrice.unit}
+                                                                {translateUnit('rs')} {unitPrice.price_per_unit} / {translatedUnit}
                                                             </Text>
                                                             {userRole === 'business' && (
                                                                 <Text className="text-xs text-gray-500 text-center mt-1">
@@ -482,7 +489,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
                                             <View className="flex-[35%] bg-gray-100 rounded-lg p-3 justify-center items-center flex flex-row gap-2">
                                                 <Text className="text-center text-lg font-semibold">
-                                                    {t('units.rs')} {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
+                                                    {translateUnit('rs')} {(selectedUnitPrice.price_per_unit * quantity).toFixed(2)}
                                                 </Text>
                                             </View>
                                         </View>

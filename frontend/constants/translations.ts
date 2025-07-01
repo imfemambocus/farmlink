@@ -41,6 +41,66 @@ export const translations = {
             fatalErrorAdding: 'failed to add ingredients to cart: {error}',
             loadingHomepage: 'loading homepage...',
             failedLoadHomepage: 'failed to load homepage data',
+            more: 'more...',
+        },
+
+        products: {
+            // Fruits
+            apple: 'apple',
+            banana: 'banana',
+            orange: 'orange',
+            mango: 'mango',
+            pineapple: 'pineapple',
+            papaya: 'papaya',
+            guava: 'guava',
+            lychee: 'lychee',
+            coconut: 'coconut',
+            lemon: 'lemon',
+            lime: 'lime',
+            watermelon: 'watermelon',
+            melon: 'melon',
+            grapes: 'grapes',
+            strawberry: 'strawberry',
+
+            // Vegetables
+            tomato: 'tomato',
+            potato: 'potato',
+            onion: 'onion',
+            carrot: 'carrot',
+            cabbage: 'cabbage',
+            lettuce: 'lettuce',
+            spinach: 'spinach',
+            broccoli: 'broccoli',
+            cauliflower: 'cauliflower',
+            bell_pepper: 'bell pepper',
+            chili: 'chili',
+            cucumber: 'cucumber',
+            eggplant: 'eggplant',
+            okra: 'okra',
+            green_beans: 'green beans',
+            pumpkin: 'pumpkin',
+            beetroot: 'beetroot',
+            radish: 'radish',
+            ginger: 'ginger',
+            garlic: 'garlic',
+        },
+
+        // Units
+        units: {
+            kg: 'kg',
+            kgs: 'kgs',
+            piece: 'piece',
+            pieces: 'pieces',
+            bunch: 'bunch',
+            bunches: 'bunches',
+            dozen: 'dozen',
+            dozens: 'dozens',
+            basket: 'basket',
+            baskets: 'baskets',
+            unit: 'unit',
+            units: 'units',
+            perUnit: 'per unit',
+            rs: 'rs',
         },
 
         // Intro Screen
@@ -664,22 +724,6 @@ export const translations = {
             failed: 'failed',
         },
 
-        // Units & Measurements
-        units: {
-            kg: 'kg',
-            piece: 'piece',
-            pieces: 'pieces',
-            bunch: 'bunch',
-            bunches: 'bunches',
-            dozen: 'dozen',
-            basket: 'basket',
-            baskets: 'baskets',
-            unit: 'unit',
-            units: 'units',
-            perUnit: 'per unit',
-            rs: 'rs',
-        },
-
         // Time & Dates
         time: {
             today: 'today',
@@ -700,7 +744,7 @@ export const translations = {
     },
 
     fr: {
-        // Common (French)
+        // Common
         common: {
             ok: 'd\'accord',
             cancel: 'annuler',
@@ -741,6 +785,66 @@ export const translations = {
             fatalErrorAdding: 'échec de l\'ajout des ingrédients au panier : {error}',
             loadingHomepage: 'chargement de la page d\'accueil...',
             failedLoadHomepage: 'échec du chargement des données de la page d\'accueil',
+            more: 'plus...',
+        },
+
+        products: {
+            // Fruits
+            apple: 'pomme',
+            banana: 'banane',
+            orange: 'orange',
+            mango: 'mangue',
+            pineapple: 'ananas',
+            papaya: 'papaye',
+            guava: 'goyave',
+            lychee: 'litchi',
+            coconut: 'noix de coco',
+            lemon: 'citron',
+            lime: 'citron vert',
+            watermelon: 'pastèque',
+            melon: 'melon',
+            grapes: 'raisins',
+            strawberry: 'fraise',
+
+            // Vegetables
+            tomato: 'tomate',
+            potato: 'pomme de terre',
+            onion: 'oignon',
+            carrot: 'carotte',
+            cabbage: 'chou',
+            lettuce: 'laitue',
+            spinach: 'épinard',
+            broccoli: 'brocoli',
+            cauliflower: 'chou-fleur',
+            bell_pepper: 'poivron',
+            chili: 'piment',
+            cucumber: 'concombre',
+            eggplant: 'aubergine',
+            okra: 'gombo',
+            green_beans: 'haricots verts',
+            pumpkin: 'citrouille',
+            beetroot: 'betterave',
+            radish: 'radis',
+            ginger: 'gingembre',
+            garlic: 'ail',
+        },
+
+        // Units
+        units: {
+            kg: 'kg',
+            kgs: 'kgs',
+            piece: 'pièce',
+            pieces: 'pièces',
+            bunch: 'botte',
+            bunches: 'bottes',
+            dozen: 'douzaine',
+            dozens: 'douzaines',
+            basket: 'panier',
+            baskets: 'paniers',
+            unit: 'unité',
+            units: 'unités',
+            perUnit: 'par unité',
+            rs: 'rs',
         },
 
         // Intro Screen
@@ -1352,22 +1456,6 @@ export const translations = {
             pending: 'en attente',
             completed: 'terminé',
             failed: 'échoué',
-        },
-
-        // Units & Measurements
-        units: {
-            kg: 'kg',
-            piece: 'pièce',
-            pieces: 'pièces',
-            bunch: 'botte',
-            bunches: 'bottes',
-            dozen: 'douzaine',
-            basket: 'panier',
-            baskets: 'paniers',
-            unit: 'unité',
-            units: 'unités',
-            perUnit: 'par unité',
-            rs: 'rs',
         },
 
         // Time & Dates

@@ -211,7 +211,7 @@ export default function CustomerHomePage() {
                     flex: 1,
                     marginBottom: isLastRow ? 0 : 12,
                     marginHorizontal: 4,
-                    maxWidth: `${100 / numColumns - 2}%`
+                    maxWidth: `${100 / numColumns}%`
                 }}
             >
                 <ProductCard product={item} />
@@ -236,13 +236,13 @@ export default function CustomerHomePage() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={tCustomer('homepage')}
-                showCartButton={true}
-                showSettingsButton={true}
-                showOrdersButton={true}
-                showNotificationButton={true}
-            />
+            {/*<Header*/}
+            {/*    title={tCustomer('homepage')}*/}
+            {/*    showCartButton={true}*/}
+            {/*    showSettingsButton={true}*/}
+            {/*    showOrdersButton={true}*/}
+            {/*    showNotificationButton={true}*/}
+            {/*/>*/}
 
             <ScrollView
                 className="flex-1"
@@ -255,7 +255,16 @@ export default function CustomerHomePage() {
                     />
                 }
                 contentContainerStyle={{ paddingBottom: 100 }}
+                stickyHeaderIndices={[0]}
             >
+                <Header
+                    title={tCustomer('homepage')}
+                    showCartButton={true}
+                    showSettingsButton={true}
+                    showOrdersButton={true}
+                    showNotificationButton={true}
+                />
+
                 <View className="px-5 pt-6 pb-4">
                     <Text className="text-xl font-semibold text-black mb-2">
                         {tCustomer('welcomeBack')}, {user?.individual_profile?.first_name ||
@@ -347,7 +356,7 @@ export default function CustomerHomePage() {
                     </View>
 
                     {farmers.length === 0 ? (
-                        <View className="bg-surface rounded-xl p-8 items-center mx-6">
+                        <View className="bg-surface rounded-xl p-8 items-center mx-5">
                             <Text className="text-4xl mb-4">👨‍🌾</Text>
                             <Text className="text-lg font-medium text-black mb-2">
                                 {tCustomer('noFarmersAvailable')}
@@ -363,7 +372,7 @@ export default function CustomerHomePage() {
                             keyExtractor={(item) => item.id.toString()}
                             horizontal
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ paddingHorizontal: 20 }}
+                            contentContainerStyle={{ paddingHorizontal: 18 }}
                             ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
                         />
                     )}

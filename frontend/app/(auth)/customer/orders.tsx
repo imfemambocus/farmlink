@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations'; // Import our new utility
 import Header from '@/components/ui/Header';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
@@ -77,6 +78,7 @@ export default function OrdersScreen() {
     const { user } = useContext(AuthContext);
     const router = useRouter();
     const { t, tOrders } = useTranslation();
+    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
     const [orders, setOrders] = useState<Order[]>([]);
     const [orderDetails, setOrderDetails] = useState<{ [key: number]: OrderDetails }>({});
     const [farmerStatuses, setFarmerStatuses] = useState<{ [key: number]: FarmerStatuses }>({});
@@ -85,6 +87,12 @@ export default function OrdersScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [loadingOrderDetails, setLoadingOrderDetails] = useState<Set<number>>(new Set());
     const [animations, setAnimations] = useState<{ [key: number]: Animated.Value }>({});
+
+    // Helper function to convert formatted product name back to backend format for translation lookup
+    const getBackendProductName = (formattedName: string): string => {
+        // Convert "Green Beans" back to "green_beans" for translation lookup
+        return formattedName.toLowerCase().replace(/\s+/g, '_');
+    };
 
     useEffect(() => {
         if (user?.role !== 'individual' && user?.role !== 'business') {
@@ -242,13 +250,19 @@ export default function OrdersScreen() {
     };
 
     const renderOrderItem = (item: OrderItem) => {
-        const productImage = getProductImage(item.item_name || '');
+        // Get the backend product name for image and background color
+        const backendProductName = getBackendProductName(item.item_name || '');
+        const productImage = getProductImage(backendProductName);
+
+        // Get translated names
+        const translatedProductName = translateProduct(backendProductName);
+        const translatedUnitName = translateUnit(item.unit, item.quantity);
 
         return (
             <View key={item.id} className="flex-row items-center py-3 border-b border-gray-100 last:border-b-0">
                 <View
                     className="w-10 h-10 rounded-lg items-center justify-center mr-3"
-                    style={{ backgroundColor: getProductBackgroundColor(item.item_name.toLowerCase() || '') }}
+                    style={{ backgroundColor: getProductBackgroundColor(backendProductName) }}
                 >
                     <Image
                         source={productImage}
@@ -262,15 +276,15 @@ export default function OrdersScreen() {
 
                 <View className="flex-1">
                     <Text className="text-sm font-medium text-black">
-                        {item.item_name || tOrders('unknownProduct')}
+                        {translatedProductName || tOrders('unknownProduct')}
                     </Text>
                     <Text className="text-xs text-gray-600">
-                        {item.quantity} {item.unit} × rs {formatPrice(item.unit_price)}
+                        {item.quantity} {translatedUnitName} × {translateUnit('rs')} {formatPrice(item.unit_price)}
                     </Text>
                 </View>
 
                 <Text className="text-sm font-semibold text-black">
-                    rs {formatPrice(item.total_price)}
+                    {translateUnit('rs')} {formatPrice(item.total_price)}
                 </Text>
             </View>
         );
@@ -367,7 +381,7 @@ export default function OrdersScreen() {
                             )}
 
                             <Text className="text-lg font-bold text-black">
-                                rs {formatPrice(order.final_amount)}
+                                {translateUnit('rs')} {formatPrice(order.final_amount)}
                             </Text>
                         </View>
                     </View>
@@ -446,7 +460,7 @@ export default function OrdersScreen() {
                                                             </View>
                                                         )}
                                                         <Text className="text-xs text-gray-600">
-                                                            rs {formatPrice(farmerGroup.total)}
+                                                            {translateUnit('rs')} {formatPrice(farmerGroup.total)}
                                                         </Text>
                                                         {farmerGroup.delivered_at && (
                                                             <Text className="text-xs text-green-600 mt-1">
@@ -467,15 +481,15 @@ export default function OrdersScreen() {
                                 <View className="bg-gray-50 rounded-lg p-3">
                                     <View className="flex-row justify-between items-center mb-2">
                                         <Text className="text-sm text-gray-600">{tOrders('subtotal')}</Text>
-                                        <Text className="text-sm text-black">rs {formatPrice(details.total_amount)}</Text>
+                                        <Text className="text-sm text-black">{translateUnit('rs')} {formatPrice(details.total_amount)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center mb-2">
                                         <Text className="text-sm text-gray-600">{tOrders('deliveryFee')}</Text>
-                                        <Text className="text-sm text-black">rs {formatPrice(details.delivery_fee)}</Text>
+                                        <Text className="text-sm text-black">{translateUnit('rs')} {formatPrice(details.delivery_fee)}</Text>
                                     </View>
                                     <View className="flex-row justify-between items-center pt-2 border-t border-gray-200">
                                         <Text className="text-base font-semibold text-black">{tOrders('total')}</Text>
-                                        <Text className="text-base font-bold text-black">rs {formatPrice(details.final_amount)}</Text>
+                                        <Text className="text-base font-bold text-black">{translateUnit('rs')} {formatPrice(details.final_amount)}</Text>
                                     </View>
                                 </View>
                             </View>

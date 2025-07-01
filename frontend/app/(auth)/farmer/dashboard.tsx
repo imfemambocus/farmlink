@@ -449,7 +449,7 @@ export default function FarmerDashboard() {
                     flex: 1,
                     marginBottom: isLastRow ? 0 : 12,
                     marginHorizontal: 4,
-                    maxWidth: `${100 / numColumns - 2}%`
+                    maxWidth: `${100 / numColumns}%`
                 }}
             >
                 <ProductCard
@@ -680,7 +680,7 @@ export default function FarmerDashboard() {
                         numColumns={getNumColumns()}
                         key={`${getNumColumns()}-${activeTab}`}
                         scrollEnabled={false}
-                        contentContainerStyle={{ paddingHorizontal: 18 }}
+                        contentContainerStyle={{ paddingHorizontal: 14 }}
                         showsVerticalScrollIndicator={false}
                     />
                 )}

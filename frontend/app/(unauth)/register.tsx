@@ -5,7 +5,6 @@ import {
     TextInput,
     TouchableOpacity,
     Pressable,
-    ScrollView,
     ActivityIndicator
 } from 'react-native';
 import { useRouter } from 'expo-router';

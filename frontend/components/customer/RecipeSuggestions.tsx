@@ -288,7 +288,7 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
                         </>
                     ) : (
                         <View className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
-                            <View className="flex-row items-center">
+                            <View className="flex-row items-center justify-center">
                                 <Ionicons name="checkmark-circle" size={16} color="#10b981" />
                                 <Text className="text-green-700 text-sm font-medium ml-2">
                                     {tCart('allIngredientsReady')}
@@ -428,8 +428,8 @@ const RecipeSuggestions: React.FC<RecipeSuggestionsProps> = ({
                     />
                 </View>
             ) : (
-                <View className="py-12 items-center">
-                    <Text className="text-gray-600 mt-3 text-sm">
+                <View className="py-6 items-center">
+                    <Text className="text-gray-600 mt-3 text-sm text-center">
                         {tCart('noRecipes')}
                     </Text>
                 </View>

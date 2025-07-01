@@ -147,6 +147,7 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    
    # Install dependencies
    npm install
+   npx expo install --fix
    
    # Set up environment variables (optional - defaults are provided)
    cp .env.example .env

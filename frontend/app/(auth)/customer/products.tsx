@@ -423,7 +423,6 @@ export default function ProductsScreen() {
                     showBackButton={true}
                     showCartButton={true}
                     showOrdersButton={true}
-                    showHomeButton={true}
                     showNotificationButton={true}
                 />
                 <View className="flex-1 justify-center items-center">
@@ -441,7 +440,6 @@ export default function ProductsScreen() {
                 showBackButton={true}
                 showCartButton={true}
                 showOrdersButton={true}
-                showHomeButton={true}
                 showNotificationButton={true}
             />
 

@@ -329,7 +329,7 @@ export default function FarmerDetailScreen() {
                             <Text className="text-lg font-semibold text-black mb-1">
                                 {farmer.name}
                             </Text>
-                            <Text className="text-sm text-gray-600 flex-1">
+                            <Text className="text-sm text-gray-600">
                                 {`${farmer.district} • ${farmer.phone} • ${farmer.product_count} ${t('farmers.products')}`}
                             </Text>
                         </View>

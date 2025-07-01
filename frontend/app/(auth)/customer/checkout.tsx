@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useTranslation } from '@/context/LanguageContext';
+import { useProductTranslations } from '@/utils/translations'; // Import our new utility
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,6 +79,7 @@ function CheckoutScreen() {
     const { refreshCartCount } = useCart();
     const router = useRouter();
     const { tCheckout, tOrders } = useTranslation();
+    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
     const { confirmPayment, createPaymentMethod, initPaymentSheet, presentPaymentSheet } = useStripe();
 
     const [cart, setCart] = useState<Cart | null>(null);
@@ -103,6 +105,12 @@ function CheckoutScreen() {
 
     const [cardComplete, setCardComplete] = useState(false);
     const [errors, setErrors] = useState<{[key: string]: string}>({});
+
+    // Helper function to convert formatted product name back to backend format for translation lookup
+    const getBackendProductName = (formattedName: string): string => {
+        // Convert "Green Beans" back to "green_beans" for translation lookup
+        return formattedName.toLowerCase().replace(/\s+/g, '_');
+    };
 
     const showAlert = (
         type: 'success' | 'error' | 'warning' | 'info',
@@ -481,8 +489,9 @@ function CheckoutScreen() {
                 <TextInput
                     value={deliveryInfo.full_name}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, full_name: text }))}
-                    className="border border-gray-300 rounded-lg px-3 py-3 text-base"
+                    className="border border-gray-300 rounded-lg px-3 py-3 text-base leading-[1.2]"
                     placeholder={tCheckout('enterFullName')}
+                    placeholderTextColor="#CCCCCC"
                 />
                 {errors.full_name && <Text className="text-red-500 text-xs mt-1">{errors.full_name}</Text>}
             </View>
@@ -492,8 +501,9 @@ function CheckoutScreen() {
                 <TextInput
                     value={deliveryInfo.phone}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, phone: text }))}
-                    className="border border-gray-300 rounded-lg px-3 py-3 text-base"
+                    className="border border-gray-300 rounded-lg px-3 py-3 text-base leading-[1.2]"
                     placeholder={tCheckout('enterPhoneNumber')}
+                    placeholderTextColor="#CCCCCC"
                     keyboardType="phone-pad"
                 />
                 {errors.phone && <Text className="text-red-500 text-xs mt-1">{errors.phone}</Text>}
@@ -504,8 +514,9 @@ function CheckoutScreen() {
                 <TextInput
                     value={deliveryInfo.email}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, email: text }))}
-                    className="border border-gray-300 rounded-lg px-3 py-3 text-base"
+                    className="border border-gray-300 rounded-lg px-3 py-3 text-base leading-[1.2]"
                     placeholder={tCheckout('enterEmailAddress')}
+                    placeholderTextColor="#CCCCCC"
                     keyboardType="email-address"
                     autoCapitalize="none"
                 />
@@ -516,8 +527,9 @@ function CheckoutScreen() {
                 <TextInput
                     value={deliveryInfo.address}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, address: text }))}
-                    className="border border-gray-300 rounded-lg px-3 py-3 text-base"
+                    className="border border-gray-300 rounded-lg px-3 py-3 text-base leading-[1.2]"
                     placeholder={tCheckout('enterCompleteAddress')}
+                    placeholderTextColor="#CCCCCC"
                     multiline
                     numberOfLines={3}
                     textAlignVertical="top"
@@ -530,8 +542,9 @@ function CheckoutScreen() {
                 <TextInput
                     value={deliveryInfo.notes}
                     onChangeText={(text) => setDeliveryInfo(prev => ({ ...prev, notes: text }))}
-                    className="border border-gray-300 rounded-lg px-3 py-3 text-base"
+                    className="border border-gray-300 rounded-lg px-3 py-3 text-base leading-[1.2]"
                     placeholder={tCheckout('specialInstructions')}
+                    placeholderTextColor="#CCCCCC"
                     multiline
                     numberOfLines={2}
                     textAlignVertical="top"
@@ -634,30 +647,37 @@ function CheckoutScreen() {
                         <Text className="text-sm text-gray-600">{group.farmer_district || tCheckout('unknownDistrict')}</Text>
                     </View>
 
-                    {group.items?.map((item, index) => (
-                        <View key={index} className="flex-row justify-between items-center py-1">
-                            <Text className="text-sm text-gray-600 flex-1">
-                                {item.quantity || 0} {item.unit_name || tCheckout('unit')} {item.product_name.toLowerCase() || tCheckout('unknownProduct')}
-                            </Text>
-                            <Text className="text-sm font-medium">rs {formatPrice(item.total_price)}</Text>
-                        </View>
-                    )) || []}
+                    {group.items?.map((item, index) => {
+                        // Get translated names
+                        const backendProductName = getBackendProductName(item.product_name || '');
+                        const translatedProductName = translateProduct(backendProductName);
+                        const translatedUnitName = translateUnit(item.unit_name, item.quantity);
+
+                        return (
+                            <View key={index} className="flex-row justify-between items-center py-1">
+                                <Text className="text-sm text-gray-600 flex-1">
+                                    {item.quantity || 0} {translatedUnitName || translateUnit('unit')} {translatedProductName || tCheckout('unknownProduct')}
+                                </Text>
+                                <Text className="text-sm font-medium">{translateUnit('rs')} {formatPrice(item.total_price)}</Text>
+                            </View>
+                        );
+                    }) || []}
 
                     <View className="flex-row justify-between items-center mt-2 pt-2 border-t border-gray-100">
                         <Text className="font-medium text-black">{tCheckout('subtotal')}</Text>
-                        <Text className="font-medium text-black">rs {formatPrice(group.subtotal)}</Text>
+                        <Text className="font-medium text-black">{translateUnit('rs')} {formatPrice(group.subtotal)}</Text>
                     </View>
                 </View>
             ))}
 
             <View className="flex-row justify-between items-center py-2 border-t border-gray-200">
                 <Text className="font-medium text-black">{tOrders('deliveryFee')}</Text>
-                <Text className="font-medium text-black">rs 75</Text>
+                <Text className="font-medium text-black">{translateUnit('rs')} 75</Text>
             </View>
 
             <View className="flex-row justify-between items-center pt-4 border-t border-gray-200">
                 <Text className="text-lg font-semibold text-black">{tCheckout('totalAmount')}</Text>
-                <Text className="text-xl font-bold text-black">rs {formatPrice(cart?.total_amount)}</Text>
+                <Text className="text-xl font-bold text-black">{translateUnit('rs')} {formatPrice(cart?.total_amount)}</Text>
             </View>
         </View>
     );

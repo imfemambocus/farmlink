@@ -112,7 +112,7 @@ export default function Header({
     }, [isFlashing]);
 
     return (
-        <View className="bg-background rounded-bl-[40px] rounded-br-[40px]" style={{ height: '20%' }}>
+        <View className="bg-background rounded-bl-[40px] rounded-br-[40px] h-[20vh]">
             <View className="pl-6 pr-6 justify-end h-full pb-5">
                 <View className="flex-row justify-between items-center">
                     <Text
