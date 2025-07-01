@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations'; // Import our new utility
+import { useProductTranslations } from '@/utils/translations';
 import Header from '@/components/ui/Header';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -54,14 +54,12 @@ export default function OrderSuccessScreen() {
     const router = useRouter();
     const { order_id } = useLocalSearchParams();
     const { tOrders } = useTranslation();
-    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
+    const { translateProduct, translateUnit } = useProductTranslations();
 
     const [order, setOrder] = useState<OrderDetails | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Helper function to convert formatted product name back to backend format for translation lookup
     const getBackendProductName = (formattedName: string): string => {
-        // Convert "Green Beans" back to "green_beans" for translation lookup
         return formattedName.toLowerCase().replace(/\s+/g, '_');
     };
 

@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations'; // Import our new utility
+import { useProductTranslations } from '@/utils/translations';
 import Header from '@/components/ui/Header';
 import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
@@ -78,7 +78,7 @@ export default function OrdersScreen() {
     const { user } = useContext(AuthContext);
     const router = useRouter();
     const { t, tOrders } = useTranslation();
-    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
+    const { translateProduct, translateUnit } = useProductTranslations();
     const [orders, setOrders] = useState<Order[]>([]);
     const [orderDetails, setOrderDetails] = useState<{ [key: number]: OrderDetails }>({});
     const [farmerStatuses, setFarmerStatuses] = useState<{ [key: number]: FarmerStatuses }>({});
@@ -88,9 +88,7 @@ export default function OrdersScreen() {
     const [loadingOrderDetails, setLoadingOrderDetails] = useState<Set<number>>(new Set());
     const [animations, setAnimations] = useState<{ [key: number]: Animated.Value }>({});
 
-    // Helper function to convert formatted product name back to backend format for translation lookup
     const getBackendProductName = (formattedName: string): string => {
-        // Convert "Green Beans" back to "green_beans" for translation lookup
         return formattedName.toLowerCase().replace(/\s+/g, '_');
     };
 

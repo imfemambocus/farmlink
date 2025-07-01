@@ -11,13 +11,14 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations'; // Import our translation utility
+import { useProductTranslations } from '@/utils/translations';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/apiService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProductImage } from '@/constants/images';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import {getProductBackgroundColor} from "@/utils/products";
 
 interface UnitPrice {
     id: number;
@@ -78,7 +79,7 @@ export default function EditProduct() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const { t, tProducts, tCommon } = useTranslation();
-    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
+    const { translateProduct, translateUnit } = useProductTranslations();
 
     const [product, setProduct] = useState<Product | null>(null);
     const [description, setDescription] = useState('');
@@ -102,10 +103,8 @@ export default function EditProduct() {
         }
     }, [id]);
 
-    // Helper function to translate product names from backend format
     const getTranslatedProductName = (backendName: string): string => {
         const translatedName = translateProduct(backendName);
-        // Fallback to formatted name if translation not available
         return translatedName || backendName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
     };
 
@@ -214,47 +213,6 @@ export default function EditProduct() {
         } finally {
             setLoadingProduct(false);
         }
-    };
-
-    const getProductBackgroundColor = (item: string) => {
-        const colorMap: { [key: string]: string } = {
-            'tomato': '#ffebee',
-            'potato': '#f3e5ab',
-            'carrot': '#ffecce',
-            'banana': '#fff9c4',
-            'apple': '#ffebee',
-            'orange': '#fff3e0',
-            'mango': '#fff9c4',
-            'pineapple': '#fff9c4',
-            'papaya': '#fff3e0',
-            'guava': '#f1f8e9',
-            'lychee': '#fce4ec',
-            'coconut': '#f5f5f5',
-            'lemon': '#fffde7',
-            'lime': '#f1f8e9',
-            'watermelon': '#ffebee',
-            'melon': '#f1f8e9',
-            'grapes': '#f3e5f5',
-            'strawberry': '#ffebee',
-            'onion': '#f5f5f5',
-            'cabbage': '#f1f8e9',
-            'lettuce': '#f1f8e9',
-            'spinach': '#e8f5e8',
-            'broccoli': '#e8f5e8',
-            'cauliflower': '#f5f5f5',
-            'bell_pepper': '#f1f8e9',
-            'chili': '#ffebee',
-            'cucumber': '#e8f5e8',
-            'eggplant': '#f3e5f5',
-            'okra': '#e8f5e8',
-            'green_beans': '#e8f5e8',
-            'pumpkin': '#fff3e0',
-            'beetroot': '#fce4ec',
-            'radish': '#ffebee',
-            'ginger': '#fff3e0',
-            'garlic': '#f5f5f5'
-        };
-        return colorMap[item] || '#f5f5f5';
     };
 
     const validateForm = (): boolean => {

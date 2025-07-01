@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations'; // Import our new utility
+import { useProductTranslations } from '@/utils/translations';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,7 +79,7 @@ function CheckoutScreen() {
     const { refreshCartCount } = useCart();
     const router = useRouter();
     const { tCheckout, tOrders } = useTranslation();
-    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
+    const { translateProduct, translateUnit } = useProductTranslations();
     const { confirmPayment, createPaymentMethod, initPaymentSheet, presentPaymentSheet } = useStripe();
 
     const [cart, setCart] = useState<Cart | null>(null);
@@ -106,9 +106,7 @@ function CheckoutScreen() {
     const [cardComplete, setCardComplete] = useState(false);
     const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-    // Helper function to convert formatted product name back to backend format for translation lookup
     const getBackendProductName = (formattedName: string): string => {
-        // Convert "Green Beans" back to "green_beans" for translation lookup
         return formattedName.toLowerCase().replace(/\s+/g, '_');
     };
 

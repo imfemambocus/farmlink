@@ -2,7 +2,6 @@ import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useContext, useState } from 'react';
 import { AuthContext } from '@/context/AuthContext';
-import { useRouter } from 'expo-router';
 import VoiceInput from '@/components/ui/VoiceInput';
 import CustomAlert from '@/components/ui/CustomAlert';
 
@@ -40,7 +39,6 @@ export default function FloatingActionButton({
      onError
  }: FloatingActionButtonProps) {
     const { user } = useContext(AuthContext);
-    const router = useRouter();
     const [alert, setAlert] = useState<AlertState>({
         visible: false,
         type: 'info',
@@ -48,25 +46,6 @@ export default function FloatingActionButton({
         message: '',
         buttons: []
     });
-
-    const showAlert = (
-        type: 'success' | 'error' | 'warning' | 'info',
-        title: string,
-        message: string,
-        buttons: Array<{
-            text: string;
-            onPress: () => void;
-            style?: 'default' | 'cancel' | 'destructive';
-        }>
-    ) => {
-        setAlert({
-            visible: true,
-            type,
-            title,
-            message,
-            buttons
-        });
-    };
 
     const hideAlert = () => {
         setAlert(prev => ({ ...prev, visible: false }));

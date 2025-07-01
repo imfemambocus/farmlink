@@ -10,7 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations'; // Import our translation utility
+import { useProductTranslations } from '@/utils/translations';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/apiService';
@@ -57,7 +57,7 @@ const UNITS = ['kg', 'bunch', 'piece', 'dozen', 'basket'];
 export default function AddProduct() {
     const router = useRouter();
     const { t, tProducts, tCommon } = useTranslation();
-    const { translateProduct, translateUnit } = useProductTranslations(); // Use our translation utilities
+    const { translateProduct, translateUnit } = useProductTranslations();
     const [availableItems, setAvailableItems] = useState<AvailableItems>({ fruits: [], vegetables: [] });
     const [selectedCategory, setSelectedCategory] = useState<'fruits' | 'vegetables'>('vegetables');
     const [selectedItem, setSelectedItem] = useState<string>('');
@@ -124,10 +124,8 @@ export default function AddProduct() {
         }
     };
 
-    // Helper function to translate product names from backend format
     const getTranslatedProductName = (backendName: string): string => {
         const translatedName = translateProduct(backendName);
-        // Fallback to formatted name if translation not available
         return translatedName || backendName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toLowerCase());
     };
 

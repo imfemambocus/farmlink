@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import { AuthContext } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations'; // Import our new utility
+import { useProductTranslations } from '@/utils/translations';
 import { useRouter } from "expo-router";
 import { getProductBackgroundColor } from "@/utils/products";
 import { UnitPrice } from "@/types";
@@ -65,7 +65,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     const { user } = useContext(AuthContext);
     const { triggerCartFlash } = useCart();
     const { t, tCustomer, tCommon } = useTranslation();
-    const { translateProduct, translateUnit, translateCategory } = useProductTranslations(); // Use our translation utilities
+    const { translateProduct, translateUnit, translateCategory } = useProductTranslations();
     const router = useRouter();
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedUnitPrice, setSelectedUnitPrice] = useState<UnitPrice | null>(null);
