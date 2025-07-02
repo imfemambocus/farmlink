@@ -118,9 +118,9 @@ configurations.all {
         console.log('ℹ️  configurations.all block already exists');
     }
 
-    // Add voice package conflict resolution at the very beginning of dependencies
+    // Add voice package conflict resolution using exclude only
     if (!buildGradleContent.includes('VOICE_CONFLICT_FIX')) {
-        console.log('🔧 Adding comprehensive voice package conflict fix...');
+        console.log('🔧 Adding voice package conflict fix...');
 
         // Find dependencies block and add our fix at the very beginning
         const dependenciesMatch = buildGradleContent.match(/(dependencies\s*\{\s*)/);
@@ -131,22 +131,21 @@ configurations.all {
 
             const voiceConflictFix = `    // VOICE_CONFLICT_FIX - Resolve duplicate voice package classes
     configurations.all {
+        exclude group: 'com.wenkesj', module: 'voice'
         resolutionStrategy {
-            force '@react-native-voice/voice:3.2.4'
             eachDependency { details ->
                 if (details.requested.group == 'com.wenkesj' && details.requested.name == 'voice') {
-                    details.useTarget group: 'com.wenkesj', name: 'voice', version: '3.2.4'
+                    details.useVersion '3.2.4'
                 }
             }
         }
-        exclude group: 'com.wenkesj', module: 'voice'
     }
     
 `;
 
             buildGradleContent = beforeDeps + voiceConflictFix + afterDeps;
             modified = true;
-            console.log('✅ Added comprehensive voice package conflict fix');
+            console.log('✅ Added voice package conflict fix');
         } else {
             console.log('❌ Could not find dependencies block');
         }
