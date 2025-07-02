@@ -1,6 +1,7 @@
 import os
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, text
+from sqlalchemy import desc
+from sqlalchemy.exc import IntegrityError
 from models.order import Cart, CartItem, UnifiedOrder, UnifiedOrderItem, OrderStatusEnum, FarmerPayment
 from models.product import FarmerProduct, ProductUnitPrice
 from models.user import User
@@ -62,7 +63,11 @@ class OrderService:
 
             existing_item.quantity = new_quantity
             existing_item.unit_price_snapshot = unit_price.price_per_unit
-            self.db.commit()
+            try:
+                self.db.commit()
+            except IntegrityError:
+                self.db.rollback()
+                raise ValueError("Database constraint violation")
             self.db.refresh(existing_item)
             return existing_item
         else:
@@ -80,7 +85,11 @@ class OrderService:
                 unit_price_snapshot=unit_price.price_per_unit
             )
             self.db.add(cart_item)
-            self.db.commit()
+            try:
+                self.db.commit()
+            except IntegrityError:
+                self.db.rollback()
+                raise ValueError("Database constraint violation")
             self.db.refresh(cart_item)
             return cart_item
 
@@ -109,7 +118,11 @@ class OrderService:
             cart_item.quantity = update_data.quantity
             cart_item.unit_price_snapshot = unit_price.price_per_unit
 
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            raise ValueError("Database constraint violation")
         self.db.refresh(cart_item)
         return cart_item
 

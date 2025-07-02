@@ -1,6 +1,7 @@
 import shortuuid
 import stripe
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from models.order import UnifiedOrder, UnifiedOrderItem, UnifiedPayment, FarmerPayment, PaymentMethodEnum, PaymentStatusEnum
 from models.product import ProductUnitPrice
 from models.user import User
@@ -194,7 +195,11 @@ class StripePaymentService:
             # Clear cart items
             self.clear_cart_items(cart_id)
 
-            self.db.commit()
+            try:
+                self.db.commit()
+            except IntegrityError:
+                self.db.rollback()
+                raise Exception("Database constraint violation during order creation")
 
             # Send notifications
             self.notification_service.notify_new_order_to_farmers(order)

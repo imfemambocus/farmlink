@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, distinct, desc
+from sqlalchemy import func, distinct, desc, String
 from models.user import User, FarmerProfile
 from models.product import FarmerProduct, ProductUnitPrice, CategoryEnum, ItemEnum, get_item_category
 from typing import List, Optional, Dict
@@ -221,7 +221,7 @@ class BrowseService:
         if search_term:
             search_filter = f"%{search_term.lower()}%"
             query = query.filter(
-                FarmerProduct.item.like(search_filter) |
+                FarmerProduct.item.cast(String).ilike(search_filter) |
                 FarmerProduct.description.ilike(search_filter)
             )
 

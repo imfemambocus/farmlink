@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, Enum, Numeric, JSON
+from sqlalchemy.dialects.postgresql import JSON as PostgreJSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from core.database import Base
@@ -74,7 +75,7 @@ class UnifiedOrder(Base):
     status = Column(Enum(OrderStatusEnum), default=OrderStatusEnum.CONFIRMED)
 
     # Individual farmer statuses - JSON field storing {farmer_id: {status: str, delivered_at: datetime}}
-    farmer_statuses = Column(JSON, nullable=False, default=dict)
+    farmer_statuses = Column(PostgreJSON, nullable=False, default=dict)
 
     total_amount = Column(Numeric(10, 2), nullable=False)
     delivery_fee = Column(Numeric(10, 2), default=0)
