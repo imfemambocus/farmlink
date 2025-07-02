@@ -17,6 +17,7 @@
   <p>
     <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native"/>
     <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI"/>
+    <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
     <img src="https://img.shields.io/badge/Expo-1C1E24?style=for-the-badge&logo=expo&logoColor=#D04A37" alt="Expo"/>
     <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   </p>
@@ -55,7 +56,7 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
 
 ### Accessibility
 - **Voice Commands**: Hands-free ordering using Google Speech API
-- **Multilingual Support**: English and French UI support
+- **Multilingual Support**: English and French UI support with Google Translate integration
 - **Inclusive Design**: Following WCAG guidelines for accessibility
 
 ### Secure Transactions
@@ -74,13 +75,14 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
 - **NativeWind** - Tailwind CSS for React Native
 - **React Native Voice** - Voice command functionality
 - **Stripe React Native** - Payment processing
+- **Google Translate API** - Real-time translation support
 - **Axios** - HTTP client for API requests
 - **React Native Reanimated** - Advanced animations
 - **Lottie React Native** - Vector animations
 
 ### Backend
 - **FastAPI** - High-performance API framework
-- **SQLite** - Database
+- **PostgreSQL** - Production database
 - **SQLAlchemy** - Database ORM
 - **Pydantic** - Data validation and serialization
 - **Stripe** - Payment processing
@@ -92,9 +94,9 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
 - **Scikit-learn** - Machine learning algorithms
 - **Pandas** - Data manipulation and analysis
 
-### Tools
+### Deployment & Infrastructure
+- **Render** - Cloud hosting (Backend + PostgreSQL)
 - **GitHub** - Version control and collaboration
-- **Render** - Cloud hosting
 
 ---
 
@@ -104,9 +106,38 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
 
 - **Node.js** (v24 or higher)
 - **Python** (v3.13.5 or higher)
+- **PostgreSQL** (v14 or higher)
 - **Expo CLI** (`npm install -g @expo/cli`)
 - **iOS Simulator** (for iOS development)
 - **Android Emulator** (for Android development)
+
+### Database Setup
+
+#### Local PostgreSQL Setup
+
+1. **Install PostgreSQL**
+   ```bash
+   # macOS (using Homebrew)
+   brew install postgresql
+   brew services start postgresql
+   
+   # Windows - Download from https://www.postgresql.org/download/windows/
+   # Linux (Ubuntu/Debian)
+   sudo apt update && sudo apt install postgresql postgresql-contrib
+   sudo systemctl start postgresql
+   ```
+
+2. **Create Database and User**
+   ```bash
+   # Connect to PostgreSQL
+   psql postgres
+   
+   # In PostgreSQL shell:
+   CREATE DATABASE farmlink;
+   CREATE USER admin WITH PASSWORD 'admin';
+   GRANT ALL PRIVILEGES ON DATABASE farmlink TO admin;
+   \q
+   ```
 
 ### Installation
 
@@ -134,11 +165,9 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    # Install dependencies
    pip install -r requirements.txt
    
-   # (Optional) Populate database with test data
-   python seed_data.py
-   
-   # Set up environment variables (optional - defaults are provided)
+   # Set up environment variables
    cp .env.example .env
+   # Edit .env file with your database URL if different from default
    ```
 
 3. **Set up the Frontend**
@@ -149,8 +178,9 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    npm install
    npx expo install --fix
    
-   # Set up environment variables (optional - defaults are provided)
+   # Set up environment variables
    cp .env.example .env
+   # Add your Google Translate API key if using translation features
    ```
 
 ### Running the Application
@@ -163,7 +193,8 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    
    # (Optional) Seed database with test users and products
-   python seed_data.py
+   # python seed_data.py
+   # Note: The app works perfectly without seeded data - users can register normally
    
    # Run the FastAPI server
    uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -171,10 +202,12 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    
    Backend will be available at: `http://localhost:8000`
    
-   **Test Users** (if seeded):
-   - **Individual**: user@test.com (password: testing)
-   - **Business**: biz@test.com (password: testing)  
-   - **Farmer**: farm@test.com (password: testing)
+   **Test Users** (only if you seeded the database):
+   - **Individual**: individual@test.com (password: testing)
+   - **Business**: business@test.com (password: testing)  
+   - **Farmer**: farmer@test.com (password: testing)
+   
+   **Without seeding**: Users can register normally through the app
 
 2. **Start the Frontend App**
    ```bash
@@ -193,33 +226,56 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
 
 ### Environment Variables
 
-Both frontend and backend have `.env.example` files with all required variables. **Default values are already configured**, so the app will work out of the box without any environment setup.
-
 **Frontend (.env.example):**
 ```bash
+# API Configuration
 # API_ENV options: local | remote
-API_ENV=
-API_BASE_URL_LOCAL=
-API_BASE_URL_REMOTE=
-STRIPE_PUBLISHABLE_KEY=
-MERCHANT_IDENTIFIER=
-EXPO_PROJECT_ID=
-GOOGLE_TRANSLATE_API_KEY=
+API_ENV=local
+API_BASE_URL_LOCAL=http://localhost:8000
+API_BASE_URL_REMOTE=https://farmlink-bmiy.onrender.com
+
+# Payment Configuration
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
+MERCHANT_IDENTIFIER=merchant.com.yourcompany.farmlink
+
+# Expo Configuration
+EXPO_PROJECT_ID=your_expo_project_id
+
+# Translation (Optional)
+GOOGLE_TRANSLATE_API_KEY=your_google_translate_api_key
 ```
 
 **Backend (.env.example):**
 ```bash
+# Database Configuration
+DATABASE_URL=postgresql://admin:admin@localhost/farmlink
+
 # Stripe Configuration
-STRIPE_SECRET_KEY=
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
 
 # Platform Configuration
-# 10% commission for Farmlink
 PLATFORM_FEE_PERCENTAGE=2.5
 DELIVERY_FEE=75.0
 
-# Force Seed DB When Deploying
-FORCE_SEED=
+# Database Seeding (Optional)
+FORCE_SEED=false  # Set to true only for test/demo data
 ```
+
+**Default Configuration**: The app will work out of the box with default values. Environment variables are optional unless you need specific configurations (payment processing, translation features, etc.).
+
+---
+
+## Database Schema
+
+The application uses PostgreSQL with the following main entities:
+
+- **Users**: Farmers, individual consumers, and businesses
+- **Products**: Farm products with multiple unit pricing
+- **Orders**: Unified order system with line items
+- **Payments**: Stripe integration for secure transactions
+- **Notifications**: Real-time updates and messaging
+
+Tables are automatically created on first run. Use `python seed_data.py` to populate with test data.
 
 ---
 
@@ -242,7 +298,7 @@ farmlink/
 │   ├── components/             # Reusable components
 │   ├── constants/              # App constants
 │   ├── context/                # React context providers
-│   ├── services/               # API services
+│   ├── services/               # API services & translation
 │   ├── types/                  # TypeScript type definitions
 │   ├── utils/                  # Utility functions
 │   ├── .env.example            # Environment variables template
@@ -250,13 +306,14 @@ farmlink/
 │   ├── tailwind.config.js      # Tailwind configuration
 │   └── package.json            # Dependencies and scripts
 ├── backend/                    # FastAPI server
-│   ├── core/                   # Core configuration
-│   ├── models/                 # Database models
+│   ├── core/                   # Core configuration & database
+│   ├── models/                 # SQLAlchemy database models
 │   ├── routes/                 # API routes
 │   ├── schemas/                # Pydantic schemas
 │   ├── services/               # Business logic
 │   ├── main.py                 # FastAPI app entry point
 │   ├── seed_data.py            # Database seeding
+│   ├── requirements.txt        # Python dependencies
 │   └── .env.example            # Environment variables template
 └── .gitignore                  # Git ignore rules
 ```
@@ -266,7 +323,20 @@ farmlink/
 ## Deployment
 
 ### Backend Deployment (Render)
-Connect your GitHub repository to Render for automatic deployment.
+
+1. **Create PostgreSQL Database**
+   - Add PostgreSQL database in Render dashboard
+   - Note the internal database URL
+
+2. **Deploy Backend**
+   - Connect GitHub repository to Render
+   - Set environment variables:
+     ```bash
+     DATABASE_URL=<render_postgresql_internal_url>
+     STRIPE_SECRET_KEY=<your_stripe_secret_key>
+     # FORCE_SEED=true  # Optional: Only if you want test/demo data
+     ```
+   - Deploy automatically on GitHub commits
 
 ### Frontend Deployment
 ```bash
@@ -279,7 +349,20 @@ npx expo build:android
 npx expo build:ios
 ```
 
-**Note**: iOS deployment requires a paid Apple Developer account, whilst Android deployment is free.
+**Production Environment**: Update `API_ENV=remote` in frontend environment variables to use the deployed backend.
+
+---
+
+## Translation Support
+
+The app supports English ↔ French translation using Google Translate API:
+
+- **Product descriptions** from backend
+- **Notification messages** 
+- **AI recommendation text**
+- **Automatic caching** to stay within API limits
+
+To enable: Add `GOOGLE_TRANSLATE_API_KEY` to frontend environment variables.
 
 ---
 

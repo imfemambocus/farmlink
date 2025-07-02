@@ -1,14 +1,10 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 from core.database import SessionLocal, engine
 from models.user import User, FarmerProfile, IndividualProfile, BusinessProfile
 from models.product import FarmerProduct, ProductUnitPrice, ItemEnum, UnitEnum, CustomerTypeEnum
-from models.order import UnifiedOrder, UnifiedOrderItem, UnifiedPayment, FarmerPayment, OrderStatusEnum, PaymentStatusEnum, PaymentMethodEnum
-from models.notification import Notification, DeviceToken, NotificationTypeEnum
 from core.security import get_password_hash
 from datetime import datetime, timedelta
 import random
-import json
 
 # Password: testing (for all test users)
 DEFAULT_PASSWORD = "testing"
@@ -66,55 +62,21 @@ def reset_database(db: Session):
     print("🗑️  Resetting database...")
 
     try:
-        from core.database import Base
+        from core.database import Base, engine
+        from sqlalchemy import inspect
 
-        # STEP 1: Get all existing tables from database
-        print("  - Scanning existing tables...")
-        result = db.execute(text("""
-                                 SELECT name
-                                 FROM sqlite_master
-                                 WHERE type = 'table'
-                                   AND name NOT LIKE 'sqlite_%'
-                                 ORDER BY name
-                                 """))
-        existing_tables = [row[0] for row in result]
-        print(f"    Found {len(existing_tables)} existing tables")
-
-        # STEP 2: Get all model tables from current models
-        model_tables = set(Base.metadata.tables.keys())
-        print(f"    Current models define {len(model_tables)} tables")
-
-        # STEP 3: Find orphaned tables (exist in DB but not in models)
-        orphaned_tables = set(existing_tables) - model_tables
-        if orphaned_tables:
-            print(f"  - Removing {len(orphaned_tables)} orphaned tables...")
-            for table in orphaned_tables:
-                try:
-                    db.execute(text(f"DROP TABLE IF EXISTS {table}"))
-                    print(f"    ✅ Removed orphaned table: {table}")
-                except Exception as e:
-                    print(f"    ⚠️  Could not remove {table}: {e}")
-
-        # STEP 4: Drop all remaining tables to ensure clean slate
-        print("  - Dropping all remaining tables...")
+        print("  - Dropping all tables using SQLAlchemy...")
         Base.metadata.drop_all(bind=engine)
 
-        # STEP 5: Create all tables from current models
         print("  - Creating tables from current models...")
         Base.metadata.create_all(bind=engine)
 
-        # STEP 6: Verify final table structure
-        print("  - Verifying final table structure...")
-        result = db.execute(text("""
-                                 SELECT name
-                                 FROM sqlite_master
-                                 WHERE type = 'table'
-                                   AND name NOT LIKE 'sqlite_%'
-                                 ORDER BY name
-                                 """))
-
-        final_tables = [row[0] for row in result]
-        print(f"    📋 Final database has {len(final_tables)} tables")
+        # Verify tables were created properly
+        print("  - Verifying table creation...")
+        with engine.connect() as connection:
+            inspector = inspect(connection)
+            final_tables = inspector.get_table_names()
+            print(f"    📋 Database now has {len(final_tables)} tables")
 
         db.commit()
         print("✅ Database cleanup and schema update completed!")
