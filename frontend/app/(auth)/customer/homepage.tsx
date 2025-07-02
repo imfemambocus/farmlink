@@ -222,11 +222,16 @@ export default function CustomerHomePage() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={tCustomer('homepage')}
-                    showCartButton={true}
-                />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={tCustomer('homepage')}
+                        showCartButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tCommon('loadingHomepage')}</Text>
                 </View>
@@ -236,13 +241,15 @@ export default function CustomerHomePage() {
 
     return (
         <View className="flex-1 bg-surface">
-            {/*<Header*/}
-            {/*    title={tCustomer('homepage')}*/}
-            {/*    showCartButton={true}*/}
-            {/*    showSettingsButton={true}*/}
-            {/*    showOrdersButton={true}*/}
-            {/*    showNotificationButton={true}*/}
-            {/*/>*/}
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={tCustomer('homepage')}
+                    showCartButton={true}
+                    showSettingsButton={true}
+                    showOrdersButton={true}
+                    showNotificationButton={true}
+                />
+            </View>
 
             <ScrollView
                 className="flex-1"
@@ -254,17 +261,8 @@ export default function CustomerHomePage() {
                         colors={['#4CAF50']}
                     />
                 }
-                contentContainerStyle={{ paddingBottom: 100 }}
-                stickyHeaderIndices={[0]}
+                contentContainerStyle={{ paddingTop: Dimensions.get('window').height * 0.2, paddingBottom: 100 }}
             >
-                <Header
-                    title={tCustomer('homepage')}
-                    showCartButton={true}
-                    showSettingsButton={true}
-                    showOrdersButton={true}
-                    showNotificationButton={true}
-                />
-
                 <View className="px-5 pt-6 pb-4">
                     <Text className="text-xl font-semibold text-black mb-2">
                         {tCustomer('welcomeBack')}, {user?.individual_profile?.first_name ||

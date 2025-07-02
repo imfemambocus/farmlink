@@ -118,9 +118,45 @@ configurations.all {
         console.log('ℹ️  configurations.all block already exists');
     }
 
-    // Add packagingOptions for voice package fix if not present
-    if (!buildGradleContent.includes('packagingOptions')) {
-        console.log('🔧 Adding packagingOptions for voice package fix...');
+    // Add voice package conflict resolution at the very beginning of dependencies
+    if (!buildGradleContent.includes('VOICE_CONFLICT_FIX')) {
+        console.log('🔧 Adding comprehensive voice package conflict fix...');
+
+        // Find dependencies block and add our fix at the very beginning
+        const dependenciesMatch = buildGradleContent.match(/(dependencies\s*\{\s*)/);
+        if (dependenciesMatch) {
+            const insertPoint = dependenciesMatch.index + dependenciesMatch[0].length;
+            const beforeDeps = buildGradleContent.substring(0, insertPoint);
+            const afterDeps = buildGradleContent.substring(insertPoint);
+
+            const voiceConflictFix = `    // VOICE_CONFLICT_FIX - Resolve duplicate voice package classes
+    configurations.all {
+        resolutionStrategy {
+            force '@react-native-voice/voice:3.2.4'
+            eachDependency { details ->
+                if (details.requested.group == 'com.wenkesj' && details.requested.name == 'voice') {
+                    details.useTarget group: 'com.wenkesj', name: 'voice', version: '3.2.4'
+                }
+            }
+        }
+        exclude group: 'com.wenkesj', module: 'voice'
+    }
+    
+`;
+
+            buildGradleContent = beforeDeps + voiceConflictFix + afterDeps;
+            modified = true;
+            console.log('✅ Added comprehensive voice package conflict fix');
+        } else {
+            console.log('❌ Could not find dependencies block');
+        }
+    } else {
+        console.log('ℹ️  Voice conflict fix already exists');
+    }
+
+    // Add packagingOptions with more comprehensive exclusions
+    if (!buildGradleContent.includes('pickFirst')) {
+        console.log('🔧 Adding comprehensive packagingOptions...');
 
         // Find the android block and add packagingOptions inside it
         const androidBlockStart = buildGradleContent.indexOf('android {');
@@ -132,6 +168,14 @@ configurations.all {
     packagingOptions {
         pickFirst '**/BuildConfig.class'
         pickFirst '**/com/wenkesj/voice/BuildConfig.class'
+        pickFirst '**/*.so'
+        exclude '/META-INF/DEPENDENCIES'
+        exclude '/META-INF/LICENSE'
+        exclude '/META-INF/LICENSE.txt'
+        exclude '/META-INF/NOTICE'
+        exclude '/META-INF/NOTICE.txt'
+        exclude '/META-INF/ASL2.0'
+        exclude '/META-INF/LGPL2.1'
     }
 `;
 
@@ -140,7 +184,7 @@ configurations.all {
 
                 buildGradleContent = beforeAndroid + packagingOptionsBlock + afterAndroid;
                 modified = true;
-                console.log('✅ Added packagingOptions for voice package fix');
+                console.log('✅ Added comprehensive packagingOptions');
             } else {
                 console.log('❌ Could not find android block opening brace');
             }
@@ -148,7 +192,7 @@ configurations.all {
             console.log('❌ Could not find android block for packagingOptions');
         }
     } else {
-        console.log('ℹ️  packagingOptions already exists');
+        console.log('ℹ️  PackagingOptions already exists');
     }
 
     // Add androidx.core dependency if not present
