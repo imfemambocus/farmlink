@@ -11,7 +11,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations';
+import { useProductTranslations } from '@/utils/productTranslations';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import api from '@/services/apiService';

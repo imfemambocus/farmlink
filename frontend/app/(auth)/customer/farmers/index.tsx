@@ -219,7 +219,7 @@ export default function FarmersScreen() {
                     <Text className={`text-sm font-medium ${
                         selectedDistrict === district ? 'text-black' : 'text-gray-600'
                     }`}>
-                        {district.toLowerCase()}
+                        {district}
                     </Text>
                 </TouchableOpacity>
             ))}
@@ -307,6 +307,7 @@ export default function FarmersScreen() {
                                 value={searchText}
                                 onChangeText={setSearchText}
                                 placeholder={t('farmers.searchFarmersDistricts')}
+                                placeholderTextColor="#CCCCCC"
                                 className="flex-1 ml-3 text-base text-black"
                                 style={{ textAlignVertical: 'center' }}
                                 autoCorrect={false}

@@ -5,13 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { getProductImage } from '@/constants/images';
 import { AuthContext } from '@/context/AuthContext';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations';
+import { useProductTranslations } from '@/utils/productTranslations';
 import { useRouter } from "expo-router";
 import { getProductBackgroundColor } from "@/utils/products";
 import { UnitPrice } from "@/types";
 import { useCart } from '@/context/CartContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/apiService';
+import {useProductDescriptionTranslation} from "@/utils/useBackendTranslation";
 
 interface Product {
     id: number;
@@ -72,6 +73,10 @@ export default function ProductCard({ product }: ProductCardProps) {
     const [quantity, setQuantity] = useState(1);
     const [imageError, setImageError] = useState(false);
     const [addingToCart, setAddingToCart] = useState(false);
+    const { translatedText: translatedDescription } = useProductDescriptionTranslation(
+        product.description || '',
+        product.id
+    );
 
     const backgroundOpacity = useSharedValue(0);
     const modalTranslateY = useSharedValue(1000);
@@ -394,7 +399,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                                             {tCustomer('description')}
                                         </Text>
                                         <Text className="text-gray-600 text-sm">
-                                            {product.description}
+                                            {translatedDescription}
                                         </Text>
                                     </View>
                                 )}

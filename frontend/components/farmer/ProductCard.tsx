@@ -9,7 +9,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {getProductBackgroundColor} from "@/utils/products";
 import {UnitPrice} from "@/types";
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations';
+import { useProductTranslations } from '@/utils/productTranslations';
+import {useProductDescriptionTranslation} from "@/utils/useBackendTranslation";
 
 interface ProductCardProps {
     product: {
@@ -53,6 +54,10 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
     const modalTranslateY = useSharedValue(1000);
     const { tCommon, tProducts, tAuth, tCustomer, t } = useTranslation();
     const { translateProduct, translateUnit } = useProductTranslations();
+    const { translatedText: translatedDescription } = useProductDescriptionTranslation(
+        product.description || '',
+        product.id
+    );
 
     const showAlert = (
         type: 'success' | 'error' | 'warning' | 'info',
@@ -107,7 +112,7 @@ export default function ProductCard({ product, onEdit, onToggleStatus }: Product
     };
 
     const openModal = () => {
-        setCurrentProduct(product);
+        setCurrentProduct({ ...product, description: translatedDescription });
         setModalVisible(true);
         setImageError(false);
         backgroundOpacity.value = withTiming(1, { duration: 300 });

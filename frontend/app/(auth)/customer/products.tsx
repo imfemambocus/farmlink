@@ -381,7 +381,7 @@ export default function ProductsScreen() {
                             <Text className={`text-sm font-medium ${
                                 activeFilters.district === district ? 'text-black' : 'text-gray-600'
                             }`}>
-                                {district.toLowerCase()}
+                                {district}
                             </Text>
                         </TouchableOpacity>
                     );
@@ -473,6 +473,7 @@ export default function ProductsScreen() {
                                 value={searchText}
                                 onChangeText={setSearchText}
                                 placeholder={tCustomer('searchProducts')}
+                                placeholderTextColor="#CCCCCC"
                                 className="flex-1 ml-3 text-base text-black leading-[1.2]"
                                 autoCorrect={false}
                                 autoCapitalize="none"
@@ -504,8 +505,6 @@ export default function ProductsScreen() {
                     <Text className="text-sm text-gray-600">
                         {pagination.total} {pagination.total === 1 ? tCustomer('productFound') : tCustomer('productsFound')}
                         {activeFilters.search && ` ${tCustomer('forSearch', { search: activeFilters.search })}`}
-                        {activeFilters.category && ` ${tCustomer('inCategory', { category: activeFilters.category })}`}
-                        {activeFilters.district && ` ${tCustomer('fromDistrict', { district: activeFilters.district })}`}
                     </Text>
                 </View>
 

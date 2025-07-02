@@ -655,7 +655,7 @@ export default function FarmerDashboard() {
                             {tDashboard('myProducts')}
                         </Text>
                         <Text className="text-sm text-gray-500">
-                            {filteredProducts.length} {activeTab === 'all' ? tDashboard('total') : tDashboard(activeTab)}
+                            {filteredProducts.length} {activeTab === 'all' ? tDashboard('total') : tDashboard(activeTab).toLowerCase()}
                         </Text>
                     </View>
 

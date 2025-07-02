@@ -189,7 +189,7 @@ class PushNotificationService:
             }
 
             # Send notification to farmer
-            title = "New Order Received!"
+            title = "New order received!"
             message = f"Order #{order.order_number} - {item_count} items, Rs {total_amount:.2f}"
 
             notification = Notification(
@@ -280,7 +280,7 @@ class PushNotificationService:
         }
 
         if new_status in status_messages:
-            title = f"Order Update - #{order.order_number}"
+            title = f"Order update - #{order.order_number}"
             message = status_messages[new_status]
 
             self.create_and_send_notification(

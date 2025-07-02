@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '@/services/apiService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {UnitPrice} from "@/types";
+import {useRecommendationTranslation} from "@/utils/useBackendTranslation";
 
 interface Farmer {
     id: number;
@@ -76,6 +77,10 @@ export default function CustomerHomePage() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+    const { translatedText: translatedRecommendationMessage } = useRecommendationTranslation(
+        recommendations.message,
+        recommendations.has_purchase_history
+    );
     const [alert, setAlert] = useState<AlertState>({
         visible: false,
         type: 'info',
@@ -304,7 +309,7 @@ export default function CustomerHomePage() {
                                     {tCustomer('personalizedPicksAwait')}
                                 </Text>
                                 <Text className="text-sm text-gray-600 text-center leading-5">
-                                    {recommendations.message}
+                                    {translatedRecommendationMessage}
                                 </Text>
                                 <TouchableOpacity
                                     onPress={handleViewAllProducts}
@@ -320,7 +325,7 @@ export default function CustomerHomePage() {
                     ) : (
                         <View>
                             <Text className="text-sm text-gray-600 mb-4 px-5">
-                                {recommendations.message}
+                                {translatedRecommendationMessage}
                             </Text>
                             <FlatList
                                 data={recommendations.recommendations}

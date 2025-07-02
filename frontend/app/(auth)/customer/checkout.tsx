@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations';
+import { useProductTranslations } from '@/utils/productTranslations';
 import Header from '@/components/ui/Header';
 import CustomAlert from '@/components/ui/CustomAlert';
 import { Ionicons } from '@expo/vector-icons';

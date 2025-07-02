@@ -357,7 +357,7 @@ export default function FarmerDetailScreen() {
                             {t('farmers.availableProducts')}
                         </Text>
                         <Text className="text-sm text-gray-500">
-                            {filteredProducts.length} {activeTab === 'all' ? t('farmers.total') : t(`farmers.${activeTab}`)}
+                            {filteredProducts.length} {activeTab === 'all' ? t('farmers.total') : t(`farmers.${activeTab}`).toLowerCase()}
                         </Text>
                     </View>
 

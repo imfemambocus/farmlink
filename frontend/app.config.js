@@ -101,6 +101,7 @@ export default {
       API_ENV: process.env.API_ENV,
       API_BASE_URL_LOCAL: process.env.API_BASE_URL_LOCAL,
       API_BASE_URL_REMOTE: process.env.API_BASE_URL_REMOTE,
+      GOOGLE_TRANSLATE_API_KEY: process.env.GOOGLE_TRANSLATE_API_KEY || "AIzaSyBm7eQimoTBYR78qiIfmkJAFUX44DGmSvk",
     },
     owner: "imfestudio",
   },

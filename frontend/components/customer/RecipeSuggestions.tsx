@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '@/context/LanguageContext';
-import { useProductTranslations } from '@/utils/translations';
+import { useProductTranslations } from '@/utils/productTranslations';
 import ruleBasedAIService from '@/services/aiRecipeService';
 
 interface CartItem {

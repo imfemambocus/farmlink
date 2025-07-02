@@ -180,8 +180,10 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    ```bash
    cd frontend
    
-   # Start Expo development server
+   # Start Expo Go server
    npx expo start
+   # If the above doesn't work, try:
+   # npx expo start --tunnel
    ```
    
    Follow the Expo CLI instructions to run on:
@@ -202,6 +204,7 @@ API_BASE_URL_REMOTE=
 STRIPE_PUBLISHABLE_KEY=
 MERCHANT_IDENTIFIER=
 EXPO_PROJECT_ID=
+GOOGLE_TRANSLATE_API_KEY=
 ```
 
 **Backend (.env.example):**
