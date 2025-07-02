@@ -220,8 +220,10 @@ class BrowseService:
 
         if search_term:
             search_filter = f"%{search_term.lower()}%"
+            from sqlalchemy import text
             query = query.filter(
-                FarmerProduct.item.cast(String).ilike(search_filter) |
+                text("LOWER(farmer_products.item::text) LIKE LOWER(:search_term)").bindparam(
+                    search_term=search_filter) |
                 FarmerProduct.description.ilike(search_filter)
             )
 

@@ -27,8 +27,12 @@ def get_table_data(table_name: str, limit: int = 50, db: Session = Depends(get_d
         raise HTTPException(status_code=400, detail="Table not allowed")
 
     try:
-        query = text(f"SELECT * FROM {table_name} LIMIT :limit")
-        result = db.execute(query, {"limit": limit})
+        from sqlalchemy import MetaData, Table
+
+        metadata = MetaData()
+        table = Table(table_name, metadata, autoload_with=db.bind)
+
+        result = db.execute(table.select().limit(limit))
         columns = result.keys()
         rows = result.fetchall()
 
