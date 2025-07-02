@@ -259,7 +259,7 @@ class OrderService:
             filtered_orders = []
             for order in orders:
                 farmer_status = order.get_farmer_status(farmer_id)
-                if farmer_status == status:
+                if str(farmer_status) == str(status):
                     filtered_orders.append(order)
             return filtered_orders
 

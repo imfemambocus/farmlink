@@ -200,6 +200,7 @@ class MLRecommendationService:
                 UnifiedOrderItem.farmer_product_id,
                 func.sum(UnifiedOrderItem.quantity).label('total_quantity')
             )
+            .select_from(UnifiedOrder)
             .join(UnifiedOrderItem, UnifiedOrder.id == UnifiedOrderItem.order_id)
             .join(User, UnifiedOrder.customer_id == User.id)
             .filter(

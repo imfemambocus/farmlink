@@ -198,7 +198,6 @@ class BrowseService:
             else:
                 return "Based on your purchase history and taste preferences, here are fresh products you might enjoy."
 
-
     def search_products(
             self,
             search_term: Optional[str] = None,
@@ -209,6 +208,8 @@ class BrowseService:
             limit: int = 50,
             offset: int = 0
     ) -> Dict:
+        from sqlalchemy import func, or_
+
         query = (
             self.db.query(FarmerProduct)
             .options(
@@ -220,12 +221,28 @@ class BrowseService:
 
         if search_term:
             search_filter = f"%{search_term.lower()}%"
-            from sqlalchemy import text
-            query = query.filter(
-                text("LOWER(farmer_products.item::text) LIKE LOWER(:search_term)").bindparam(
-                    search_term=search_filter) |
-                FarmerProduct.description.ilike(search_filter)
-            )
+
+            # Find matching item enums (product names)
+            matching_items = []
+            search_lower = search_term.lower()
+            for item in ItemEnum:
+                # Convert enum value like "bell_pepper" to "bell pepper" for matching
+                item_name = item.value.replace('_', ' ').lower()
+                if search_lower in item_name or item_name in search_lower:
+                    matching_items.append(item)
+
+            # Build search conditions
+            search_conditions = []
+
+            # Search in descriptions
+            search_conditions.append(FarmerProduct.description.ilike(search_filter))
+
+            # Search in item names
+            if matching_items:
+                search_conditions.append(FarmerProduct.item.in_(matching_items))
+
+            # Combine with OR
+            query = query.filter(or_(*search_conditions))
 
         if category:
             category_items = [item for item in ItemEnum if get_item_category(item) == category]
@@ -243,10 +260,12 @@ class BrowseService:
             if max_price is not None:
                 query = query.filter(ProductUnitPrice.price_per_unit <= max_price)
 
-        total = query.count()
+        # Get total count
+        total_query = query.distinct(FarmerProduct.id)
+        total = total_query.count()
 
         products = (
-            query.distinct(FarmerProduct.id)
+            query.group_by(FarmerProduct.id)
             .order_by(FarmerProduct.created_at.desc())
             .offset(offset)
             .limit(limit)
