@@ -3,14 +3,15 @@ const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(__dirname);
 
+// Safely merge resolver configuration
 config.resolver = {
     ...config.resolver,
     alias: {
+        ...config.resolver?.alias,
         '@react-native-voice/voice': require.resolve('@react-native-voice/voice'),
     },
     blockList: [
-        ...(config.resolver.blockList || []),
-        // Block the nested voice dependency in react-native-voice-enhanced
+        ...(config.resolver?.blockList || []),
         new RegExp(`${__dirname}/node_modules/react-native-voice-enhanced/node_modules/@react-native-voice/voice/.*`),
     ],
 };
