@@ -4,7 +4,7 @@ import {
     Text,
     ScrollView,
     TouchableOpacity,
-    ActivityIndicator,
+    ActivityIndicator, Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from '@/context/LanguageContext';
@@ -129,12 +129,17 @@ export default function OrderSuccessScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={tOrders('orderConfirmation')}
-                    showHomeButton={true}
-                    showOrdersButton={true}
-                />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={tOrders('orderConfirmation')}
+                        showHomeButton={true}
+                        showOrdersButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tOrders('loadingOrderDetails')}</Text>
                 </View>
@@ -145,12 +150,17 @@ export default function OrderSuccessScreen() {
     if (!order) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={tOrders('orderConfirmation')}
-                    showHomeButton={true}
-                    showOrdersButton={true}
-                />
-                <View className="flex-1 justify-center items-center px-6">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={tOrders('orderConfirmation')}
+                        showHomeButton={true}
+                        showOrdersButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center px-6"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <Ionicons name="alert-circle-outline" size={80} color="#ef4444" />
                     <Text className="text-xl font-medium text-black mt-4 mb-2">
                         {tOrders('orderNotFound')}
@@ -174,16 +184,21 @@ export default function OrderSuccessScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={tOrders('orderConfirmation')}
-                showHomeButton={true}
-                showOrdersButton={true}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={tOrders('orderConfirmation')}
+                    showHomeButton={true}
+                    showOrdersButton={true}
+                />
+            </View>
 
             <ScrollView
                 className="flex-1"
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 120 }}
+                contentContainerStyle={{
+                    paddingTop: Dimensions.get('window').height * 0.2,
+                    paddingBottom: 120
+                }}
             >
                 <View className="items-center py-8 px-6">
                     <View className={`px-4 py-2 mb-4 rounded-full ${getStatusColor(order.status)}`}>

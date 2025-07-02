@@ -7,7 +7,7 @@ import {
     ActivityIndicator,
     RefreshControl,
     Image,
-    Animated
+    Animated, Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
@@ -505,13 +505,18 @@ export default function OrdersScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={tOrders('myOrders')}
-                    showBackButton={true}
-                    showNotificationButton={true}
-                    showCartButton={true}
-                />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={tOrders('myOrders')}
+                        showBackButton={true}
+                        showNotificationButton={true}
+                        showCartButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tOrders('loadingOrders')}</Text>
                 </View>
@@ -521,15 +526,20 @@ export default function OrdersScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={tOrders('myOrders')}
-                showBackButton={true}
-                showNotificationButton={true}
-                showCartButton={true}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={tOrders('myOrders')}
+                    showBackButton={true}
+                    showNotificationButton={true}
+                    showCartButton={true}
+                />
+            </View>
 
             {orders.length === 0 ? (
-                <View className="flex-1 justify-center items-center px-6">
+                <View
+                    className="flex-1 justify-center items-center px-6"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <Ionicons name="receipt-outline" size={64} color="#d1d5db" />
                     <Text className="text-lg font-medium text-black mt-4 mb-2">
                         {tOrders('noOrdersYet')}
@@ -558,7 +568,10 @@ export default function OrdersScreen() {
                             colors={['#4CAF50']}
                         />
                     }
-                    contentContainerStyle={{ paddingBottom: 20 }}
+                    contentContainerStyle={{
+                        paddingTop: Dimensions.get('window').height * 0.2,
+                        paddingBottom: 20
+                    }}
                 >
                     {orders.map(renderOrder)}
                 </ScrollView>

@@ -5,7 +5,7 @@ import {
     TextInput,
     TouchableOpacity,
     ActivityIndicator,
-    Pressable
+    Pressable, Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -297,8 +297,13 @@ export default function AddProduct() {
     if (loadingItems) {
         return (
             <View className="flex-1">
-                <Header title={tProducts('addProduct')} showBackButton={true} />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header title={tProducts('addProduct')} showBackButton={true} />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tProducts('loadingItems')}</Text>
                 </View>
@@ -308,7 +313,9 @@ export default function AddProduct() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title={tProducts('addProduct')} showBackButton={true} />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header title={tProducts('addProduct')} showBackButton={true} />
+            </View>
 
             <KeyboardAwareScrollView
                 className="flex-1 bg-white px-6 pt-6"
@@ -320,6 +327,9 @@ export default function AddProduct() {
                 scrollEventThrottle={10}
                 enableResetScrollToCoords={false}
                 keyboardOpeningTime={250}
+                contentContainerStyle={{
+                    paddingTop: Dimensions.get('window').height * 0.2
+                }}
             >
                 <View className="mb-6">
                     <Text className="text-base font-medium mb-3 text-black">

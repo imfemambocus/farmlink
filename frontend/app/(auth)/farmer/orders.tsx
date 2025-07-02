@@ -7,7 +7,7 @@ import {
     ActivityIndicator,
     RefreshControl,
     Image,
-    Animated
+    Animated, Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
@@ -587,12 +587,17 @@ export default function FarmerOrdersScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={tOrders('myOrders')}
-                    showBackButton={true}
-                    showNotificationButton={true}
-                />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={tOrders('myOrders')}
+                        showBackButton={true}
+                        showNotificationButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tOrders('loadingOrders')}</Text>
                 </View>
@@ -602,19 +607,24 @@ export default function FarmerOrdersScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={tOrders('myOrders')}
-                showBackButton={true}
-                showNotificationButton={true}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={tOrders('myOrders')}
+                    showBackButton={true}
+                    showNotificationButton={true}
+                />
+            </View>
 
             {orders.length === 0 ? (
-                <View className="flex-1 justify-center items-center px-6">
+                <View
+                    className="flex-1 justify-center items-center px-6"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <Ionicons name="receipt-outline" size={64} color="#d1d5db" />
-                    <Text className="text-xl font-medium text-black mt-4 mb-2">
+                    <Text className="text-lg font-medium text-black mt-4 mb-2">
                         {tOrders('noOrdersYet')}
                     </Text>
-                    <Text className="text-gray-600 text-center mb-8">
+                    <Text className="text-gray-600 text-sm text-center mb-8">
                         {tOrders('customerOrdersAppear')}
                     </Text>
                 </View>
@@ -629,7 +639,10 @@ export default function FarmerOrdersScreen() {
                             colors={['#4CAF50']}
                         />
                     }
-                    contentContainerStyle={{ paddingBottom: 20 }}
+                    contentContainerStyle={{
+                        paddingTop: Dimensions.get('window').height * 0.2,
+                        paddingBottom: 20
+                    }}
                 >
                     {orders.map(renderOrder)}
                 </ScrollView>

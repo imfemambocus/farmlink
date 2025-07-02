@@ -5,7 +5,7 @@ import {
     TextInput,
     TouchableOpacity,
     Pressable,
-    ActivityIndicator
+    ActivityIndicator, Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -293,11 +293,13 @@ export default function Register() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={tAuth('createAccount')}
-                showBackButton={true}
-                showLogoutButton={false}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={tAuth('createAccount')}
+                    showBackButton={true}
+                    showLogoutButton={false}
+                />
+            </View>
 
             <KeyboardAwareScrollView
                 className="flex-1"
@@ -309,6 +311,7 @@ export default function Register() {
                 scrollEventThrottle={10}
                 enableResetScrollToCoords={false}
                 keyboardOpeningTime={250}
+                contentContainerStyle={{ paddingTop: Dimensions.get('window').height * 0.2 }}
             >
                 <View className="px-6 pt-6 pb-8">
                     <View className="mb-8">

@@ -6,7 +6,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     Pressable,
-    Image
+    Image, Dimensions
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -478,8 +478,13 @@ export default function EditProduct() {
     if (loadingProduct) {
         return (
             <View className="flex-1">
-                <Header title={tProducts('editProduct')} showBackButton={true} />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header title={tProducts('editProduct')} showBackButton={true} />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tProducts('loadingProduct')}</Text>
                 </View>
@@ -490,8 +495,13 @@ export default function EditProduct() {
     if (!product) {
         return (
             <View className="flex-1">
-                <Header title={tProducts('editProduct')} showBackButton={true} />
-                <View className="flex-1 justify-center items-center bg-white px-6">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header title={tProducts('editProduct')} showBackButton={true} />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center bg-white px-6"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <Text className="text-lg font-medium text-black mb-2">{tProducts('productNotFound')}</Text>
                     <Text className="text-gray-600 text-center">
                         {tProducts('productNotFoundDesc')}
@@ -505,7 +515,9 @@ export default function EditProduct() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title={tProducts('editProduct')} showBackButton={true} />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header title={tProducts('editProduct')} showBackButton={true} />
+            </View>
 
             <KeyboardAwareScrollView
                 className="flex-1 bg-white px-6 pt-6"
@@ -517,6 +529,9 @@ export default function EditProduct() {
                 scrollEventThrottle={10}
                 enableResetScrollToCoords={false}
                 keyboardOpeningTime={250}
+                contentContainerStyle={{
+                    paddingTop: Dimensions.get('window').height * 0.2
+                }}
             >
                 <View className="flex-row items-center mb-6 p-2 bg-gray-50 rounded-xl border border-gray-100">
                     <View

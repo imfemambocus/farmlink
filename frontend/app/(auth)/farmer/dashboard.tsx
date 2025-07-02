@@ -474,8 +474,13 @@ export default function FarmerDashboard() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title={tCommon('dashboard')} showSettingsButton={true} showOrdersButton={true} />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header title={tCommon('dashboard')} showSettingsButton={true} showOrdersButton={true} />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tDashboard('loadingDashboard')}</Text>
                 </View>
@@ -487,12 +492,14 @@ export default function FarmerDashboard() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={tCommon('dashboard')}
-                showSettingsButton={true}
-                showOrdersButton={true}
-                showNotificationButton={true}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={tCommon('dashboard')}
+                    showSettingsButton={true}
+                    showOrdersButton={true}
+                    showNotificationButton={true}
+                />
+            </View>
 
             <ScrollView
                 className="flex-1"
@@ -504,7 +511,10 @@ export default function FarmerDashboard() {
                         colors={['#4CAF50']}
                     />
                 }
-                contentContainerStyle={{ paddingBottom: 100 }}
+                contentContainerStyle={{
+                    paddingTop: Dimensions.get('window').height * 0.2,
+                    paddingBottom: 100
+                }}
             >
                 <View className="px-5 pt-6 pb-4">
                     <Text className="text-xl font-semibold text-black mb-2">
@@ -652,7 +662,7 @@ export default function FarmerDashboard() {
                     <View className="flex-row mb-6 rounded-lg flex gap-2">
                         <TabButton
                             tab="all"
-                            title={tDashboard('total')}
+                            title={tDashboard('all')}
                             isActive={activeTab === 'all'}
                             onPress={() => setActiveTab('all')}
                         />

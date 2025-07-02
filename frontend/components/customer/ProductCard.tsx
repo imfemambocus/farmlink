@@ -221,9 +221,9 @@ export default function ProductCard({ product }: ProductCardProps) {
                 </View>
 
                 <View className="flex-row items-end justify-between">
-                    <View>
+                    <View className="flex-1 mr-2" style={{ minWidth: 0 }}>
                         <View className="flex-row items-center mb-1">
-                            <Text className="text-xs text-gray-500">
+                            <Text className="text-xs text-gray-500" numberOfLines={1}>
                                 {(() => {
                                     const units = filteredUnitPrices.map(up => translateUnit(up.unit));
                                     if (units.length === 1) {
@@ -236,11 +236,18 @@ export default function ProductCard({ product }: ProductCardProps) {
                                 })()}
                             </Text>
                         </View>
-                        <View className="flex-row items-baseline">
-                            <Text className="text-base font-bold text-black">
+                        <View className="flex-row items-baseline" style={{ minWidth: 0 }}>
+                            <Text
+                                className="text-base font-bold text-black flex-shrink-0"
+                            >
                                 {translateUnit('rs')} {filteredUnitPrices.length > 0 ? filteredUnitPrices[0].price_per_unit : product.lowest_price}
                             </Text>
-                            <Text className="text-xs text-gray-500 ml-1">
+                            <Text
+                                className="text-xs text-gray-500 ml-1 flex-shrink"
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                                style={{ minWidth: 0 }}
+                            >
                                 / {filteredUnitPrices.length > 0 ? translateUnit(filteredUnitPrices[0].unit) : translateUnit('unit')}
                             </Text>
                         </View>
@@ -251,7 +258,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                             e.stopPropagation();
                             quickAddToCart();
                         }}
-                        className="bg-background px-2 py-2 rounded-lg"
+                        className="bg-background px-2 py-2 rounded-lg flex-shrink-0"
                         activeOpacity={0.7}
                         disabled={addingToCart}
                     >

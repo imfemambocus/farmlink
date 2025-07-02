@@ -250,13 +250,18 @@ export default function FarmerDetailScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={t('farmers.farmerTitle')}
-                    showBackButton={true}
-                    showCartButton={true}
-                    showNotificationButton={true}
-                />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={t('farmers.farmerTitle')}
+                        showBackButton={true}
+                        showCartButton={true}
+                        showNotificationButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{t('farmers.loadingFarmerDetails')}</Text>
                 </View>
@@ -267,13 +272,18 @@ export default function FarmerDetailScreen() {
     if (!farmer) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={t('farmers.farmerTitle')}
-                    showBackButton={true}
-                    showCartButton={true}
-                    showNotificationButton={true}
-                />
-                <View className="flex-1 justify-center items-center px-6">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={t('farmers.farmerTitle')}
+                        showBackButton={true}
+                        showCartButton={true}
+                        showNotificationButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center px-6"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <Text className="text-4xl mb-4">😞</Text>
                     <Text className="text-xl font-medium text-black mb-2 text-center">
                         {t('farmers.farmerNotFound')}
@@ -290,13 +300,15 @@ export default function FarmerDetailScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={t('farmers.farmerTitle')}
-                showBackButton={true}
-                showCartButton={true}
-                showOrdersButton={true}
-                showNotificationButton={true}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={t('farmers.farmerTitle')}
+                    showBackButton={true}
+                    showCartButton={true}
+                    showOrdersButton={true}
+                    showNotificationButton={true}
+                />
+            </View>
 
             <ScrollView
                 className="flex-1"
@@ -308,7 +320,10 @@ export default function FarmerDetailScreen() {
                         colors={['#4CAF50']}
                     />
                 }
-                contentContainerStyle={{ paddingBottom: 100 }}
+                contentContainerStyle={{
+                    paddingTop: Dimensions.get('window').height * 0.2,
+                    paddingBottom: 100
+                }}
             >
                 <View className="px-5 pt-6 pb-4">
                     <View className="bg-background rounded-xl overflow-hidden relative">

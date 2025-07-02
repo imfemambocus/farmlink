@@ -254,13 +254,18 @@ export default function FarmersScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={t('farmers.farmersTitle')}
-                    showBackButton={true}
-                    showCartButton={true}
-                    showOrdersButton={true}
-                />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={t('farmers.farmersTitle')}
+                        showBackButton={true}
+                        showCartButton={true}
+                        showOrdersButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{t('farmers.loadingFarmers')}</Text>
                 </View>
@@ -270,12 +275,14 @@ export default function FarmersScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={t('farmers.farmersTitle')}
-                showBackButton={true}
-                showCartButton={true}
-                showOrdersButton={true}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={t('farmers.farmersTitle')}
+                    showBackButton={true}
+                    showCartButton={true}
+                    showOrdersButton={true}
+                />
+            </View>
 
             <ScrollView
                 className="flex-1"
@@ -287,7 +294,10 @@ export default function FarmersScreen() {
                         colors={['#4CAF50']}
                     />
                 }
-                contentContainerStyle={{ paddingBottom: 100 }}
+                contentContainerStyle={{
+                    paddingTop: Dimensions.get('window').height * 0.2,
+                    paddingBottom: 100
+                }}
             >
                 <View className="px-5 pt-6 pb-4">
                     <View className="mb-4">

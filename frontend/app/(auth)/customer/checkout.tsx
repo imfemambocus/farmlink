@@ -5,7 +5,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     TextInput,
-    Platform
+    Platform, Dimensions
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useRouter } from 'expo-router';
@@ -691,8 +691,13 @@ function CheckoutScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title={tCheckout('checkoutTitle')} showBackButton={true} />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header title={tCheckout('checkoutTitle')} showBackButton={true} />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tCheckout('loadingCheckout')}</Text>
                 </View>
@@ -702,7 +707,9 @@ function CheckoutScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title={tCheckout('checkoutTitle')} showBackButton={true} />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header title={tCheckout('checkoutTitle')} showBackButton={true} />
+            </View>
 
             <KeyboardAwareScrollView
                 className="flex-1 px-2 pt-3"
@@ -714,6 +721,9 @@ function CheckoutScreen() {
                 scrollEventThrottle={10}
                 enableResetScrollToCoords={false}
                 keyboardOpeningTime={250}
+                contentContainerStyle={{
+                    paddingTop: Dimensions.get('window').height * 0.2
+                }}
             >
                 {renderOrderSummary()}
                 {renderDeliveryForm()}

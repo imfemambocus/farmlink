@@ -48,19 +48,77 @@ class BrowseService:
 
         return result
 
-
     def get_latest_products(self, limit: int = 20) -> List[Dict]:
-        products = (
+        # Get fruit items and vegetable items
+        fruit_items = [item for item in ItemEnum if get_item_category(item) == CategoryEnum.FRUITS]
+        vegetable_items = [item for item in ItemEnum if get_item_category(item) == CategoryEnum.VEGETABLES]
+
+        # Calculate limits for each category (try to get roughly equal amounts)
+        fruits_limit = limit // 2
+        vegetables_limit = limit - fruits_limit
+
+        # Get latest fruits
+        fruits = (
             self.db.query(FarmerProduct)
             .options(
                 joinedload(FarmerProduct.unit_prices),
                 joinedload(FarmerProduct.farmer).joinedload(User.farmer_profile)
             )
-            .filter(FarmerProduct.is_active == True)
+            .filter(
+                FarmerProduct.is_active == True,
+                FarmerProduct.item.in_(fruit_items)
+            )
             .order_by(FarmerProduct.created_at.desc())
-            .limit(limit)
+            .limit(fruits_limit)
             .all()
         )
+
+        # Get latest vegetables
+        vegetables = (
+            self.db.query(FarmerProduct)
+            .options(
+                joinedload(FarmerProduct.unit_prices),
+                joinedload(FarmerProduct.farmer).joinedload(User.farmer_profile)
+            )
+            .filter(
+                FarmerProduct.is_active == True,
+                FarmerProduct.item.in_(vegetable_items)
+            )
+            .order_by(FarmerProduct.created_at.desc())
+            .limit(vegetables_limit)
+            .all()
+        )
+
+        # Combine results
+        all_products = fruits + vegetables
+
+        # If one category doesn't have enough products, fill with the other category
+        if len(all_products) < limit:
+            remaining_slots = limit - len(all_products)
+            existing_ids = [p.id for p in all_products]
+
+            additional_products = (
+                self.db.query(FarmerProduct)
+                .options(
+                    joinedload(FarmerProduct.unit_prices),
+                    joinedload(FarmerProduct.farmer).joinedload(User.farmer_profile)
+                )
+                .filter(
+                    FarmerProduct.is_active == True,
+                    ~FarmerProduct.id.in_(existing_ids)
+                )
+                .order_by(FarmerProduct.created_at.desc())
+                .limit(remaining_slots)
+                .all()
+            )
+
+            all_products.extend(additional_products)
+
+        # Sort by creation date to maintain chronological order
+        all_products.sort(key=lambda x: x.created_at, reverse=True)
+
+        # Take only the requested limit
+        products = all_products[:limit]
 
         result = []
         for product in products:

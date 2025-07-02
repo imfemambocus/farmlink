@@ -182,11 +182,11 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                         </View>
 
                         <Text className="text-xl font-semibold text-black text-center mb-3">
-                            {title.toLowerCase()}
+                            {title}
                         </Text>
 
                         <Text className="text-base text-gray-600 text-center mb-6 leading-6">
-                            {message.toLowerCase()}
+                            {message}
                         </Text>
 
                         <View className={`gap-3 ${buttons.length > 1 ? 'flex-row' : ''}`}>
@@ -200,7 +200,7 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
                                     activeOpacity={0.7}
                                 >
                                     <Text className={`text-center font-medium text-base ${getButtonStyle(button.style)}`}>
-                                        {button.text.toLowerCase()}
+                                        {button.text}
                                     </Text>
                                 </TouchableOpacity>
                             ))}

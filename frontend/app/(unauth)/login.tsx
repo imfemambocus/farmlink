@@ -5,7 +5,7 @@ import {
     TextInput,
     TouchableOpacity,
     ActivityIndicator,
-    ScrollView
+    ScrollView, Dimensions
 } from 'react-native';
 import { AuthContext } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
@@ -122,13 +122,18 @@ export default function Login() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={tAuth('welcomeBack')}
-                showBackButton={true}
-                showLogoutButton={false}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={tAuth('welcomeBack')}
+                    showBackButton={true}
+                />
+            </View>
 
-            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+            <ScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+            >
                 <View className="flex-1 justify-center px-6 pt-8">
                     <View className="mb-8">
                         <Text className="text-lg text-gray-600 font-sans">

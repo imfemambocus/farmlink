@@ -6,7 +6,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     RefreshControl,
-    Image
+    Image, Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
@@ -426,13 +426,18 @@ export default function CartScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header
-                    title={tCart('myCart')}
-                    showBackButton={true}
-                    showOrdersButton={true}
-                    showNotificationButton={true}
-                />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header
+                        title={tCart('myCart')}
+                        showBackButton={true}
+                        showOrdersButton={true}
+                        showNotificationButton={true}
+                    />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tCart('loadingCart')}</Text>
                 </View>
@@ -444,15 +449,20 @@ export default function CartScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header
-                title={tCart('myCart')}
-                showBackButton={true}
-                showOrdersButton={true}
-                showNotificationButton={true}
-            />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header
+                    title={tCart('myCart')}
+                    showBackButton={true}
+                    showOrdersButton={true}
+                    showNotificationButton={true}
+                />
+            </View>
 
             {isEmpty ? (
-                <View className="flex-1 justify-center items-center px-6">
+                <View
+                    className="flex-1 justify-center items-center px-6"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <Ionicons name="basket-outline" size={64} color="#d1d5db" />
                     <Text className="text-lg font-medium text-black mt-4 mb-2">
                         {tCart('cartIsEmpty')}
@@ -472,7 +482,10 @@ export default function CartScreen() {
                             colors={['#4CAF50']}
                         />
                     }
-                    contentContainerStyle={{ paddingBottom: 20 }}
+                    contentContainerStyle={{
+                        paddingTop: Dimensions.get('window').height * 0.2,
+                        paddingBottom: 20
+                    }}
                 >
                     {user?.role === 'business' && (
                         <View className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">

@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     ActivityIndicator,
     RefreshControl,
+    Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Header from '@/components/ui/Header';
@@ -177,8 +178,13 @@ export default function NotificationsScreen() {
     if (loading) {
         return (
             <View className="flex-1 bg-surface">
-                <Header title={tNotifications('notificationsTitle')} showBackButton={true} />
-                <View className="flex-1 justify-center items-center">
+                <View className="absolute top-0 left-0 right-0 z-10">
+                    <Header title={tNotifications('notificationsTitle')} showBackButton={true} />
+                </View>
+                <View
+                    className="flex-1 justify-center items-center"
+                    style={{ paddingTop: Dimensions.get('window').height * 0.2 }}
+                >
                     <ActivityIndicator size="large" color="#4CAF50" />
                     <Text className="text-gray-600 mt-4">{tNotifications('loadingNotifications')}</Text>
                 </View>
@@ -188,54 +194,58 @@ export default function NotificationsScreen() {
 
     return (
         <View className="flex-1 bg-surface">
-            <Header title={tNotifications('notificationsTitle')} showBackButton={true} />
+            <View className="absolute top-0 left-0 right-0 z-10">
+                <Header title={tNotifications('notificationsTitle')} showBackButton={true} />
+            </View>
 
-            {notifications.length > 0 && (
-                <View className="px-5 py-3 bg-white border-b border-gray-100">
-                    <View className="flex-row justify-between items-center">
-                        <Text className="text-sm text-gray-600">
-                            {unreadCount > 0 ? `${unreadCount} ${tNotifications('unread')}` : tNotifications('allCaughtUp')}
-                        </Text>
-                        {unreadCount > 0 && (
-                            <TouchableOpacity
-                                onPress={handleMarkAllRead}
-                                className="px-3 py-1 bg-background rounded-lg"
-                                activeOpacity={0.7}
-                            >
-                                <Text className="text-sm font-medium text-black">
-                                    {tNotifications('markAllRead')}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
+            <View className="flex-1" style={{ paddingTop: Dimensions.get('window').height * 0.2 }}>
+                {notifications.length > 0 && (
+                    <View className="px-5 py-3 bg-white border-b border-gray-100">
+                        <View className="flex-row justify-between items-center">
+                            <Text className="text-sm text-gray-600">
+                                {unreadCount > 0 ? `${unreadCount} ${tNotifications('unread')}` : tNotifications('allCaughtUp')}
+                            </Text>
+                            {unreadCount > 0 && (
+                                <TouchableOpacity
+                                    onPress={handleMarkAllRead}
+                                    className="px-3 py-1 bg-background rounded-lg"
+                                    activeOpacity={0.7}
+                                >
+                                    <Text className="text-sm font-medium text-black">
+                                        {tNotifications('markAllRead')}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
-                </View>
-            )}
+                )}
 
-            {notifications.length === 0 ? (
-                <View className="flex-1 justify-center items-center px-6">
-                    <Ionicons name="notifications-outline" size={64} color="#d1d5db" />
-                    <Text className="text-lg font-medium text-black mt-4 mb-2">
-                        {tNotifications('noNotificationsYet')}
-                    </Text>
-                    <Text className="text-gray-600 text-sm text-center">
-                        {tNotifications('notificationsAppearHere')}
-                    </Text>
-                </View>
-            ) : (
-                <ScrollView
-                    className="flex-1"
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={handleRefresh}
-                            colors={['#4CAF50']}
-                        />
-                    }
-                >
-                    {notifications.map(renderNotification)}
-                </ScrollView>
-            )}
+                {notifications.length === 0 ? (
+                    <View className="flex-1 justify-center items-center px-6">
+                        <Ionicons name="notifications-outline" size={64} color="#d1d5db" />
+                        <Text className="text-lg font-medium text-black mt-4 mb-2">
+                            {tNotifications('noNotificationsYet')}
+                        </Text>
+                        <Text className="text-gray-600 text-sm text-center">
+                            {tNotifications('notificationsAppearHere')}
+                        </Text>
+                    </View>
+                ) : (
+                    <ScrollView
+                        className="flex-1"
+                        showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={handleRefresh}
+                                colors={['#4CAF50']}
+                            />
+                        }
+                    >
+                        {notifications.map(renderNotification)}
+                    </ScrollView>
+                )}
+            </View>
         </View>
     );
 }

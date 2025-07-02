@@ -355,20 +355,20 @@ def create_all_products(db: Session, farmer_id: int):
     # Base prices per kg for different items
     base_prices = {
         # FRUITS
-        ItemEnum.APPLE: 450.0, ItemEnum.BANANA: 300.0, ItemEnum.ORANGE: 350.0,
-        ItemEnum.MANGO: 500.0, ItemEnum.PINEAPPLE: 200.0, ItemEnum.PAPAYA: 300.0,
-        ItemEnum.GUAVA: 200.0, ItemEnum.LYCHEE: 600.0, ItemEnum.COCONUT: 80.0,
-        ItemEnum.LEMON: 400.0, ItemEnum.LIME: 350.0, ItemEnum.WATERMELON: 150.0,
-        ItemEnum.MELON: 250.0, ItemEnum.GRAPES: 800.0, ItemEnum.STRAWBERRY: 1200.0,
+        ItemEnum.APPLE: 200.0, ItemEnum.BANANA: 42.0, ItemEnum.ORANGE: 100.0,
+        ItemEnum.MANGO: 80.0, ItemEnum.PINEAPPLE: 50.0, ItemEnum.PAPAYA: 40.0,
+        ItemEnum.GUAVA: 55.0, ItemEnum.LYCHEE: 100.0, ItemEnum.COCONUT: 20.0,
+        ItemEnum.LEMON: 135.0, ItemEnum.LIME: 90.0, ItemEnum.WATERMELON: 32.0,
+        ItemEnum.MELON: 65.0, ItemEnum.GRAPES: 250.0, ItemEnum.STRAWBERRY: 500.0,
 
         # VEGETABLES
-        ItemEnum.TOMATO: 350.0, ItemEnum.POTATO: 200.0, ItemEnum.ONION: 300.0,
-        ItemEnum.CARROT: 280.0, ItemEnum.CABBAGE: 150.0, ItemEnum.LETTUCE: 500.0,
-        ItemEnum.SPINACH: 400.0, ItemEnum.BROCCOLI: 400.0, ItemEnum.CAULIFLOWER: 350.0,
-        ItemEnum.BELL_PEPPER: 450.0, ItemEnum.CHILI: 800.0, ItemEnum.CUCUMBER: 180.0,
-        ItemEnum.EGGPLANT: 220.0, ItemEnum.OKRA: 300.0, ItemEnum.GREEN_BEANS: 250.0,
-        ItemEnum.PUMPKIN: 120.0, ItemEnum.BEETROOT: 300.0, ItemEnum.RADISH: 200.0,
-        ItemEnum.GINGER: 600.0, ItemEnum.GARLIC: 800.0,
+        ItemEnum.TOMATO: 60.0, ItemEnum.POTATO: 42.0, ItemEnum.ONION: 55.0,
+        ItemEnum.CARROT: 65.0, ItemEnum.CABBAGE: 32.0, ItemEnum.LETTUCE: 100.0,
+        ItemEnum.SPINACH: 80.0, ItemEnum.BROCCOLI: 150.0, ItemEnum.CAULIFLOWER: 80.0,
+        ItemEnum.BELL_PEPPER: 125.0, ItemEnum.CHILI: 250.0, ItemEnum.CUCUMBER: 40.0,
+        ItemEnum.EGGPLANT: 50.0, ItemEnum.OKRA: 100.0, ItemEnum.GREEN_BEANS: 100.0,
+        ItemEnum.PUMPKIN: 27.0, ItemEnum.BEETROOT: 70.0, ItemEnum.RADISH: 50.0,
+        ItemEnum.GINGER: 225.0, ItemEnum.GARLIC: 350.0,
     }
 
     products_created = 0
