@@ -55,7 +55,7 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
 - **Demand Forecasting**: Predictive analytics for optimal farming decisions
 
 ### Accessibility
-- **Voice Commands**: Hands-free ordering using Google Speech API
+- **Voice Commands**: Hands-free ordering using native speech recognition
 - **Multilingual Support**: English and French UI support with Google Translate integration
 - **Inclusive Design**: Following WCAG guidelines for accessibility
 
@@ -355,14 +355,25 @@ npx expo build:ios
 
 ## Translation Support
 
-The app supports English ↔ French translation using Google Translate API:
+The app features **dual-layer translation support**:
 
-- **Product descriptions** from backend
-- **Notification messages** 
-- **AI recommendation text**
-- **Automatic caching** to stay within API limits
+### **Static UI Translation (Built-in)**
+- **LanguageContext system** handles all static app text
+- **English ↔ French** interface translation
+- **No API required** - translations stored locally
+- **Instant language switching** throughout the app
+- **Covers**: Buttons, labels, navigation, form fields, error messages
 
-To enable: Add `GOOGLE_TRANSLATE_API_KEY` to frontend environment variables.
+### **Dynamic Content Translation (Google Translate API)**  
+- **Real-time translation** of backend content
+- **Smart caching** to minimize API usage and stay within free limits
+- **Covers**: 
+  - Product descriptions from farmers
+  - Notification messages  
+  - AI recommendation text
+- **Optional**: App works fully without this - only backend content remains untranslated
+
+**Setup**: Add `GOOGLE_TRANSLATE_API_KEY` to frontend environment variables to enable dynamic content translation.
 
 ---
 
