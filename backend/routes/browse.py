@@ -4,6 +4,7 @@ from typing import Optional
 from services.browse_service import BrowseService
 from core.security import get_current_user, get_db
 from models.product import CategoryEnum
+import traceback
 
 
 router = APIRouter()
@@ -63,16 +64,44 @@ def search_products(
     if current_user.role not in ['individual', 'business']:
         raise HTTPException(status_code=403, detail="Only customers can search products")
 
-    service = BrowseService(db)
-    return service.search_products(
-        search_term=search,
-        category=category,
-        district=district,
-        min_price=min_price,
-        max_price=max_price,
-        limit=limit,
-        offset=offset
-    )
+    try:
+        print(f"🔍 Search Request - search: {search}, category: {category}, district: {district}")
+        print(f"🔍 Search Request - min_price: {min_price}, max_price: {max_price}, limit: {limit}, offset: {offset}")
+
+        service = BrowseService(db)
+        result = service.search_products(
+            search_term=search,
+            category=category,
+            district=district,
+            min_price=min_price,
+            max_price=max_price,
+            limit=limit,
+            offset=offset
+        )
+
+        print(f"✅ Search Success - Found {len(result.get('items', []))} products")
+        return result
+
+    except Exception as e:
+        print(f"🚨 Search Products Error: {str(e)}")
+        print(f"🚨 Error Type: {type(e).__name__}")
+        print(f"🚨 Traceback: {traceback.format_exc()}")
+
+        # Log the specific parameters that caused the error
+        print(f"🚨 Failed Parameters:")
+        print(f"   - search: {search}")
+        print(f"   - category: {category}")
+        print(f"   - district: {district}")
+        print(f"   - min_price: {min_price}")
+        print(f"   - max_price: {max_price}")
+        print(f"   - limit: {limit}")
+        print(f"   - offset: {offset}")
+
+        # Re-raise the exception with more details
+        raise HTTPException(
+            status_code=500,
+            detail=f"Search failed: {str(e)}"
+        )
 
 
 @router.get("/farmer/{farmer_id}")
