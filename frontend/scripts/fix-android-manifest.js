@@ -55,11 +55,16 @@ function fixGradleProperties() {
 
         const requiredProperties = [
             'android.enableJetifier=true',
-            'android.useAndroidX=true'
+            'android.useAndroidX=true',
+            'org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8',
+            'org.gradle.daemon=true',
+            'org.gradle.parallel=true',
+            'org.gradle.configureondemand=true'
         ];
 
         requiredProperties.forEach(prop => {
-            if (!gradleContent.includes(prop)) {
+            const propKey = prop.split('=')[0];
+            if (!gradleContent.includes(propKey)) {
                 gradleContent += `\n${prop}\n`;
                 modified = true;
             }
@@ -74,7 +79,7 @@ function fixGradleProperties() {
 
         if (modified) {
             fs.writeFileSync(gradlePropertiesPath, gradleContent);
-            console.log('✅ Enhanced gradle.properties');
+            console.log('✅ Enhanced gradle.properties with memory settings');
         }
     }
 }
@@ -129,6 +134,12 @@ configurations.all {
         exclude '/META-INF/NOTICE'
         exclude '/META-INF/NOTICE.txt'
     }
+
+    // MEMORY_OPTIONS - Increase build memory
+    dexOptions {
+        javaMaxHeapSize "4g"
+        preDexLibraries = false
+    }
 `;
 
         const androidBlockStart = buildGradleContent.indexOf('android {');
@@ -139,7 +150,7 @@ configurations.all {
                 const afterAndroid = buildGradleContent.substring(openBraceIndex + 1);
                 buildGradleContent = beforeAndroid + packagingOptionsBlock + afterAndroid;
                 modified = true;
-                console.log('✅ Added voice packaging options');
+                console.log('✅ Added voice packaging options and memory settings');
             }
         }
     }
@@ -209,7 +220,20 @@ async function main() {
             fixGradleProperties();
             fixAppBuildGradle();
             createDebugManifest();
+
+            // Clean build cache to avoid memory issues
+            const buildCacheDir = path.join(__dirname, '../android/build');
+            const appBuildDir = path.join(__dirname, '../android/app/build');
+
+            if (fs.existsSync(buildCacheDir)) {
+                fs.rmSync(buildCacheDir, { recursive: true, force: true });
+            }
+            if (fs.existsSync(appBuildDir)) {
+                fs.rmSync(appBuildDir, { recursive: true, force: true });
+            }
+
             console.log('🎉 All Android fixes applied successfully!');
+            console.log('📝 Memory settings added to handle large build');
         } catch (error) {
             console.error('❌ Error applying fixes:', error.message);
             process.exit(1);
