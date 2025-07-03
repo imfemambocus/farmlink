@@ -14,7 +14,6 @@ module.exports = function withAndroidFixes(config) {
             const debugManifestPath = path.join(appDir, 'src/debug/AndroidManifest.xml');
             const gradlePropertiesPath = path.join(androidDir, 'gradle.properties');
             const appBuildGradlePath = path.join(appDir, 'build.gradle');
-            const voiceBuildGradlePath = path.join(projectRoot, 'node_modules', '@react-native-voice', 'voice', 'android', 'build.gradle');
 
             const debugManifestContent = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -32,30 +31,6 @@ module.exports = function withAndroidFixes(config) {
 </manifest>`;
 
             const log = (msg) => console.log(`🔧 [with-android-fixes] ${msg}`);
-
-            const removeVoiceAutolink = () => {
-                if (fs.existsSync(settingsGradlePath)) {
-                    let content = fs.readFileSync(settingsGradlePath, 'utf8');
-                    const original = content;
-                    content = content.replace(/include\s+['"]:@react-native-voice\/voice['"].*?\n/g, '');
-                    content = content.replace(/project\(['"]:@react-native-voice\/voice['"]\)\.projectDir\s*=.*?\n/g, '');
-                    if (content !== original) {
-                        fs.writeFileSync(settingsGradlePath, content);
-                        log('Removed @react-native-voice/voice from settings.gradle');
-                    } else {
-                        log('No @react-native-voice/voice found in settings.gradle');
-                    }
-                }
-            };
-
-            const disableVoiceBuildGradle = () => {
-                if (fs.existsSync(voiceBuildGradlePath)) {
-                    fs.writeFileSync(voiceBuildGradlePath, '// disabled by with-android-fixes\n', 'utf8');
-                    log('Disabled @react-native-voice/voice build.gradle for Android');
-                } else {
-                    log('No @react-native-voice/voice build.gradle found');
-                }
-            };
 
             const fixMainManifest = () => {
                 if (fs.existsSync(mainManifestPath)) {
@@ -153,8 +128,6 @@ configurations.all {
             // Run all fixers
             try {
                 if (fs.existsSync(androidDir)) {
-                    removeVoiceAutolink();
-                    disableVoiceBuildGradle();
                     fixMainManifest();
                     fixGradleProperties();
                     fixAppBuildGradle();
