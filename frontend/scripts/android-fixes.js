@@ -175,6 +175,28 @@ configurations.all {
     }
 }
 
+function fixAndroidManifestForVoice() {
+    const manifestPath = path.join(__dirname, '../node_modules/react-native-voice-enhanced/android/src/main/AndroidManifest.xml');
+
+    if (!fs.existsSync(manifestPath)) {
+        console.log('ℹ️  react-native-voice-enhanced Android manifest not found');
+        return;
+    }
+
+    let content = fs.readFileSync(manifestPath, 'utf8');
+    const originalContent = content;
+
+    // Replace the old package name with the new one
+    content = content.replace(/package="com\.wenkesj\.voice"/, 'package="com.reactnativevoiceenhanced"');
+
+    if (content !== originalContent) {
+        fs.writeFileSync(manifestPath, content);
+        console.log('✅ Fixed react-native-voice-enhanced Android manifest package name');
+    } else {
+        console.log('ℹ️  Android manifest already patched or no changes needed');
+    }
+}
+
 // Function to create debug manifest
 function createDebugManifest() {
     const debugDir = path.dirname(debugManifestPath);
@@ -226,6 +248,7 @@ async function main() {
 
         try {
             fixMainManifest();
+            fixAndroidManifestForVoice();
             fixGradleProperties();
             fixAppBuildGradle();
             createDebugManifest();
