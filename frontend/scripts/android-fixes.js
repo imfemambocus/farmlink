@@ -32,17 +32,17 @@ function fixVoiceEnhancedPackage() {
         let content = fs.readFileSync(voiceDistPath, 'utf8');
         const originalContent = content;
 
-        // Replace the linking error message that references the old package
+        // Replace the linking error message that references the old package and disable it
         content = content.replace(
-            /const LINKING_ERROR = `The package '@react-native-voice\/voice' doesn't seem to be linked\./g,
-            "const LINKING_ERROR = `The package 'react-native-voice-enhanced' doesn't seem to be linked."
+            /throw new Error\(LINKING_ERROR\);/g,
+            '// Linking check disabled - console.warn(LINKING_ERROR);'
         );
 
         if (content !== originalContent) {
             fs.writeFileSync(voiceDistPath, content);
-            console.log('✅ Fixed react-native-voice-enhanced LINKING_ERROR message');
+            console.log('✅ Disabled react-native-voice-enhanced linking error check');
         } else {
-            console.log('ℹ️  react-native-voice-enhanced LINKING_ERROR already patched');
+            console.log('ℹ️  react-native-voice-enhanced linking check already disabled');
         }
     }
 
