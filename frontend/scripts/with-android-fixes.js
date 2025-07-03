@@ -9,19 +9,17 @@ module.exports = function withAndroidFixes(config) {
             const projectRoot = config.modRequest.projectRoot;
             const androidDir = path.join(projectRoot, 'android');
             const appDir = path.join(androidDir, 'app');
-
             const settingsGradlePath = path.join(androidDir, 'settings.gradle');
             const mainManifestPath = path.join(appDir, 'src/main/AndroidManifest.xml');
             const debugManifestPath = path.join(appDir, 'src/debug/AndroidManifest.xml');
             const gradlePropertiesPath = path.join(androidDir, 'gradle.properties');
             const appBuildGradlePath = path.join(appDir, 'build.gradle');
+            const voiceBuildGradlePath = path.join(projectRoot, 'node_modules', '@react-native-voice', 'voice', 'android', 'build.gradle');
 
             const debugManifestContent = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
-
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-
     <application
         android:name=".MainApplication"
         android:allowBackup="true"
@@ -47,6 +45,15 @@ module.exports = function withAndroidFixes(config) {
                     } else {
                         log('No @react-native-voice/voice found in settings.gradle');
                     }
+                }
+            };
+
+            const disableVoiceBuildGradle = () => {
+                if (fs.existsSync(voiceBuildGradlePath)) {
+                    fs.writeFileSync(voiceBuildGradlePath, '// disabled by with-android-fixes\n', 'utf8');
+                    log('Disabled @react-native-voice/voice build.gradle for Android');
+                } else {
+                    log('No @react-native-voice/voice build.gradle found');
                 }
             };
 
@@ -147,6 +154,7 @@ configurations.all {
             try {
                 if (fs.existsSync(androidDir)) {
                     removeVoiceAutolink();
+                    disableVoiceBuildGradle();
                     fixMainManifest();
                     fixGradleProperties();
                     fixAppBuildGradle();
