@@ -11,7 +11,7 @@
     "postinstall": "node scripts/android-fixes.js"
   },
   "dependencies": {
-    "@expo/config-plugins": "~10.0.0",
+    "@expo/config-plugins": "~10.1.1",
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-picker/picker": "2.11.1",
