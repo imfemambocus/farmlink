@@ -65,26 +65,6 @@ function fixVoiceEnhancedPackage() {
             console.log('ℹ️  react-native-voice-enhanced package.json already patched');
         }
     }
-
-    // Fix the Android manifest
-    const voiceManifestPath = path.join(__dirname, '../node_modules/react-native-voice-enhanced/android/src/main/AndroidManifest.xml');
-
-    if (fs.existsSync(voiceManifestPath)) {
-        let content = fs.readFileSync(voiceManifestPath, 'utf8');
-        const originalContent = content;
-
-        // Replace the old package name with the new one
-        content = content.replace(/package="com\.wenkesj\.voice"/, 'package="com.reactnativevoiceenhanced"');
-
-        if (content !== originalContent) {
-            fs.writeFileSync(voiceManifestPath, content);
-            console.log('✅ Fixed react-native-voice-enhanced Android manifest package name');
-        } else {
-            console.log('ℹ️  react-native-voice-enhanced Android manifest already patched or no changes needed');
-        }
-    } else {
-        console.log('ℹ️  react-native-voice-enhanced Android manifest not found');
-    }
 }
 
 // Fix debug AndroidManifest.xml
