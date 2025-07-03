@@ -53,10 +53,16 @@ function fixGradleProperties() {
         let gradleContent = fs.readFileSync(gradlePropertiesPath, 'utf8');
         let modified = false;
 
+        // Remove any existing memory settings first
+        gradleContent = gradleContent.replace(/org\.gradle\.jvmargs=.*\n?/g, '');
+        gradleContent = gradleContent.replace(/org\.gradle\.daemon=.*\n?/g, '');
+        gradleContent = gradleContent.replace(/org\.gradle\.parallel=.*\n?/g, '');
+        gradleContent = gradleContent.replace(/org\.gradle\.configureondemand=.*\n?/g, '');
+
         const requiredProperties = [
             'android.enableJetifier=true',
             'android.useAndroidX=true',
-            'org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8',
+            'org.gradle.jvmargs=-Xmx8192m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC',
             'org.gradle.daemon=true',
             'org.gradle.parallel=true',
             'org.gradle.configureondemand=true'
@@ -65,21 +71,20 @@ function fixGradleProperties() {
         requiredProperties.forEach(prop => {
             const propKey = prop.split('=')[0];
             if (!gradleContent.includes(propKey)) {
-                gradleContent += `\n${prop}\n`;
+                gradleContent += `\n${prop}`;
                 modified = true;
             }
         });
 
-        // Remove deprecated property if it exists
+        // Remove deprecated properties
         if (gradleContent.includes('android.enableDexingArtifactTransform=false')) {
             gradleContent = gradleContent.replace(/android\.enableDexingArtifactTransform=false\n?/g, '');
             modified = true;
-            console.log('✅ Removed deprecated gradle property');
         }
 
         if (modified) {
             fs.writeFileSync(gradlePropertiesPath, gradleContent);
-            console.log('✅ Enhanced gradle.properties with memory settings');
+            console.log('✅ Enhanced gradle.properties with 8GB memory');
         }
     }
 }
@@ -221,19 +226,27 @@ async function main() {
             fixAppBuildGradle();
             createDebugManifest();
 
-            // Clean build cache to avoid memory issues
-            const buildCacheDir = path.join(__dirname, '../android/build');
-            const appBuildDir = path.join(__dirname, '../android/app/build');
+            // Clean all build artifacts to avoid memory/cache issues
+            const cleanDirs = [
+                path.join(__dirname, '../android/build'),
+                path.join(__dirname, '../android/app/build'),
+                path.join(__dirname, '../android/.gradle'),
+                path.join(__dirname, '../android/app/.cxx')
+            ];
 
-            if (fs.existsSync(buildCacheDir)) {
-                fs.rmSync(buildCacheDir, { recursive: true, force: true });
-            }
-            if (fs.existsSync(appBuildDir)) {
-                fs.rmSync(appBuildDir, { recursive: true, force: true });
-            }
+            cleanDirs.forEach(dir => {
+                if (fs.existsSync(dir)) {
+                    try {
+                        fs.rmSync(dir, { recursive: true, force: true });
+                        console.log(`🧹 Cleaned ${path.basename(dir)}`);
+                    } catch (error) {
+                        // Ignore cleanup errors
+                    }
+                }
+            });
 
             console.log('🎉 All Android fixes applied successfully!');
-            console.log('📝 Memory settings added to handle large build');
+            console.log('📝 Next: cd android && ./gradlew clean && cd .. && npx expo run:android --device');
         } catch (error) {
             console.error('❌ Error applying fixes:', error.message);
             process.exit(1);
