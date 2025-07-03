@@ -715,14 +715,15 @@ function CheckoutScreen() {
                 className="flex-1 px-2 pt-3"
                 showsVerticalScrollIndicator={false}
                 enableOnAndroid={true}
-                enableAutomaticScroll={true}
-                extraScrollHeight={300}
+                enableAutomaticScroll={false}
+                extraScrollHeight={0}
                 keyboardShouldPersistTaps="handled"
                 scrollEventThrottle={10}
                 enableResetScrollToCoords={false}
                 keyboardOpeningTime={250}
                 contentContainerStyle={{
-                    paddingTop: Dimensions.get('window').height * 0.2
+                    paddingTop: Dimensions.get('window').height * 0.2,
+                    paddingBottom: 275,
                 }}
             >
                 {renderOrderSummary()}

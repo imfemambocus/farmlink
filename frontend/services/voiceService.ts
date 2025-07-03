@@ -1,7 +1,7 @@
 import Voice, { SpeechResultsEvent, SpeechErrorEvent } from 'react-native-voice-enhanced';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/services/apiService';
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 
 interface VoiceCommand {
     action: 'search' | 'add' | 'checkout' | 'unknown';
@@ -100,31 +100,43 @@ class VoiceInputService {
 
     async checkPermissions(): Promise<boolean> {
         try {
-            // Check if voice recognition is available on device
-            const available = await Voice.isAvailable();
-            if (available !== 1) {
-                return false;
-            }
-
-            // For Android: Test actual permission by trying to start voice recognition
             if (Platform.OS === 'android') {
-                try {
-                    await Voice.start('en-US');
-                    await Voice.stop();
-                    return true;
-                } catch (error: any) {
-                    // If permission was denied, return false
-                    if (error.message?.includes('permission') || error.message?.includes('denied')) {
-                        return false;
-                    }
-                    // For other errors, assume permission is granted but something else failed
-                    return true;
-                }
+                // Just check if the permission is granted
+                const granted = await PermissionsAndroid.check(
+                    PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+                );
+                return granted;
             }
 
-            // For iOS: Just return true since permissions are handled when actually starting
+            // For iOS, return true - permission will be requested when starting voice
             return true;
         } catch (error) {
+            console.log('Permission check error:', error);
+            return false;
+        }
+    }
+
+    async requestPermissions(): Promise<boolean> {
+        try {
+            if (Platform.OS === 'android') {
+                const granted = await PermissionsAndroid.request(
+                    PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+                    {
+                        title: 'Microphone Permission',
+                        message: 'Farmlink needs microphone access for voice commands to search products and add items to cart',
+                        buttonNeutral: 'Ask Me Later',
+                        buttonNegative: 'Cancel',
+                        buttonPositive: 'OK',
+                    }
+                );
+
+                return granted === PermissionsAndroid.RESULTS.GRANTED;
+            }
+
+            // For iOS, return true - permission will be requested when starting voice
+            return true;
+        } catch (error) {
+            console.log('Permission request error:', error);
             return false;
         }
     }
@@ -135,12 +147,20 @@ class VoiceInputService {
                 await Voice.stop();
             }
 
+            // For Android, make sure we have permission before starting
+            if (Platform.OS === 'android') {
+                const hasPermission = await this.checkPermissions();
+                if (!hasPermission) {
+                    throw new Error('Microphone permission not granted');
+                }
+            }
+
             this.recognizedText = '';
             await Voice.start('en-US');
             this.isListening = true;
         } catch (error: any) {
             this.isListening = false;
-            if (error.message?.includes('permission')) {
+            if (error.message?.includes('permission') || error.message?.includes('denied')) {
                 throw new Error('Microphone permission denied');
             }
             throw new Error('Failed to start voice recognition');

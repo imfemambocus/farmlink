@@ -95,16 +95,22 @@ export default function VoiceInput({
     const handleVoicePress = async () => {
         if (disabled) return;
 
-        // Platform-specific permission handling
-        if (Platform.OS === 'android') {
-            const hasPermission = await VoiceInputService.checkPermissions();
-            if (!hasPermission) {
-                setAlertVisible(true);
-                return;
+        // Check permissions first
+        const hasPermission = await VoiceInputService.checkPermissions();
+
+        if (!hasPermission) {
+            // On Android, try to request permission
+            if (Platform.OS === 'android') {
+                const granted = await VoiceInputService.requestPermissions();
+                if (!granted) {
+                    setAlertVisible(true);
+                    return;
+                }
+            } else {
+                // On iOS, permissions are requested when starting voice
+                // Handle the error in startListening if permission is denied
             }
         }
-
-        // iOS: Skip permission check - iOS will show native prompt when Voice.start() is called
 
         setIsVisible(true);
         setVoiceState('idle');
@@ -128,13 +134,16 @@ export default function VoiceInput({
             console.log('Voice start error:', error);
             setVoiceState('idle');
 
-            if (Platform.OS === 'ios' &&
-                (error.message?.includes('permission') ||
-                    error.message?.includes('denied') ||
-                    error.message?.includes('not granted'))) {
-                setAlertVisible(true);
+            if (error.message?.includes('permission') || error.message?.includes('denied')) {
+                if (Platform.OS === 'ios') {
+                    // iOS permission was denied in the native prompt
+                    setAlertVisible(true);
+                } else {
+                    // Android permission issue - this shouldn't happen now with proper checking
+                    setAlertVisible(true);
+                }
             } else {
-                // Android or other iOS errors: Show generic error
+                // Other errors: Show generic error
                 setResultMessage(tVoice('voiceNotAvailable'));
                 setVoiceState('result');
                 autoCloseModal();
@@ -408,7 +417,7 @@ export default function VoiceInput({
                         style: 'cancel'
                     },
                     {
-                        text: tCommon('setings'),
+                        text: tCommon('settings'),
                         onPress: () => {
                             setAlertVisible(false);
                             openDeviceSettings();
