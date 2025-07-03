@@ -55,8 +55,7 @@ function fixGradleProperties() {
 
         const requiredProperties = [
             'android.enableJetifier=true',
-            'android.useAndroidX=true',
-            'android.enableDexingArtifactTransform=false'
+            'android.useAndroidX=true'
         ];
 
         requiredProperties.forEach(prop => {
@@ -65,6 +64,13 @@ function fixGradleProperties() {
                 modified = true;
             }
         });
+
+        // Remove deprecated property if it exists
+        if (gradleContent.includes('android.enableDexingArtifactTransform=false')) {
+            gradleContent = gradleContent.replace(/android\.enableDexingArtifactTransform=false\n?/g, '');
+            modified = true;
+            console.log('✅ Removed deprecated gradle property');
+        }
 
         if (modified) {
             fs.writeFileSync(gradlePropertiesPath, gradleContent);
