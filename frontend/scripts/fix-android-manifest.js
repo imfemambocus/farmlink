@@ -24,14 +24,9 @@ const debugManifestContent = `<?xml version="1.0" encoding="utf-8"?>
 
 // Fix main AndroidManifest.xml
 const mainManifestPath = path.join(__dirname, '../android/app/src/main/AndroidManifest.xml');
-
-// Fix gradle.properties
 const gradlePropertiesPath = path.join(__dirname, '../android/gradle.properties');
-
-// Fix app/build.gradle
 const appBuildGradlePath = path.join(__dirname, '../android/app/build.gradle');
 
-// Function to fix main manifest
 function fixMainManifest() {
     if (fs.existsSync(mainManifestPath)) {
         let mainManifestContent = fs.readFileSync(mainManifestPath, 'utf8');
@@ -47,32 +42,37 @@ function fixMainManifest() {
                     return `<application${updatedAttributes}>`;
                 }
             );
-
             fs.writeFileSync(mainManifestPath, mainManifestContent);
             console.log('✅ Fixed main AndroidManifest.xml');
-        } else {
-            console.log('ℹ️  Main AndroidManifest.xml already has tools:replace');
         }
     }
 }
 
-// Function to fix gradle.properties
 function fixGradleProperties() {
     if (fs.existsSync(gradlePropertiesPath)) {
         let gradleContent = fs.readFileSync(gradlePropertiesPath, 'utf8');
+        let modified = false;
 
-        // Add jetifier if not present
-        if (!gradleContent.includes('android.enableJetifier=true')) {
-            gradleContent += '\n# Force AndroidX compatibility\nandroid.enableJetifier=true\n';
+        const requiredProperties = [
+            'android.enableJetifier=true',
+            'android.useAndroidX=true',
+            'android.enableDexingArtifactTransform=false'
+        ];
+
+        requiredProperties.forEach(prop => {
+            if (!gradleContent.includes(prop)) {
+                gradleContent += `\n${prop}\n`;
+                modified = true;
+            }
+        });
+
+        if (modified) {
             fs.writeFileSync(gradlePropertiesPath, gradleContent);
-            console.log('✅ Added android.enableJetifier=true to gradle.properties');
-        } else {
-            console.log('ℹ️  gradle.properties already has jetifier enabled');
+            console.log('✅ Enhanced gradle.properties');
         }
     }
 }
 
-// IMPROVED Function to fix app/build.gradle
 function fixAppBuildGradle() {
     if (!fs.existsSync(appBuildGradlePath)) {
         console.log('❌ build.gradle not found');
@@ -80,29 +80,21 @@ function fixAppBuildGradle() {
     }
 
     let buildGradleContent = fs.readFileSync(appBuildGradlePath, 'utf8');
-    console.log('📖 Original build.gradle length:', buildGradleContent.length);
-
     let modified = false;
 
-    // Add configurations.all block if not present
-    if (!buildGradleContent.includes('configurations.all')) {
-        console.log('🔧 Adding configurations.all block...');
-
+    // Add voice package DEX conflict resolution
+    if (!buildGradleContent.includes('VOICE_DEX_CONFLICT_FIX')) {
         const configurationsBlock = `
+// VOICE_DEX_CONFLICT_FIX - Resolve duplicate BuildConfig classes
 configurations.all {
+    exclude group: 'com.wenkesj', module: 'voice'
     resolutionStrategy {
         force 'androidx.core:core:1.13.1'
-        eachDependency { details ->
-            if (details.requested.group == 'com.android.support') {
-                details.useTarget group: 'androidx.legacy', name: 'legacy-support-v4', version: '1.0.0'
-            }
-        }
     }
 }
 
 `;
 
-        // Find android block and insert before it
         const androidBlockRegex = /(\s*)(android\s*\{)/;
         if (androidBlockRegex.test(buildGradleContent)) {
             buildGradleContent = buildGradleContent.replace(
@@ -110,95 +102,44 @@ configurations.all {
                 `$1${configurationsBlock}$1$2`
             );
             modified = true;
-            console.log('✅ Added configurations.all block');
-        } else {
-            console.log('❌ Could not find android block to insert configurations');
-        }
-    } else {
-        console.log('ℹ️  configurations.all block already exists');
-    }
-
-    // Add voice package conflict resolution using exclude only
-    if (!buildGradleContent.includes('VOICE_CONFLICT_FIX')) {
-        console.log('🔧 Adding voice package conflict fix...');
-
-        // Find dependencies block and add our fix at the very beginning
-        const dependenciesMatch = buildGradleContent.match(/(dependencies\s*\{\s*)/);
-        if (dependenciesMatch) {
-            const insertPoint = dependenciesMatch.index + dependenciesMatch[0].length;
-            const beforeDeps = buildGradleContent.substring(0, insertPoint);
-            const afterDeps = buildGradleContent.substring(insertPoint);
-
-            const voiceConflictFix = `    // VOICE_CONFLICT_FIX - Resolve duplicate voice package classes
-    configurations.all {
-        exclude group: 'com.wenkesj', module: 'voice'
-        resolutionStrategy {
-            eachDependency { details ->
-                if (details.requested.group == 'com.wenkesj' && details.requested.name == 'voice') {
-                    details.useVersion '3.2.4'
-                }
-            }
+            console.log('✅ Added voice DEX conflict resolution');
         }
     }
-    
-`;
 
-            buildGradleContent = beforeDeps + voiceConflictFix + afterDeps;
-            modified = true;
-            console.log('✅ Added voice package conflict fix');
-        } else {
-            console.log('❌ Could not find dependencies block');
-        }
-    } else {
-        console.log('ℹ️  Voice conflict fix already exists');
-    }
-
-    // Add packagingOptions with more comprehensive exclusions
-    if (!buildGradleContent.includes('pickFirst')) {
-        console.log('🔧 Adding comprehensive packagingOptions...');
-
-        // Find the android block and add packagingOptions inside it
-        const androidBlockStart = buildGradleContent.indexOf('android {');
-        if (androidBlockStart !== -1) {
-            // Find the first opening brace after "android"
-            const openBraceIndex = buildGradleContent.indexOf('{', androidBlockStart);
-            if (openBraceIndex !== -1) {
-                const packagingOptionsBlock = `
+    // Add packaging options for duplicate classes
+    if (!buildGradleContent.includes('VOICE_PACKAGING_OPTIONS')) {
+        const packagingOptionsBlock = `
+    // VOICE_PACKAGING_OPTIONS - Handle duplicate classes
     packagingOptions {
         pickFirst '**/BuildConfig.class'
         pickFirst '**/com/wenkesj/voice/BuildConfig.class'
-        pickFirst '**/*.so'
+        pickFirst '**/com/wenkesj/voice/BuildConfig$*.class'
+        pickFirst '**/com/wenkesj/voice/R.class'
+        pickFirst '**/com/wenkesj/voice/R$*.class'
+        
         exclude '/META-INF/DEPENDENCIES'
         exclude '/META-INF/LICENSE'
         exclude '/META-INF/LICENSE.txt'
         exclude '/META-INF/NOTICE'
         exclude '/META-INF/NOTICE.txt'
-        exclude '/META-INF/ASL2.0'
-        exclude '/META-INF/LGPL2.1'
     }
 `;
 
+        const androidBlockStart = buildGradleContent.indexOf('android {');
+        if (androidBlockStart !== -1) {
+            const openBraceIndex = buildGradleContent.indexOf('{', androidBlockStart);
+            if (openBraceIndex !== -1) {
                 const beforeAndroid = buildGradleContent.substring(0, openBraceIndex + 1);
                 const afterAndroid = buildGradleContent.substring(openBraceIndex + 1);
-
                 buildGradleContent = beforeAndroid + packagingOptionsBlock + afterAndroid;
                 modified = true;
-                console.log('✅ Added comprehensive packagingOptions');
-            } else {
-                console.log('❌ Could not find android block opening brace');
+                console.log('✅ Added voice packaging options');
             }
-        } else {
-            console.log('❌ Could not find android block for packagingOptions');
         }
-    } else {
-        console.log('ℹ️  PackagingOptions already exists');
     }
 
-    // Add androidx.core dependency if not present
+    // Add androidx.core dependency
     if (!buildGradleContent.includes("implementation 'androidx.core:core:1.13.1'")) {
-        console.log('🔧 Adding androidx.core dependency...');
-
-        // Find dependencies block - look for the opening brace after "dependencies"
         const dependenciesRegex = /(dependencies\s*\{\s*)/;
         const match = buildGradleContent.match(dependenciesRegex);
 
@@ -210,63 +151,34 @@ configurations.all {
             buildGradleContent = beforeDeps + "    implementation 'androidx.core:core:1.13.1'\n" + afterDeps;
             modified = true;
             console.log('✅ Added androidx.core dependency');
-        } else {
-            console.log('❌ Could not find dependencies block');
         }
-    } else {
-        console.log('ℹ️  androidx.core dependency already exists');
     }
 
     if (modified) {
         fs.writeFileSync(appBuildGradlePath, buildGradleContent);
-        console.log('💾 Saved modified build.gradle');
-        console.log('📖 New build.gradle length:', buildGradleContent.length);
+        console.log('💾 Saved build.gradle');
     }
 }
 
-// Function to create debug manifest
 function createDebugManifest() {
     const debugDir = path.dirname(debugManifestPath);
     if (!fs.existsSync(debugDir)) {
         fs.mkdirSync(debugDir, { recursive: true });
-        console.log('📁 Created debug manifest directory');
     }
 
     if (!fs.existsSync(debugManifestPath)) {
         fs.writeFileSync(debugManifestPath, debugManifestContent);
         console.log('✅ Created debug AndroidManifest.xml');
-    } else {
-        console.log('ℹ️  Debug AndroidManifest.xml already exists');
     }
 }
 
-// Add some debugging to understand the build environment
-function debugBuildEnvironment() {
-    console.log('🔍 Build environment debug:');
-    console.log('  - Current directory:', process.cwd());
-    console.log('  - Script directory:', __dirname);
-    console.log('  - Android dir exists:', fs.existsSync(path.join(__dirname, '../android')));
-
-    if (fs.existsSync(appBuildGradlePath)) {
-        const content = fs.readFileSync(appBuildGradlePath, 'utf8');
-        console.log('  - build.gradle exists, length:', content.length);
-        console.log('  - Contains "dependencies":', content.includes('dependencies'));
-        console.log('  - Contains "android":', content.includes('android'));
-    } else {
-        console.log('  - build.gradle does not exist yet');
-    }
-}
-
-// Wait for files to be generated (in case there's a timing issue)
-function waitForFiles(maxWaitMs = 30000) {
+async function waitForFiles(maxWaitMs = 30000) {
     return new Promise((resolve) => {
         const startTime = Date.now();
         const checkFiles = () => {
             if (fs.existsSync(appBuildGradlePath)) {
-                console.log('✅ build.gradle found after', Date.now() - startTime, 'ms');
                 resolve(true);
             } else if (Date.now() - startTime > maxWaitMs) {
-                console.log('⏰ Timeout waiting for build.gradle');
                 resolve(false);
             } else {
                 setTimeout(checkFiles, 1000);
@@ -276,11 +188,7 @@ function waitForFiles(maxWaitMs = 30000) {
     });
 }
 
-// Main execution
 async function main() {
-    debugBuildEnvironment();
-
-    // Only run if android directory exists (i.e., during EAS build)
     if (fs.existsSync(path.join(__dirname, '../android'))) {
         console.log('🔧 Applying Android configuration fixes...');
 
@@ -298,7 +206,6 @@ async function main() {
             console.log('🎉 All Android fixes applied successfully!');
         } catch (error) {
             console.error('❌ Error applying fixes:', error.message);
-            console.error('Stack trace:', error.stack);
             process.exit(1);
         }
     } else {
@@ -306,7 +213,6 @@ async function main() {
     }
 }
 
-// Run the main function
 main().catch(error => {
     console.error('❌ Fatal error:', error);
     process.exit(1);
