@@ -191,23 +191,6 @@ function createDebugManifest() {
     }
 }
 
-// Add some debugging to understand the build environment
-function debugBuildEnvironment() {
-    console.log('🔍 Build environment debug:');
-    console.log('  - Current directory:', process.cwd());
-    console.log('  - Script directory:', __dirname);
-    console.log('  - Android dir exists:', fs.existsSync(path.join(__dirname, '../android')));
-
-    if (fs.existsSync(appBuildGradlePath)) {
-        const content = fs.readFileSync(appBuildGradlePath, 'utf8');
-        console.log('  - build.gradle exists, length:', content.length);
-        console.log('  - Contains "dependencies":', content.includes('dependencies'));
-        console.log('  - Contains "android":', content.includes('android'));
-    } else {
-        console.log('  - build.gradle does not exist yet');
-    }
-}
-
 // Wait for files to be generated (in case there's a timing issue)
 function waitForFiles(maxWaitMs = 30000) {
     return new Promise((resolve) => {
@@ -229,7 +212,7 @@ function waitForFiles(maxWaitMs = 30000) {
 
 // Main execution
 async function main() {
-    debugBuildEnvironment();
+    fixVoicePlugin();
 
     // Only run if android directory exists (i.e., during EAS build)
     if (fs.existsSync(path.join(__dirname, '../android'))) {
@@ -242,7 +225,6 @@ async function main() {
         }
 
         try {
-            fixVoicePlugin();
             fixMainManifest();
             fixGradleProperties();
             fixAppBuildGradle();
