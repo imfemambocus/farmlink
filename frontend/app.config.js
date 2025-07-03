@@ -82,6 +82,13 @@ export default {
           }
         }
       ],
+      [
+        "react-native-voice-enhanced",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone",
+          "speechRecognitionPermission": "Allow $(PRODUCT_NAME) to securely recognize user speech"
+        }
+      ],
     ],
     assetBundlePatterns: [
       "assets/fonts/*",
