@@ -3,8 +3,13 @@
 const fs = require('fs');
 const path = require('path');
 
-// Fix debug AndroidManifest.xml
+// Paths
 const debugManifestPath = path.join(__dirname, '../android/app/src/debug/AndroidManifest.xml');
+const mainManifestPath = path.join(__dirname, '../android/app/src/main/AndroidManifest.xml');
+const gradlePropertiesPath = path.join(__dirname, '../android/gradle.properties');
+const appBuildGradlePath = path.join(__dirname, '../android/app/build.gradle');
+const voicePackagePath = path.join(__dirname, '../node_modules/@react-native-voice/voice/android');
+
 const debugManifestContent = `<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
@@ -22,15 +27,78 @@ const debugManifestContent = `<?xml version="1.0" encoding="utf-8"?>
         tools:ignore="GoogleAppIndexingWarning" />
 </manifest>`;
 
-// Fix main AndroidManifest.xml
-const mainManifestPath = path.join(__dirname, '../android/app/src/main/AndroidManifest.xml');
-const gradlePropertiesPath = path.join(__dirname, '../android/gradle.properties');
-const appBuildGradlePath = path.join(__dirname, '../android/app/build.gradle');
+// Fix voice package namespace conflict
+function fixVoiceNamespaceConflict() {
+    if (!fs.existsSync(voicePackagePath)) {
+        console.log('ℹ️  @react-native-voice/voice not found, skipping namespace fix');
+        return;
+    }
+
+    console.log('🔧 Fixing voice package namespace conflict...');
+
+    const oldNamespace = 'com.wenkesj.voice';
+    const newNamespace = 'com.wenkesj.voice.original';
+
+    try {
+        // Fix build.gradle
+        const buildGradlePath = path.join(voicePackagePath, 'build.gradle');
+        if (fs.existsSync(buildGradlePath)) {
+            let buildGradleContent = fs.readFileSync(buildGradlePath, 'utf8');
+            if (buildGradleContent.includes(oldNamespace)) {
+                buildGradleContent = buildGradleContent.replace(/namespace "com\.wenkesj\.voice"/g, `namespace "${newNamespace}"`);
+                buildGradleContent = buildGradleContent.replace(/codegenJavaPackageName = "com\.wenkesj\.voice"/g, `codegenJavaPackageName = "${newNamespace}"`);
+                fs.writeFileSync(buildGradlePath, buildGradleContent);
+                console.log('✅ Updated voice package build.gradle namespace');
+            }
+        }
+
+        // Fix AndroidManifest.xml
+        const manifestPath = path.join(voicePackagePath, 'src/main/AndroidManifest.xml');
+        if (fs.existsSync(manifestPath)) {
+            let manifestContent = fs.readFileSync(manifestPath, 'utf8');
+            if (manifestContent.includes(oldNamespace)) {
+                manifestContent = manifestContent.replace(/package="com\.wenkesj\.voice"/g, `package="${newNamespace}"`);
+                fs.writeFileSync(manifestPath, manifestContent);
+                console.log('✅ Updated voice package AndroidManifest.xml namespace');
+            }
+        }
+
+        // Fix all Kotlin/Java source files
+        const srcPath = path.join(voicePackagePath, 'src');
+        if (fs.existsSync(srcPath)) {
+            updatePackageInSourceFiles(srcPath, oldNamespace, newNamespace);
+        }
+
+        console.log('✅ Voice package namespace conflict resolved');
+    } catch (error) {
+        console.error('❌ Error fixing voice namespace:', error.message);
+    }
+}
+
+// Recursively update package declarations in source files
+function updatePackageInSourceFiles(dir, oldNamespace, newNamespace) {
+    const files = fs.readdirSync(dir);
+
+    for (const file of files) {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+
+        if (stat.isDirectory()) {
+            updatePackageInSourceFiles(filePath, oldNamespace, newNamespace);
+        } else if (file.endsWith('.kt') || file.endsWith('.java')) {
+            let content = fs.readFileSync(filePath, 'utf8');
+            if (content.includes(oldNamespace)) {
+                content = content.replace(/package com\.wenkesj\.voice/g, `package ${newNamespace}`);
+                content = content.replace(/import com\.wenkesj\.voice/g, `import ${newNamespace}`);
+                fs.writeFileSync(filePath, content);
+            }
+        }
+    }
+}
 
 function fixMainManifest() {
     if (fs.existsSync(mainManifestPath)) {
         let mainManifestContent = fs.readFileSync(mainManifestPath, 'utf8');
-
         if (!mainManifestContent.includes('tools:replace')) {
             mainManifestContent = mainManifestContent.replace(
                 /<application([^>]*)>/,
@@ -53,20 +121,18 @@ function fixGradleProperties() {
         let gradleContent = fs.readFileSync(gradlePropertiesPath, 'utf8');
         let modified = false;
 
-        // Remove any existing memory settings first
-        gradleContent = gradleContent.replace(/org\.gradle\.jvmargs=.*\n?/g, '');
-        gradleContent = gradleContent.replace(/org\.gradle\.daemon=.*\n?/g, '');
-        gradleContent = gradleContent.replace(/org\.gradle\.parallel=.*\n?/g, '');
-        gradleContent = gradleContent.replace(/org\.gradle\.configureondemand=.*\n?/g, '');
-
         const requiredProperties = [
             'android.enableJetifier=true',
             'android.useAndroidX=true',
             'org.gradle.jvmargs=-Xmx8192m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC',
             'org.gradle.daemon=true',
-            'org.gradle.parallel=true',
-            'org.gradle.configureondemand=true'
+            'org.gradle.parallel=true'
         ];
+
+        // Remove any existing memory settings first
+        gradleContent = gradleContent.replace(/org\.gradle\.jvmargs=.*\n?/g, '');
+        gradleContent = gradleContent.replace(/org\.gradle\.daemon=.*\n?/g, '');
+        gradleContent = gradleContent.replace(/org\.gradle\.parallel=.*\n?/g, '');
 
         requiredProperties.forEach(prop => {
             const propKey = prop.split('=')[0];
@@ -76,41 +142,36 @@ function fixGradleProperties() {
             }
         });
 
-        // Remove deprecated properties
-        if (gradleContent.includes('android.enableDexingArtifactTransform=false')) {
-            gradleContent = gradleContent.replace(/android\.enableDexingArtifactTransform=false\n?/g, '');
-            modified = true;
-        }
-
         if (modified) {
             fs.writeFileSync(gradlePropertiesPath, gradleContent);
-            console.log('✅ Enhanced gradle.properties with 8GB memory');
+            console.log('✅ Enhanced gradle.properties');
         }
     }
 }
 
 function fixAppBuildGradle() {
     if (!fs.existsSync(appBuildGradlePath)) {
-        console.log('❌ build.gradle not found');
         return;
     }
 
     let buildGradleContent = fs.readFileSync(appBuildGradlePath, 'utf8');
     let modified = false;
 
-    // Add voice package DEX conflict resolution
-    if (!buildGradleContent.includes('VOICE_DEX_CONFLICT_FIX')) {
+    // Add configurations block
+    if (!buildGradleContent.includes('configurations.all')) {
         const configurationsBlock = `
-// VOICE_DEX_CONFLICT_FIX - Resolve duplicate BuildConfig classes
 configurations.all {
-    exclude group: 'com.wenkesj', module: 'voice'
     resolutionStrategy {
         force 'androidx.core:core:1.13.1'
+        eachDependency { details ->
+            if (details.requested.group == 'com.android.support') {
+                details.useTarget group: 'androidx.legacy', name: 'legacy-support-v4', version: '1.0.0'
+            }
+        }
     }
 }
 
 `;
-
         const androidBlockRegex = /(\s*)(android\s*\{)/;
         if (androidBlockRegex.test(buildGradleContent)) {
             buildGradleContent = buildGradleContent.replace(
@@ -118,20 +179,16 @@ configurations.all {
                 `$1${configurationsBlock}$1$2`
             );
             modified = true;
-            console.log('✅ Added voice DEX conflict resolution');
+            console.log('✅ Added configurations.all block');
         }
     }
 
-    // Add packaging options for duplicate classes
-    if (!buildGradleContent.includes('VOICE_PACKAGING_OPTIONS')) {
+    // Add packaging options for any remaining conflicts
+    if (!buildGradleContent.includes('packagingOptions')) {
         const packagingOptionsBlock = `
-    // VOICE_PACKAGING_OPTIONS - Handle duplicate classes
     packagingOptions {
         pickFirst '**/BuildConfig.class'
-        pickFirst '**/com/wenkesj/voice/BuildConfig.class'
-        pickFirst '**/com/wenkesj/voice/BuildConfig$*.class'
-        pickFirst '**/com/wenkesj/voice/R.class'
-        pickFirst '**/com/wenkesj/voice/R$*.class'
+        pickFirst '**/com/wenkesj/voice/**'
         
         exclude '/META-INF/DEPENDENCIES'
         exclude '/META-INF/LICENSE'
@@ -140,10 +197,10 @@ configurations.all {
         exclude '/META-INF/NOTICE.txt'
     }
 
-    // MEMORY_OPTIONS - Increase build memory
     dexOptions {
-        javaMaxHeapSize "4g"
+        javaMaxHeapSize "8g"
         preDexLibraries = false
+        jumboMode = true
     }
 `;
 
@@ -155,7 +212,7 @@ configurations.all {
                 const afterAndroid = buildGradleContent.substring(openBraceIndex + 1);
                 buildGradleContent = beforeAndroid + packagingOptionsBlock + afterAndroid;
                 modified = true;
-                console.log('✅ Added voice packaging options and memory settings');
+                console.log('✅ Added packaging options');
             }
         }
     }
@@ -164,12 +221,10 @@ configurations.all {
     if (!buildGradleContent.includes("implementation 'androidx.core:core:1.13.1'")) {
         const dependenciesRegex = /(dependencies\s*\{\s*)/;
         const match = buildGradleContent.match(dependenciesRegex);
-
         if (match) {
             const insertPoint = match.index + match[0].length;
             const beforeDeps = buildGradleContent.substring(0, insertPoint);
             const afterDeps = buildGradleContent.substring(insertPoint);
-
             buildGradleContent = beforeDeps + "    implementation 'androidx.core:core:1.13.1'\n" + afterDeps;
             modified = true;
             console.log('✅ Added androidx.core dependency');
@@ -178,7 +233,7 @@ configurations.all {
 
     if (modified) {
         fs.writeFileSync(appBuildGradlePath, buildGradleContent);
-        console.log('💾 Saved build.gradle');
+        console.log('✅ Updated build.gradle');
     }
 }
 
@@ -187,7 +242,6 @@ function createDebugManifest() {
     if (!fs.existsSync(debugDir)) {
         fs.mkdirSync(debugDir, { recursive: true });
     }
-
     if (!fs.existsSync(debugManifestPath)) {
         fs.writeFileSync(debugManifestPath, debugManifestContent);
         console.log('✅ Created debug AndroidManifest.xml');
@@ -210,13 +264,36 @@ async function waitForFiles(maxWaitMs = 30000) {
     });
 }
 
+// Clean build cache
+function cleanBuildCache() {
+    const cleanDirs = [
+        path.join(__dirname, '../android/build'),
+        path.join(__dirname, '../android/app/build'),
+        path.join(__dirname, '../android/.gradle'),
+        path.join(__dirname, '../android/app/.cxx')
+    ];
+
+    cleanDirs.forEach(dir => {
+        if (fs.existsSync(dir)) {
+            try {
+                fs.rmSync(dir, { recursive: true, force: true });
+                console.log(`🧹 Cleaned ${path.basename(dir)}`);
+            } catch (error) {
+                // Ignore cleanup errors
+            }
+        }
+    });
+}
+
 async function main() {
+    // Fix voice package namespace conflict FIRST
+    fixVoiceNamespaceConflict();
+
     if (fs.existsSync(path.join(__dirname, '../android'))) {
         console.log('🔧 Applying Android configuration fixes...');
 
-        // Wait for build.gradle to be generated if it doesn't exist yet
         if (!fs.existsSync(appBuildGradlePath)) {
-            console.log('⏳ Waiting for build.gradle to be generated...');
+            console.log('⏳ Waiting for build.gradle...');
             await waitForFiles();
         }
 
@@ -225,34 +302,17 @@ async function main() {
             fixGradleProperties();
             fixAppBuildGradle();
             createDebugManifest();
+            cleanBuildCache();
 
-            // Clean all build artifacts to avoid memory/cache issues
-            const cleanDirs = [
-                path.join(__dirname, '../android/build'),
-                path.join(__dirname, '../android/app/build'),
-                path.join(__dirname, '../android/.gradle'),
-                path.join(__dirname, '../android/app/.cxx')
-            ];
-
-            cleanDirs.forEach(dir => {
-                if (fs.existsSync(dir)) {
-                    try {
-                        fs.rmSync(dir, { recursive: true, force: true });
-                        console.log(`🧹 Cleaned ${path.basename(dir)}`);
-                    } catch (error) {
-                        // Ignore cleanup errors
-                    }
-                }
-            });
-
-            console.log('🎉 All Android fixes applied successfully!');
-            console.log('📝 Next: cd android && ./gradlew clean && cd .. && npx expo run:android --device');
+            console.log('🎉 All fixes applied successfully!');
+            console.log('📝 Voice package namespace conflict resolved');
+            console.log('📝 Run: npx expo run:android --device');
         } catch (error) {
             console.error('❌ Error applying fixes:', error.message);
             process.exit(1);
         }
     } else {
-        console.log('📱 Android directory not found, skipping fixes');
+        console.log('📱 Android directory not found, skipping Android fixes');
     }
 }
 
