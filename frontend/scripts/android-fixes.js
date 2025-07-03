@@ -2,31 +2,88 @@
 const fs = require('fs');
 const path = require('path');
 
-const voicePackagePath = path.join(__dirname, '../node_modules/react-native-voice-enhanced/plugin/build/withVoice.js');
+// Fix react-native-voice-enhanced package references
+function fixVoiceEnhancedPackage() {
+    // Fix the plugin file
+    const voicePluginPath = path.join(__dirname, '../node_modules/react-native-voice-enhanced/plugin/build/withVoice.js');
 
-function fixVoicePackageReferences() {
-    if (!fs.existsSync(voicePackagePath)) {
-        console.log('ℹ️  react-native-voice-enhanced plugin file not found, skipping voice fix.');
-        return;
-    }
+    if (fs.existsSync(voicePluginPath)) {
+        let content = fs.readFileSync(voicePluginPath, 'utf8');
+        const requireLine = "const pkg = require('@react-native-voice/voice/package.json');";
 
-    let content = fs.readFileSync(voicePackagePath, 'utf8');
-
-    // Check if the old require line exists
-    const requireLine = "const pkg = require('@react-native-voice/voice/package.json');";
-
-    if (content.includes(requireLine)) {
-        // Replace it with the hardcoded pkg object
-        const replacement = `const pkg = {
+        if (content.includes(requireLine)) {
+            const replacement = `const pkg = {
   name: 'react-native-voice-enhanced',
   version: '1.0.4'
 };`;
-
-        content = content.replace(requireLine, replacement);
-        fs.writeFileSync(voicePackagePath, content, 'utf8');
-        console.log('✅ Patched react-native-voice-enhanced plugin with fixed pkg object');
+            content = content.replace(requireLine, replacement);
+            fs.writeFileSync(voicePluginPath, content, 'utf8');
+            console.log('✅ Patched react-native-voice-enhanced plugin with fixed pkg object');
+        } else {
+            console.log('ℹ️  react-native-voice-enhanced plugin already patched or no replacement needed');
+        }
     } else {
-        console.log('ℹ️  react-native-voice-enhanced plugin already patched or no replacement needed');
+        console.log('ℹ️  react-native-voice-enhanced plugin file not found, skipping voice fix.');
+    }
+
+    // Fix the critical LINKING_ERROR in dist/index.js
+    const voiceDistPath = path.join(__dirname, '../node_modules/react-native-voice-enhanced/dist/index.js');
+    if (fs.existsSync(voiceDistPath)) {
+        let content = fs.readFileSync(voiceDistPath, 'utf8');
+        const originalContent = content;
+
+        // Replace the linking error message that references the old package
+        content = content.replace(
+            /const LINKING_ERROR = `The package '@react-native-voice\/voice' doesn't seem to be linked\./g,
+            "const LINKING_ERROR = `The package 'react-native-voice-enhanced' doesn't seem to be linked."
+        );
+
+        if (content !== originalContent) {
+            fs.writeFileSync(voiceDistPath, content);
+            console.log('✅ Fixed react-native-voice-enhanced LINKING_ERROR message');
+        } else {
+            console.log('ℹ️  react-native-voice-enhanced LINKING_ERROR already patched');
+        }
+    }
+
+    // Fix the package.json dev-sync script
+    const voicePackageJsonPath = path.join(__dirname, '../node_modules/react-native-voice-enhanced/package.json');
+    if (fs.existsSync(voicePackageJsonPath)) {
+        let content = fs.readFileSync(voicePackageJsonPath, 'utf8');
+        const originalContent = content;
+
+        // Replace the dev-sync script that references the old package path
+        content = content.replace(
+            /"dev-sync": "cp -r \.\/dist example\/node_modules\/@react-native-voice\/voice"/g,
+            '"dev-sync": "cp -r ./dist example/node_modules/react-native-voice-enhanced"'
+        );
+
+        if (content !== originalContent) {
+            fs.writeFileSync(voicePackageJsonPath, content);
+            console.log('✅ Fixed react-native-voice-enhanced package.json dev-sync script');
+        } else {
+            console.log('ℹ️  react-native-voice-enhanced package.json already patched');
+        }
+    }
+
+    // Fix the Android manifest
+    const voiceManifestPath = path.join(__dirname, '../node_modules/react-native-voice-enhanced/android/src/main/AndroidManifest.xml');
+
+    if (fs.existsSync(voiceManifestPath)) {
+        let content = fs.readFileSync(voiceManifestPath, 'utf8');
+        const originalContent = content;
+
+        // Replace the old package name with the new one
+        content = content.replace(/package="com\.wenkesj\.voice"/, 'package="com.reactnativevoiceenhanced"');
+
+        if (content !== originalContent) {
+            fs.writeFileSync(voiceManifestPath, content);
+            console.log('✅ Fixed react-native-voice-enhanced Android manifest package name');
+        } else {
+            console.log('ℹ️  react-native-voice-enhanced Android manifest already patched or no changes needed');
+        }
+    } else {
+        console.log('ℹ️  react-native-voice-enhanced Android manifest not found');
     }
 }
 
@@ -175,28 +232,6 @@ configurations.all {
     }
 }
 
-function fixAndroidManifestForVoice() {
-    const manifestPath = path.join(__dirname, '../node_modules/react-native-voice-enhanced/android/src/main/AndroidManifest.xml');
-
-    if (!fs.existsSync(manifestPath)) {
-        console.log('ℹ️  react-native-voice-enhanced Android manifest not found');
-        return;
-    }
-
-    let content = fs.readFileSync(manifestPath, 'utf8');
-    const originalContent = content;
-
-    // Replace the old package name with the new one
-    content = content.replace(/package="com\.wenkesj\.voice"/, 'package="com.reactnativevoiceenhanced"');
-
-    if (content !== originalContent) {
-        fs.writeFileSync(manifestPath, content);
-        console.log('✅ Fixed react-native-voice-enhanced Android manifest package name');
-    } else {
-        console.log('ℹ️  Android manifest already patched or no changes needed');
-    }
-}
-
 // Function to create debug manifest
 function createDebugManifest() {
     const debugDir = path.dirname(debugManifestPath);
@@ -234,7 +269,7 @@ function waitForFiles(maxWaitMs = 30000) {
 
 // Main execution
 async function main() {
-    fixVoicePackageReferences();
+    fixVoiceEnhancedPackage();
 
     // Only run if android directory exists (i.e., during EAS build)
     if (fs.existsSync(path.join(__dirname, '../android'))) {
@@ -248,7 +283,6 @@ async function main() {
 
         try {
             fixMainManifest();
-            fixAndroidManifestForVoice();
             fixGradleProperties();
             fixAppBuildGradle();
             createDebugManifest();
