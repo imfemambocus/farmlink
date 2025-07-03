@@ -48,7 +48,7 @@ export default {
       sounds: ["./assets/sounds/notification.mp3"]
     },
     plugins: [
-      "./scripts/with-android-fixes",
+      "./scripts/android-fixes",
       "expo-router",
       "expo-web-browser",
       "expo-dev-client",

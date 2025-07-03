@@ -3,13 +3,12 @@ const fs = require('fs');
 const path = require('path');
 
 module.exports = function withAndroidFixes(config) {
-    return withDangerousMod(config, [
+    config = withDangerousMod(config, [
         'android',
         async (config) => {
             const projectRoot = config.modRequest.projectRoot;
             const androidDir = path.join(projectRoot, 'android');
             const appDir = path.join(androidDir, 'app');
-            const settingsGradlePath = path.join(androidDir, 'settings.gradle');
             const mainManifestPath = path.join(appDir, 'src/main/AndroidManifest.xml');
             const debugManifestPath = path.join(appDir, 'src/debug/AndroidManifest.xml');
             const gradlePropertiesPath = path.join(androidDir, 'gradle.properties');
@@ -143,4 +142,47 @@ configurations.all {
             return config;
         },
     ]);
+
+    config = withDangerousMod(config, [
+        'all',
+        async (config) => {
+            try {
+                const projectRoot = config.modRequest.projectRoot;
+                const voicePluginPath = path.join(
+                    projectRoot,
+                    'node_modules',
+                    'react-native-voice-enhanced',
+                    'plugin',
+                    'build',
+                    'withVoice.js'
+                );
+
+                if (fs.existsSync(voicePluginPath)) {
+                    let content = fs.readFileSync(voicePluginPath, 'utf8');
+
+                    const requireRegex = /const\s+pkg\s*=\s*require\(['"]@react-native-voice\/voice\/package\.json['"]\);?/;
+
+                    if (requireRegex.test(content)) {
+                        const replacement = `const pkg = { name: 'react-native-voice-enhanced', version: '1.0.0' };`;
+
+                        content = content.replace(requireRegex, replacement);
+
+                        fs.writeFileSync(voicePluginPath, content, 'utf8');
+                        console.log('🔧 [withVoicePatch] Patched react-native-voice-enhanced plugin successfully');
+                    } else {
+                        console.log('🔧 [withVoicePatch] No patch needed, require statement not found');
+                    }
+                } else {
+                    console.log('🔧 [withVoicePatch] react-native-voice-enhanced plugin not found, skipping patch');
+                }
+            } catch (e) {
+                console.error('❌ [withVoicePatch] Failed to patch react-native-voice-enhanced plugin:', e);
+                throw e;
+            }
+
+            return config;
+        },
+    ]);
+
+    return config;
 };
