@@ -48,7 +48,6 @@ export default {
       sounds: ["./assets/sounds/notification.mp3"]
     },
     plugins: [
-      "./scripts/android-fixes",
       "expo-router",
       "expo-web-browser",
       "expo-dev-client",
@@ -83,7 +82,6 @@ export default {
           }
         }
       ],
-      "react-native-voice-enhanced",
     ],
     assetBundlePatterns: [
       "assets/fonts/*",
