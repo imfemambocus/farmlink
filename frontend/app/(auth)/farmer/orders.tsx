@@ -280,7 +280,6 @@ export default function FarmerOrdersScreen() {
                 newSet.delete(orderId);
                 return newSet;
             });
-            hideAlert();
         }
     };
 

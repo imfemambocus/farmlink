@@ -65,7 +65,7 @@ interface AlertState {
 export default function CustomerHomePage() {
     const router = useRouter();
     const { user } = useContext(AuthContext);
-    const { t, tCustomer, tCommon } = useTranslation();
+    const { tCustomer, tCommon } = useTranslation();
     const [farmers, setFarmers] = useState<Farmer[]>([]);
     const [latestProducts, setLatestProducts] = useState<Product[]>([]);
     const [recommendations, setRecommendations] = useState<RecommendationData>({

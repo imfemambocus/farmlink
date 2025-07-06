@@ -292,14 +292,16 @@ def update_farmer_status(
     current_farmer_status = order.get_farmer_status(current_user.id)
     allowed_statuses = ['processing', 'out_for_delivery', 'delivered', 'cancelled']
 
-    if update_data.status not in allowed_statuses:
-        raise HTTPException(status_code=403, detail=f"Farmers cannot set status to {update_data.status}")
+    new_status_str = update_data.status.value if hasattr(update_data.status, 'value') else str(update_data.status)
+
+    if new_status_str not in allowed_statuses:
+        raise HTTPException(status_code=403, detail=f"Farmers cannot set status to {new_status_str}")
 
     if current_farmer_status in ['delivered', 'cancelled']:
         raise HTTPException(status_code=403, detail="Cannot modify delivered or cancelled orders")
 
     try:
-        updated_order = service.update_farmer_status(order_id, current_user.id, update_data.status)
+        updated_order = service.update_farmer_status(order_id, current_user.id, new_status_str)
 
         # Return farmer's view of the order
         farmer_status = updated_order.get_farmer_status(current_user.id)
