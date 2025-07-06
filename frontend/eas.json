@@ -12,7 +12,6 @@
       },
       "android": {
         "buildType": "apk",
-        "googleServicesFile": "./google-services.json",
         "gradleCommand": ":app:assembleDebug"
       },
       "env": {
