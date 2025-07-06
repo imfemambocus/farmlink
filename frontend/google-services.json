@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "615943516025",
-    "project_id": "farmlink-efdc0",
-    "storage_bucket": "farmlink-efdc0.firebasestorage.app"
+    "project_number": "449716152521",
+    "project_id": "farmlink-20498",
+    "storage_bucket": "farmlink-20498.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:615943516025:android:adcd9f3ebf560c8da449a8",
+        "mobilesdk_app_id": "1:449716152521:android:d4e48bc139cd2b755c0518",
         "android_client_info": {
           "package_name": "com.imfestudio.farmlink"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCRDZj-Q3Iv8B2H3hCpzJjgfpcIQffG6rw"
+          "current_key": "AIzaSyCDhdQZoJawYOCwJeIFEPJEOguFDJi2j0o"
         }
       ],
       "services": {
