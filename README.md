@@ -108,8 +108,18 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
 - **Python** (v3.13.5 or higher)
 - **PostgreSQL** (v14 or higher)
 - **Expo CLI** (`npm install -g @expo/cli`)
-- **iOS Simulator** (for iOS development)
-- **Android Emulator** (for Android development)
+
+**To run the app, choose one of these options:**
+
+**Option 1: Using Expo Go (Recommended for beginners)**
+- **Physical iOS/Android device** with internet connection
+- **Expo Go app** installed on your device:
+  - iOS: [Download from App Store](https://apps.apple.com/app/expo-go/id982107779)
+  - Android: [Download from Google Play Store](https://play.google.com/store/apps/details?id=host.exp.exponent)
+
+**Option 2: Using Simulators/Emulators (For development)**
+- **iOS Simulator** (macOS only - included with Xcode)
+- **Android Emulator** (Android Studio required)
 
 ### Database Setup
 
@@ -213,16 +223,25 @@ A comprehensive digital platform that connects all stakeholders in the agricultu
    ```bash
    cd frontend
    
-   # Start Expo Go server
+   # Start Expo development server
    npx expo start
    # If the above doesn't work, try:
    # npx expo start --tunnel
    ```
+
+3. **Run the App**
+
+   **Option A: Using Expo Go**
+   1. Ensure your phone and computer are on the same network
+   2. Open the Expo Go app on your phone
+   3. Scan the QR code displayed in your terminal or browser
+   4. The app will load automatically
+
+   **Option B: Using Simulators/Emulators**
+   - **iOS Simulator**: Press `i` in the terminal where Expo is running
+   - **Android Emulator**: Press `a` in the terminal where Expo is running
    
-   Follow the Expo CLI instructions to run on:
-   - **Physical device**: Scan QR code with Expo Go app
-   - **iOS Simulator**: Press `i` in terminal
-   - **Android Emulator**: Press `a` in terminal
+   **Note**: Make sure your chosen simulator/emulator is already running before pressing the key.
 
 ### Environment Variables
 
