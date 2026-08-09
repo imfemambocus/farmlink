@@ -1,29 +1,8 @@
-# Farmlink
-
-<div align="center">
-  <h2>🌱 Connecting Farmers Directly with Consumers & Businesses 🌱</h2>
-  
-  <p>
-    <em>Revolutionising agriculture in Mauritius through digital innovation</em>
-  </p>
-
-  <p>
-    <a href="#features">Features</a> •
-    <a href="#tech-stack">Tech Stack</a> •
-    <a href="#quick-start">Quick Start</a> •
-    <a href="#api-documentation">API Docs</a>
-  </p>
-
-  <p>
-    <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React Native"/>
-    <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI"/>
-    <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
-    <img src="https://img.shields.io/badge/Expo-1C1E24?style=for-the-badge&logo=expo&logoColor=#D04A37" alt="Expo"/>
-    <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
-  </p>
-</div>
-
----
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/banner-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset=".github/banner-light.png">
+  <img src=".github/banner-dark.png" alt="Farmlink: Mauritian farmers and the people who buy from them, with nobody in between." width="100%">
+</picture>
 
 ## About Farmlink
 
