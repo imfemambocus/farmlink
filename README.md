@@ -4,7 +4,7 @@
   <img src=".github/banner-dark.png" alt="Farmlink: Mauritian farmers and the people who buy from them, with nobody in between." width="100%">
 </picture>
 
-## About Farmlink
+## About
 
 Farmlink is a comprehensive mobile application that bridges the gap between Mauritian farmers and their customers - whether individual households or businesses like restaurants and hotels. By eliminating traditional market inefficiencies, Farmlink empowers farmers with direct market access whilst providing consumers with fresh, local produce at competitive prices.
 
